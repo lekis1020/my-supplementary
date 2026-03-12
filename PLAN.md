@@ -282,27 +282,48 @@
 
 ---
 
-## 9. 기술 스택 (운영 아키텍처)
+## 9. 기술 스택 · 배포 환경
 
-### MVP 단계 (Phase 1~2)
+### 배포 환경 (Vercel + Supabase)
+
+| 영역 | 서비스 | 비용 (월) | 비고 |
+|------|--------|-----------|------|
+| **웹앱** | Vercel (Hobby → Pro) | $0~20 | Next.js 최적, SSG/ISR, 한국 Edge(ICN) |
+| **DB** | Supabase Free → Pro | $0~25 | PostgreSQL 관리형, REST API 내장, 도쿄 리전 |
+| **파일 저장** | Cloudflare R2 | $0 (10GB 무료) | raw_documents PDF/HTML, egress 무료 |
+| **브라우저 에이전트** | Modal / 로컬 실행 | 사용량 기반 | Playwright headless, 앱 서버와 분리 |
+| **스케줄러** | Vercel Cron → GitHub Actions | $0 | Phase 2에서 확장 |
+| **검색** | Supabase pg_tsvector → Typesense | $0~25 | Phase 4에서 전용 엔진 도입 |
+| **모니터링** | Vercel Analytics + Supabase Dashboard | $0 | 필요 시 Sentry 추가 |
+
+### 환경 분리
+
+| 환경 | 웹앱 | DB | 용도 |
+|------|------|----|------|
+| **dev** | Vercel Preview | Supabase 별도 프로젝트 (Free) | 개발·테스트 |
+| **staging** | Vercel Preview Branch | Supabase staging 스키마 | 검수·통합 테스트 |
+| **production** | Vercel Production | Supabase Pro | 서비스 운영 |
+
+### 기술 스택
+
 | 영역 | 기술 | 선정 이유 |
 |------|------|-----------|
-| **프론트엔드** | Next.js + TypeScript | SSG/ISR, SEO 최적화 |
+| **프론트엔드** | Next.js + TypeScript | SSG/ISR, SEO, Vercel 네이티브 |
 | **스타일링** | Tailwind CSS | 빠른 반응형 UI 개발 |
-| **데이터** | JSON 파일 (정적) → PostgreSQL 전환 예정 | Git 관리 가능, MVP에 적합 |
+| **DB ORM** | Prisma 또는 Drizzle | Supabase PostgreSQL 연동, 타입 안전 |
 | **차트** | Recharts | React 네이티브 시각화 |
-| **배포** | Vercel | Next.js 최적 호스팅 |
+| **수집 엔진** | Python (FastAPI + Playwright) | 논문·라벨 파싱, 브라우저 에이전트 |
+| **수집 저장소** | Cloudflare R2 (S3 호환) | 원천 데이터(PDF/HTML/스크린샷) 보관 |
+| **관리자 CMS** | Next.js 내부 라우트 (/admin) | 검수 워크플로우, Supabase Auth 연동 |
 
-### 확장 단계 (Phase 3~4)
-| 영역 | 기술 | 선정 이유 |
-|------|------|-----------|
-| **운영 DB** | PostgreSQL | 관계형 데이터 모델에 최적 |
-| **검색 엔진** | OpenSearch / Elasticsearch | 원료명·동의어·기능성 검색 품질 |
-| **배치/ETL** | Airflow 또는 Prefect | 데이터 수집 자동화 |
-| **파싱** | Python | 논문·라벨 파싱 |
-| **백엔드 API** | FastAPI 또는 Node.js | 데이터 조회 API |
-| **수집 저장소** | Object Storage (S3 등) | 원천 데이터 보관 |
-| **관리자 CMS** | 내부 검수 도구 별도 구축 | 전문가 검수 워크플로우 |
+### Phase별 인프라 비용 추정
+
+| 단계 | 월 비용 | 구성 |
+|------|---------|------|
+| **Phase 0~1** (MVP) | **$0~20** | Vercel Hobby + Supabase Free + R2 Free |
+| **Phase 2** (자동화) | **$25~50** | Vercel Pro + Supabase Pro + Modal 수집 |
+| **Phase 3** (개인화) | **$50~100** | + Sentry + 검색 강화 |
+| **Phase 4** (고도화) | **$100~200** | + Typesense Cloud + Worker 확장 |
 
 ---
 
@@ -420,91 +441,332 @@
 
 ---
 
-## 15. 개발 로드맵 (6개월)
+## 15. 실행 계획
 
-### Phase 0: 기획 (0~4주)
-- [ ] 데이터 범위 확정 (1차 원료 20종)
+### 15.1 1순위 — 바로 해야 하는 일
+
+#### A. PRD 확정
+서비스 범위를 먼저 고정해야 나머지 작업의 방향이 잡힌다.
+
+확정 항목:
+- MVP 원료 범위 (20종 확정 여부)
+- 국가 범위 (한국 우선 / 미국 데이터 병행 여부)
+- 제품 정보 범위 (원료 중심 / 제품 상세까지)
+- 부작용/상호작용 노출 수준 (일반 사용자 / 전문가 분리 여부)
+- 공개 서비스 / 내부 운영도구 여부
+
+산출물:
+- [ ] MVP PRD 1부
+- [ ] 사용자 시나리오 5~10개
+- [ ] 화면 목록 (와이어프레임)
+
+#### B. 데이터 소스 인벤토리
+"어디서 어떤 방식으로 데이터를 가져올 수 있는지"가 이 프로젝트의 핵심.
+
+소스별 정리 항목:
+- 소스명, 데이터 유형, 접근 방식 (API / browser_agent / hybrid)
+- 인증 필요 여부, robots.txt/이용약관 검토
+- 갱신 빈도, 데이터 신뢰도, 파싱 난이도
+
+산출물:
+- [ ] source catalog 시트
+- [ ] 소스 우선순위 표
+- [ ] API/브라우저 전략 매핑표
+
+#### C. Canonical Dictionary 설계
+가장 먼저 만들어야 하는 핵심 자산. 이 작업이 늦으면 데이터가 뒤엉킨다.
+
+포함 항목:
+- 원료 표준명 (한글/영문), 동의어, 제형/염형/추출물 구분
+- claim 표준명, safety type 표준명
+- 단위 표준화 규칙
+
+산출물:
+- [ ] ingredient dictionary v1
+- [ ] claim taxonomy v1
+- [ ] safety taxonomy v1
+- [ ] unit normalization rules v1
+
+#### D. 수집 우선순위 정의
+모든 소스를 한 번에 붙이면 실패한다. 순서:
+1. 규제/기능성 원료 데이터
+2. 논문 검색 API
+3. 제품 라벨/제품 정보
+4. 안전성/부작용
+5. 고급 상호작용/재평가 문서
+
+### 15.2 2순위 — 기반 구축
+
+#### E. 시스템 아키텍처 설계서
+확정할 컴포넌트:
+- 수집 계층, raw storage, parser layer, canonical mapping layer
+- 운영 DB, 검색 인덱스, admin review UI
+- public API, scheduler, monitoring
+
+산출물:
+- [ ] architecture diagram (Vercel + Supabase + R2 + 수집 Worker)
+- [ ] service boundary 정의
+- [ ] 컴포넌트별 책임 정의
+
+#### F. DB DDL 확정
+DDL v2.0.0 초안 완료 상태. 추가 확정 사항:
+- [ ] code_values 초기 시드 데이터 확정
+- [ ] partition 정책 (raw_documents, collection_runs)
+- [ ] Supabase Row Level Security (RLS) 정책
+- [ ] migration 전략 (Prisma/Drizzle migrate vs raw SQL)
+- [ ] soft delete 정책 (active/inactive/superseded/source_missing)
+
+#### G. 수집 프레임워크 설계
+브라우저 에이전트와 API 수집기를 공통 인터페이스로 운영.
+
+결정할 것:
+- [ ] connector interface spec
+- [ ] collection job spec
+- [ ] retry policy / rate limit 기본값
+- [ ] raw document → extraction 파이프라인 정의
+- [ ] confidence score 기준 (0.95+ 자동, 0.70~0.95 조건부, <0.70 검수)
+- [ ] manual review trigger 기준
+
+#### H. 관리자 검수 도구 범위
+자동 수집만으로는 운영 불가. 필요 기능:
+- raw 문서 보기, 추출 결과 비교, 이전 버전 diff
+- 승인/반려, source trace 확인
+- 재수집 실행, 파서 오류 확인
+
+### 15.3 3순위 — 서비스 구축
+
+#### I. API 설계
+
+소비자용 API:
+- 원료 검색/상세, claim 목록, safety 목록
+- 관련 제품, 참고문헌, 갱신일 조회
+
+운영용 API:
+- 재수집 요청, 검수 큐 조회, diff 조회, source lineage 조회
+
+#### J. 검색 설계
+
+필요 기능:
+- 동의어 검색, 오탈자 허용
+- 원료/제품/claim 혼합 검색
+- 제형별 필터, 경고 포함 결과 우선 노출
+
+Phase 1~2: Supabase `pg_tsvector` + `ingredient_search_documents`
+Phase 4: Typesense Cloud 전용 엔진 전환
+
+#### K. 배포·운영 정책 수립
+
+문서화 필수 항목:
+- [ ] staging/production 분리 정책
+- [ ] 배포 승인·롤백 절차
+- [ ] 데이터 백업 정책 (Supabase PITR)
+- [ ] 장애 대응 정책
+- [ ] scraper 차단 대응 정책
+
+---
+
+## 16. 개발 로드맵 (6개월)
+
+### Phase 0: 기획 고정 (0~4주)
+- [ ] PRD 확정 (MVP 범위, 국가 범위, 노출 수준)
+- [ ] 사용자 시나리오 5~10개 작성
+- [ ] source catalog + 우선순위 표 작성
+- [ ] canonical dictionary v1 (ingredient/claim/safety/unit)
+- [ ] 수집 우선순위 정의
 - [ ] 규제 문구 정책 확정
-- [ ] 데이터 사전 작성
-- [ ] 원료 표준명 체계 설계
-- [ ] 단위 표준화 규칙 정의
-- [ ] 소스별 접근 전략 확정 (api / browser_agent / hybrid)
+- [ ] 운영 정책 초안 (배포/백업/롤백/장애대응)
 
-### Phase 1: MVP-Core + MVP-Pipeline (5~10주)
-**서비스 기반 (5~8주)**
+### Phase 1: MVP-Core — 가치 검증 (5~8주)
+**인프라**
+- [ ] Vercel 프로젝트 생성 + Supabase 프로젝트 생성 (도쿄 리전)
 - [ ] Next.js + TypeScript + Tailwind 프로젝트 초기화
-- [ ] PostgreSQL DDL 적용 (MVP-Core 10개 + 지원 4개 테이블)
-- [ ] 1차 원료 20종 수동 데이터 입력
+- [ ] Supabase에 DDL 적용 (MVP-Core 10개 + 지원 4개 테이블)
+- [ ] Cloudflare R2 버킷 생성 (raw documents용)
+- [ ] 환경 분리 (dev/staging/production)
+
+**데이터**
+- [ ] 1차 원료 20종 수동 데이터 입력 (Supabase Dashboard + seed SQL)
+- [ ] code_values 초기 시드 적재
+- [ ] sources 시드 데이터 적재
+
+**서비스**
 - [ ] 원료 목록/상세 페이지 구현
-- [ ] 기본 검색 기능
+- [ ] 기본 검색 기능 (pg_tsvector)
 - [ ] 의료 면책 조항 페이지
+- [ ] **Vercel Production 배포 → 가치 검증**
 
-**수집 기반 (8~10주)**
+### Phase 1.5: MVP-Pipeline — 수집 기반 (9~12주)
+**수집 인프라**
 - [ ] `source_connectors` + `raw_documents` + `extraction_results` 테이블 적용
-- [ ] API 커넥터 프레임워크 구축
-- [ ] 식품안전나라/공공데이터 API 연동
-- [ ] PubMed E-utilities 수집기 개발
-- [ ] Raw-first 수집 파이프라인 (원문 보존 → 파싱 → 신뢰도 평가)
+- [ ] connector interface 구현 (Python)
+- [ ] API 커넥터: 식품안전나라/공공데이터 API 연동
+- [ ] API 커넥터: PubMed E-utilities 수집기 개발
+- [ ] 브라우저 에이전트 프레임워크 (Playwright, Modal 또는 로컬)
+- [ ] Raw-first 파이프라인: 원문 → R2 저장 → 파싱 → extraction_results
+- [ ] Confidence-based publishing 로직 구현
 
-### Phase 2: 자동화 + 제품 비교 (11~16주)
+**관리자 검수 (기초)**
+- [ ] /admin 라우트 기초 구현 (Supabase Auth)
+- [ ] raw 문서 보기, 추출 결과 확인
+- [ ] 승인/반려 기능
+
+### Phase 2: 자동화 + 제품 비교 (13~18주)
 **수집 자동화**
 - [ ] `collection_jobs` + `collection_runs` 테이블 적용
 - [ ] `refresh_policies` + `entity_refresh_states` 테이블 적용
-- [ ] Airflow/Prefect 연동 (refresh_policies 동적 스케줄)
-- [ ] 변경 감지 로직 (checksum → semantic diff → review_tasks)
-- [ ] DSLD/DailyMed 수집기 개발
-- [ ] 브라우저 에이전트 프레임워크 구축
+- [ ] Vercel Cron / GitHub Actions 스케줄러 연동
+- [ ] 변경 감지 로직 (metadata → checksum → semantic diff → review_tasks)
+- [ ] DSLD/DailyMed 수집기 추가
+- [ ] 안전성 소스 1개 연결 (openFDA adverse event)
 
 **정규화/매핑**
-- [ ] 동의어 사전 구축
+- [ ] 동의어 사전 구축 + 자동 매핑
 - [ ] 단위 변환 로직 구현
-- [ ] 원료-기능성 연결 정제
-- [ ] 원료-논문 연결 정제
+- [ ] 원료-기능성/원료-논문 연결 정제
 
 **제품 기능**
 - [ ] 제품 데이터 입력 (인기 제품 30~50개)
 - [ ] 제품 목록/상세 페이지
-- [ ] 제품 비교 도구 (나란히 비교)
+- [ ] 제품 비교 도구 (최대 4개 나란히 비교)
 - [ ] 성분 중복 경고 로직
 
-### Phase 3: 근거 평가 + 개인화 (17~20주)
+### Phase 3: 근거 평가 + 개인화 (19~22주)
 - [ ] 논문 스크리닝 기준 수립
 - [ ] 근거 등급 규칙 구현
-- [ ] 관리자 검수 UI (review_tasks 기반)
-- [ ] 내 영양제함 기능 (localStorage)
+- [ ] 관리자 검수 UI 고도화 (diff viewer, 재수집, job monitoring)
+- [ ] 내 영양제함 기능 (localStorage → 추후 Supabase Auth 연동)
 - [ ] 총 영양소 합산 대시보드
 - [ ] 과다 복용 경고 시스템
 - [ ] 상호작용 조회 기능
 
-### Phase 4: 고도화 + 품질 개선 (21~24주)
-- [ ] OpenSearch 검색 엔진 도입
+### Phase 4: 고도화 + 품질 개선 (23~26주)
+- [ ] Typesense Cloud 검색 엔진 전환 (동의어/오탈자/혼합검색)
 - [ ] 재평가 문서 반영 자동화 (event-driven refresh)
-- [ ] 안전성 정보 강화 (openFDA 연동)
 - [ ] targeted refresh (인기 원료 우선 갱신)
 - [ ] 데이터 확장 (원료 50종+, 제품 100개+)
-- [ ] SEO 최적화
+- [ ] SEO 최적화 (sitemap, structured data, OG tags)
 - [ ] PWA 지원
+- [ ] Sentry 에러 트래킹 도입
+- [ ] 운영 모니터링 강화 (job success rate, stale data alert)
 
 ---
 
-## 16. 인력 구성
+## 17. 인력 구성
 
-### 최소 팀
+### 최소 팀 (MVP 가능)
 | 역할 | 인원 | 비고 |
 |------|------|------|
-| PM | 1 | 전체 일정·품질 관리 |
-| 백엔드 | 1 | API, ETL, DB |
+| PM/PO | 1 | 전체 일정·품질 관리, PRD 작성 |
+| 백엔드 | 1 | API, Supabase, 수집 파이프라인 |
 | 프론트엔드 | 1 | Next.js 웹 UI |
-| 데이터 엔지니어 | 1 | 수집·정규화·매핑 |
+| 데이터 엔지니어 | 1 | 수집·정규화·매핑, 브라우저 에이전트 |
 | 의학/약학 감수 | 1~2 | 근거 평가, 부작용 검증 |
-| 규제(RA) 자문 | 1 | 허용 표현 검토 |
-| 콘텐츠 에디터 | 1 | 원료 페이지 작성 |
+| 규제(RA) 자문 | 0.5~1 | 허용 표현 검토 |
+| QA/운영 | 0.5~1 | 데이터 품질 점검, 수집 모니터링 |
+
+### 권장 팀 (운영까지 안정적)
+| 역할 | 인원 | 비고 |
+|------|------|------|
+| PM | 1 | |
+| 백엔드 | 1~2 | API + 수집 엔진 분리 |
+| 프론트엔드 | 1 | |
+| 데이터 엔지니어 | 1~2 | 수집기 + 정규화/매핑 |
+| DevOps | 0.5~1 | CI/CD, 모니터링, 스케줄러 |
+| 의료/약학 감수 | 1~2 | |
+| 규제/RA | 1 | |
+| 콘텐츠/운영 | 1 | 원료 페이지 작성, 검수 운영 |
+| QA | 1 | |
 
 > **의료감수 없이 가면 정확도보다도 표현 리스크가 먼저 터진다.**
 
 ---
 
-## 17. 핵심 설계 원칙 7가지
+## 18. 운영 정책
+
+### 반복되는 운영 작업
+서비스 오픈 후 "한 번 만들고 끝"이 아니라 계속 손이 간다:
+- 사이트 구조 변경으로 selector 깨짐 → 파서 수정
+- PDF/API 응답 포맷 변경 → 커넥터 수정
+- 원료명 매핑 실패 → canonical dictionary 갱신
+- 논문 claim 연결 오류 → 검수 큐 처리
+- 제품 라벨 개정 diff 검토 → 승인/반려
+- stale data 정리 → 주기적 정합성 점검
+- 검색 품질 튜닝 → 동의어/가중치 조정
+
+### 모니터링 항목
+| 항목 | 임계값 | 알림 |
+|------|--------|------|
+| 수집 job 성공률 | < 90% | 즉시 |
+| 특정 소스 미갱신 | > staleness_days | 일간 |
+| review_tasks 적체 | > 50건 | 주간 |
+| DB storage | > 80% | 즉시 |
+| API 응답 지연 | p95 > 500ms | 즉시 |
+| 파서 실패율 | > 10% | 즉시 |
+
+### 백업 정책
+- **Supabase**: PITR (Point-in-Time Recovery) 활성화 (Pro 플랜)
+- **R2**: lifecycle rule 설정 (raw_documents 1년 보관, 이후 cold storage)
+- **코드**: GitHub, Vercel 자동 배포
+
+### Soft Delete 정책
+외부 소스에서 사라진 데이터는 즉시 삭제하지 않음:
+- `active` → 정상 운영
+- `inactive` → 비활성 (소스에서 미발견)
+- `superseded` → 새 버전으로 대체됨
+- `source_missing` → 소스 자체가 사라짐
+
+---
+
+## 19. 예산 구조
+
+### 비용 구분
+
+**초기 구축 (CAPEX)**
+- 설계, 개발, DDL/아키텍처
+- 수집기·관리자 도구 구축
+- 초기 데이터 적재 (canonical dictionary, seed data)
+- 의학/약학 감수, 규제 자문
+- QA/보안 점검
+
+**월간 운영 (OPEX)**
+- 클라우드 인프라 (Vercel + Supabase + R2)
+- 유지보수 개발 (파서 수정, 소스 추가)
+- 데이터 검수 (의료 감수, 규제 검토)
+- 모니터링/로그/백업
+
+### 인프라 비용 (Vercel + Supabase 기준)
+
+| 단계 | 월 인프라비 | 주요 항목 |
+|------|-------------|-----------|
+| MVP (Phase 0~1) | **$0~20** | Vercel Hobby + Supabase Free + R2 Free |
+| 성장기 (Phase 2~3) | **$50~100** | Vercel Pro($20) + Supabase Pro($25) + Modal + Sentry |
+| 안정기 (Phase 4+) | **$100~200** | + Typesense($25) + Worker 확장 + 모니터링 강화 |
+
+> 진짜 비용은 인프라보다 **운영 인력** — 인프라 < 인력비 구조
+
+### 예산 확정을 위한 4대 결정 사항
+1. **MVP 원료 범위**: 20개 vs 200개
+2. **연결 소스 수**: 3개 vs 15개
+3. **자동화 수준**: 반자동 검수 vs 거의 자동
+4. **의료/규제 검수 수준**: 최소 감수 vs 정식 프로세스
+
+---
+
+## 20. 핵심 의사결정 포인트
+
+지금 결정해야 하는 세 가지:
+
+| # | 결정 사항 | 선택지 | 영향 |
+|---|-----------|--------|------|
+| 1 | MVP를 원료 중심으로 제한할지 | 원료만 / 원료+제품 | 개발 범위 ×1.5~2 |
+| 2 | 제품 라벨까지 1차에 넣을지 | 포함 / Phase 2 이후 | 브라우저 에이전트 필요 시점 |
+| 3 | 운영 검수를 어느 정도 강하게 둘지 | 최소 / 표준 / 정식 | 인력·비용 ×2~3 |
+
+이 세 가지가 정해지면 인프라와 예산이 확정된다.
+
+---
+
+## 21. 핵심 설계 원칙 7가지
 
 1. **제품보다 원료를 중심으로 설계** — `ingredient_id`가 모든 것의 중심축
 2. **국내 규제 문구와 학술 근거를 분리** — 규제 리스크 차단
@@ -516,10 +778,25 @@
 
 ---
 
-## 다음 단계
+## 다음 단계 (즉시 실행)
 
-이 계획이 확정되면 다음 순서로 진행:
-1. Next.js 프로젝트 초기화 + TypeScript 타입 정의
-2. PostgreSQL DDL 적용 (MVP-Core)
-3. 1차 원료 20종 데이터 구축 시작
-4. 원료 목록/상세 페이지 구현
+### 이번 주
+- [ ] PRD 목차 작성
+- [ ] source catalog 작성 (소스명/접근방식/인증/갱신빈도/파싱난이도)
+- [ ] MVP 원료 리스트 20종 최종 확정
+- [ ] canonical dictionary 초안 (ingredient/claim/safety 표준명)
+- [ ] 운영 정책 초안 (배포/백업/롤백)
+
+### 다음 주
+- [ ] DDL v2 최종 확정 (Supabase RLS 포함)
+- [ ] connector interface spec 작성
+- [ ] refresh policy 초안
+- [ ] Vercel + Supabase 프로젝트 생성
+- [ ] 인력/역할 분담표 작성
+
+### 그 다음
+- [ ] Next.js 프로젝트 초기화 + TypeScript 타입 정의
+- [ ] Supabase에 DDL 적용 + seed data 적재
+- [ ] 첫 번째 API connector 구현 (식품안전나라 또는 PubMed)
+- [ ] 원료 목록/상세 페이지 구현
+- [ ] admin review UI wireframe 작성
