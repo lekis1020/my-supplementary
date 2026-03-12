@@ -308,13 +308,36 @@
 
 | 영역 | 기술 | 선정 이유 |
 |------|------|-----------|
-| **프론트엔드** | Next.js + TypeScript | SSG/ISR, SEO, Vercel 네이티브 |
+| **프론트엔드** | Next.js + TypeScript | SSG/ISR, SEO 필수(공개 서비스), Vercel 네이티브 |
 | **스타일링** | Tailwind CSS | 빠른 반응형 UI 개발 |
-| **DB ORM** | Prisma 또는 Drizzle | Supabase PostgreSQL 연동, 타입 안전 |
+| **DB 접근 (하이브리드)** | Supabase Client + Drizzle ORM | 아래 참조 |
 | **차트** | Recharts | React 네이티브 시각화 |
 | **수집 엔진** | Python (FastAPI + Playwright) | 논문·라벨 파싱, 브라우저 에이전트 |
 | **수집 저장소** | Cloudflare R2 (S3 호환) | 원천 데이터(PDF/HTML/스크린샷) 보관 |
-| **관리자 CMS** | Next.js 내부 라우트 (/admin) | 검수 워크플로우, Supabase Auth 연동 |
+| **관리자 CMS** | Next.js 내부 라우트 (/admin) | L1→L2→L3 정식 검수 워크플로우 |
+| **인증** | Supabase Auth | admin 역할 관리, RLS 연동 |
+
+### DB 접근 전략 (하이브리드 ORM)
+
+```
+소비자 페이지 (공개)          Admin / 검수 / 수집 파이프라인
+┌──────────────────┐        ┌──────────────────┐
+│  Supabase Client │        │   Drizzle ORM    │
+│  (JS SDK)        │        │   (TypeScript)   │
+├──────────────────┤        ├──────────────────┤
+│ RLS 자동 적용     │        │ 전체 DB 접근      │
+│ is_published=TRUE│        │ 복잡한 JOIN/집계  │
+│ 가볍고 빠름       │        │ 마이그레이션 내장  │
+│ HTTP 기반        │        │ SQL 수준 제어     │
+└────────┬─────────┘        └────────┬─────────┘
+         │                           │
+         └─────── Supabase (PostgreSQL, 도쿄 리전) ───────┘
+```
+
+- **소비자 API/페이지**: `@supabase/supabase-js` → RLS가 `is_published = TRUE` 자동 강제
+- **Admin UI**: Drizzle → 검수 큐, diff 조회, 통계 등 복잡한 쿼리 + 전체 데이터 접근
+- **수집 파이프라인**: Drizzle → raw_documents, extraction_results 대량 INSERT
+- **마이그레이션**: `drizzle-kit` → DDL 변경 관리
 
 ### Phase별 인프라 비용 추정
 
@@ -492,11 +515,9 @@
 > **확정 사항 (2026-03-12)**
 > - MVP 원료 20종 + 제품 30~50개 + 제품 라벨 포함
 > - 검수 강도: 정식 (L1→L2→L3)
-
-미확정 항목 (추가 결정 필요):
-- 국가 범위 (한국 우선 / 미국 데이터 병행 여부)
-- 부작용/상호작용 노출 수준 (일반 사용자 / 전문가 분리 여부)
-- 공개 서비스 / 내부 운영도구 여부
+> - 국가: 한국+미국 우선, 이후 확장
+> - 공개 서비스 (SEO, 의료 면책 필수)
+> - DB 접근: Supabase Client(소비자) + Drizzle(Admin/수집)
 
 산출물:
 - [ ] MVP PRD 1부
@@ -824,22 +845,16 @@ Phase 4: Typesense Cloud 전용 엔진 전환
 
 ## 20. 핵심 의사결정 로그
 
-### 확정된 결정 (2026-03-12)
+### 확정된 결정
 
-| # | 결정 사항 | 결과 | 영향 |
-|---|-----------|------|------|
-| 1 | MVP 범위 | **원료 + 제품** | Phase 1에 제품 목록/상세/비교 포함 |
-| 2 | 제품 라벨 | **1차에 포함** | 브라우저 에이전트 Phase 1부터, 라벨 파싱 파이프라인 필수 |
-| 3 | 검수 강도 | **정식 (L1→L2→L3)** | 감수+RA 인력 필수, admin UI Phase 1.5, 로드맵 2주 연장 |
-
-### 미결정 사항 (추가 확정 필요)
-
-| # | 결정 사항 | 선택지 | 의존 |
-|---|-----------|--------|------|
-| 4 | 국가 범위 | 한국만 / 한국+미국 | source catalog, 데이터 양, 번역 |
-| 5 | 사용자 노출 수준 | 일반만 / 일반+전문가 분리 | 화면 구조, 정보 깊이 |
-| 6 | 공개 서비스 여부 | 공개 / 내부 운영도구 / 하이브리드 | 인증, SEO, 법률 |
-| 7 | ORM 선택 | Prisma / Drizzle / raw SQL | 개발 속도, Supabase 호환 |
+| # | 결정 사항 | 결과 | 날짜 | 영향 |
+|---|-----------|------|------|------|
+| 1 | MVP 범위 | **원료 + 제품** | 2026-03-12 | Phase 1에 제품 목록/상세/비교 포함 |
+| 2 | 제품 라벨 | **1차에 포함** | 2026-03-12 | 브라우저 에이전트 Phase 1부터, 라벨 파싱 파이프라인 필수 |
+| 3 | 검수 강도 | **정식 (L1→L2→L3)** | 2026-03-12 | 감수+RA 인력 필수, admin UI Phase 1.5, 로드맵 2주 연장 |
+| 4 | 국가 범위 | **한국+미국 우선** | 2026-03-12 | 이후 다른 나라 추가 고려. source catalog에 KR+US 소스 모두 포함 |
+| 5 | 서비스 공개 | **공개 서비스** | 2026-03-12 | SEO 필수, 의료 면책 법률 검토 필수, Supabase RLS로 `is_published` 강제 |
+| 6 | ORM 전략 | **하이브리드** | 2026-03-12 | 소비자 API → Supabase Client(RLS 자동), Admin/수집 → Drizzle(SQL 제어) |
 
 ---
 
@@ -858,24 +873,27 @@ Phase 4: Typesense Cloud 전용 엔진 전환
 ## 다음 단계 (즉시 실행)
 
 ### 이번 주
-- [ ] PRD 작성 (미결정 사항 4~7번 포함)
-- [ ] source catalog 작성 (소스명/접근방식/인증/갱신빈도/파싱난이도)
-  - **제품 라벨 소스 반드시 포함** (어떤 사이트에서 라벨을 긁을지)
-- [ ] canonical dictionary 초안 (ingredient/claim/safety 표준명)
+- [ ] PRD 작성 (모든 핵심 결정 확정 완료)
+- [ ] source catalog 작성 (**KR+US 소스 모두 포함**)
+  - 제품 라벨 소스 반드시 포함 (어떤 사이트에서 라벨을 긁을지)
+- [ ] canonical dictionary 초안 (ingredient/claim/safety 표준명, **한영 병기**)
 - [ ] 정식 검수 프로세스 설계 (L1→L2→L3 흐름도, 역할 정의, SLA)
 - [ ] 운영 정책 초안 (배포/백업/롤백)
+- [ ] 의료 면책 법률 검토 착수 (공개 서비스 필수)
 
 ### 다음 주
-- [ ] DDL v3 확정 (review_tasks 강화 + Supabase RLS)
+- [ ] DDL v3 확정 (Supabase RLS 정책 설계)
+- [ ] Drizzle 스키마 정의 + `drizzle-kit` 마이그레이션 설정
 - [ ] connector interface spec 작성 (라벨 파싱 포함)
 - [ ] **감수 인력(L2) + RA 인력(L3) 확보 착수** ← 정식 검수의 전제 조건
 - [ ] Vercel + Supabase 프로젝트 생성
 - [ ] 인력/역할 분담표 작성
 
 ### 그 다음
-- [ ] Next.js 프로젝트 초기화 + TypeScript 타입 정의
-- [ ] Supabase에 DDL 적용 + seed data 적재
-- [ ] 원료 20종 + 제품 30~50개 초기 데이터 입력
-- [ ] 원료 목록/상세 + **제품 목록/상세/비교** 페이지 구현
+- [ ] Next.js 프로젝트 초기화 + Supabase Client + Drizzle 설정
+- [ ] Supabase에 DDL 적용 + RLS 정책 + seed data 적재
+- [ ] 원료 20종 + 제품 30~50개 초기 데이터 입력 (KR+US)
+- [ ] 원료 목록/상세 + 제품 목록/상세/비교 페이지 구현
 - [ ] admin review UI wireframe (L1→L2→L3 흐름)
 - [ ] 브라우저 에이전트 PoC (제품 라벨 1개 사이트)
+- [ ] SEO 기초 설정 (sitemap, robots.txt, OG tags)
