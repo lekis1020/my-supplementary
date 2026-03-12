@@ -22,7 +22,10 @@ INSERT INTO code_tables (table_code, table_name_ko, table_name_en, description) 
 ('product_type',      '제품 유형',        'Product Type',      '건강기능식품, dietary supplement 등'),
 ('connector_type',    '커넥터 유형',      'Connector Type',    'api, browser_agent, hybrid'),
 ('origin_type',       '원료 기원',        'Origin Type',       'synthetic, natural 등'),
-('recommendation_type','권장 유형',       'Recommendation Type','RDA, UL, AI 등');
+('recommendation_type','권장 유형',       'Recommendation Type','RDA, UL, AI 등')
+ON CONFLICT (table_code) DO UPDATE SET
+  table_name_ko = EXCLUDED.table_name_ko,
+  description = EXCLUDED.description;
 
 -- ============================================================================
 -- 0-1. 코드 값

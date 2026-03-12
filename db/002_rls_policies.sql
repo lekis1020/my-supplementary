@@ -308,7 +308,7 @@ CREATE POLICY "공개: 게시된 논문의 결과"
         EXISTS (
             SELECT 1 FROM evidence_studies es
             JOIN ingredients i ON i.id = es.ingredient_id
-            WHERE es.id = evidence_outcomes.study_id
+            WHERE es.id = evidence_outcomes.evidence_study_id
             AND es.screening_status = 'included'
             AND i.is_published = TRUE
         )
