@@ -36,151 +36,87 @@
 
 ---
 
-## 3. 데이터 범주 설계 (6개 도메인)
+## 3. 데이터베이스 스키마
 
-### A. 원료 마스터 (Ingredients)
+> 상세 DDL: [`db/001_schema.sql`](db/001_schema.sql)
 
-모든 데이터의 중심축. `ingredient_id`를 통해 기능성·안전성·제품·논문이 연결된다.
+### 설계 원칙
+1. **`ingredient_id` 중심 연결** — 모든 데이터의 중심축
+2. **국내 규제 문구와 학술 근거 분리** — `ingredient_claims.is_regulator_approved` + `approval_country_code`
+3. **모든 데이터에 출처와 갱신일** — `sources` + `source_links` 테이블
+4. **ENUM 대신 코드 테이블** — `code_tables` + `code_values` (운영 확장성)
+5. **변경 이력 보존** — `revision_histories` + `evidence_grade_history`
 
-| 필드 | 설명 |
-|------|------|
-| `ingredient_id` | 고유 식별자 |
-| `canonical_name_ko` | 한글 표준명 |
-| `canonical_name_en` | 영문 표준명 |
-| `display_name` | 화면 표시명 |
-| `scientific_name` | 학명 |
-| `synonyms` | 동의어, 약칭 목록 |
-| `category` | 비타민/미네랄/허브/지방산/프로바이오틱스/복합원료 |
-| `form` | 원료형태 (산화마그네슘, 구연산마그네슘, 글리시네이트 등) |
-| `regulatory_type` | 고시형/개별인정형 |
-| `regulatory_status_by_country` | 국가별 규제 상태 |
-| `daily_recommended` | 연령·성별별 일일 권장 섭취량 |
-| `upper_limit` | 상한섭취량 (UL) |
-| `unit` | 표준 단위 (mg, mcg, IU, CFU 등) |
+### ERD 개요
 
-> **표준화 핵심**: "마그네슘"도 산화마그네슘, 구연산마그네슘, 글리시네이트 등으로 분화해야 임상근거 연결이 정확하다. `display_name` / `canonical_name` / `form`을 반드시 분리.
-
-### B. 기능성/효능 마스터 (Claims)
-
-| 필드 | 설명 |
-|------|------|
-| `claim_id` | 고유 식별자 |
-| `claim_name` | 기능성 표준명 (예: 면역 기능, 뼈 건강) |
-| `allowed_expressions` | 허용 표현 목록 |
-| `prohibited_expressions` | 금지 표현 목록 |
-| `disease_distinction` | 질병 치료/예방 표현과의 구분 가이드 |
-| `domestic_approved` | 국내 인정 기능성 여부 |
-| `evidence_grade` | 근거 수준 (A/B/C/D/I) |
-
-### C. 안전성 마스터 (Safety)
-
-| 필드 | 설명 |
-|------|------|
-| `safety_id` | 고유 식별자 |
-| `type` | 부작용/금기/상호작용/검사값영향 |
-| `description` | 설명 |
-| `severity` | 심각도 |
-| `population_group` | 해당 집단 (임산부, 수유부, 소아, 고령자, 간질환, 신질환 등) |
-| `evidence_source` | 근거 출처 (규제라벨/RCT/증례보고/자발보고) |
-| `drug_interactions` | 약물 상호작용 목록 |
-| `surgery_discontinuation` | 수술 전 중단 권고 여부 |
-
-**부작용 3계층 분류:**
-| 계층 | 출처 | 신뢰도 |
-|------|------|--------|
-| **1층: 확정적 주의** | 규제기관 라벨/공식 경고, 재평가 문서, 금기/주의군 | 최고 |
-| **2층: 문헌 기반** | RCT/체계적 문헌고찰, 증례 보고, 관찰 연구 | 높음 |
-| **3층: 신호 탐지** | 자발보고 DB (발생빈도가 아닌 보고 신호로만 표시) | 참고 |
-
-### D. 제품/라벨 DB (Products & Labels)
-
-| 필드 | 설명 |
-|------|------|
-| `product_id` | 고유 식별자 |
-| `product_name` | 제품명 |
-| `brand` | 브랜드 |
-| `manufacturer` | 제조사/수입사 |
-| `form` | 제형 (캡슐, 정제, 액상 등) |
-| `serving_size` | 1회 섭취량 |
-| `servings_per_day` | 1일 섭취횟수 |
-| `price_range` | 가격대 |
-| `certifications` | 인증 정보 |
-| `warnings` | 경고 문구 |
-
-| 라벨 필드 | 설명 |
-|-----------|------|
-| `label_id` | 라벨 버전 식별자 |
-| `product_id` | 소속 제품 |
-| `ingredients_composition` | 원료 조성 + 함량 |
-| `additives` | 첨가물 |
-| `label_revision_date` | 라벨 개정일 |
-| `revision_history` | 개정 이력 |
-
-### E. 연구 근거 DB (Evidence)
-
-| 필드 | 설명 |
-|------|------|
-| `study_id` | 고유 식별자 |
-| `pmid` / `doi` | 논문 식별자 |
-| `study_type` | 연구 설계 (RCT, 메타분석, 관찰, 전임상 등) |
-| `population` | 대상자 수/특성 |
-| `pico` | 대상·중재·비교·결과 |
-| `duration` | 연구 기간 |
-| `dosage` | 용량 |
-| `outcome_measures` | 결과지표 |
-| `effect_direction` | 효과 방향 (양성/음성/중립) |
-| `effect_size` | 효과 크기 |
-| `statistical_significance` | 통계 유의성 |
-| `limitations` | 한계 |
-| `bias_risk` | 비뚤림 위험 |
-| `adverse_events_reported` | 부작용 보고 여부 |
-| `generalizability` | 외삽 가능성 |
-
-### F. 이상사례/안전신호 DB (Adverse Events)
-
-| 필드 | 설명 |
-|------|------|
-| `event_id` | 고유 식별자 |
-| `source` | 출처 (openFDA, MFDS 등) |
-| `report_count` | 보고 건수 |
-| `reaction_name` | 반응명 |
-| `severity` | 중증도 |
-| `causality_level` | 인과성 수준 |
-| `deduplication_status` | 중복 여부 |
-| `signal_detection_result` | 신호 탐지 결과 |
-
-> **중요**: 자발보고 건수는 발생빈도가 아닌 **보고 신호**임을 제품 페이지와 운영 가이드에 반드시 명시.
-
----
-
-## 4. 데이터 관계 모델 (ERD)
-
-### 핵심 테이블
 ```
 ingredients ─────────── ingredient_synonyms
      │
-     ├── ingredient_claim_links ──── claims
+     ├── ingredient_claims ────────── claims
      │
-     ├── ingredient_safety_links ─── safety_items
+     ├── safety_items
      │
-     ├── product_ingredients ─────── products ──── labels
+     ├── ingredient_drug_interactions
      │
-     ├── ingredient_evidence_links ─ evidence_studies ──── evidence_outcomes
+     ├── dosage_guidelines
      │
-     └── ingredient_adverse_links ── adverse_events
+     ├── regulatory_statuses
+     │
+     ├── product_ingredients ──────── products ──── label_snapshots
+     │
+     └── evidence_studies ─────────── evidence_outcomes
+                                           └──── claims (FK)
 
-sources (모든 데이터 항목에 연결)
-regulatory_status (국가별 규제 상태)
-revision_history (변경 이력)
+sources ──── source_links (polymorphic, 모든 엔티티에 연결)
+code_tables ──── code_values
+review_tasks (검수 워크플로우)
+revision_histories (변경 이력)
+evidence_grade_history (근거 등급 변경 추적)
+ingredient_search_documents (검색 최적화, GIN index)
 ```
 
-### 연결 규칙
-- 원료 1개 ↔ 기능성 여러 개 (M:N)
-- 원료 1개 ↔ 부작용 여러 개 (M:N)
-- 원료 1개 ↔ 논문 여러 개 (M:N)
-- 제품 1개 ↔ 원료 여러 개 (M:N, 함량 포함)
-- 제품 1개 ↔ 라벨 버전 여러 개 (1:N)
-- **모든 데이터 항목에 출처(source)와 갱신일 연결**
+### 핵심 테이블 (MVP 필수 10개 + 지원 4개)
+
+| # | 테이블 | 설명 | 주요 관계 |
+|---|--------|------|-----------|
+| 1 | `ingredients` | 원료 마스터 | 자기참조(`parent_ingredient_id`), 모든 테이블의 중심 |
+| 2 | `ingredient_synonyms` | 동의어/이명 | ingredients 1:N |
+| 3 | `claims` | 기능성/효능 표현 | `claim_scope`로 허용/금지 구분 |
+| 4 | `ingredient_claims` | 원료↔기능성 M:N | 국가별 허용 여부 분리 (`approval_country_code`) |
+| 5 | `safety_items` | 부작용/금기/경고 통합 | `evidence_level`로 3계층 분류 |
+| 6 | `dosage_guidelines` | 용량 가이드라인 | 집단/적응증/권장유형별 분리 |
+| 7 | `products` | 제품 마스터 | barcode, image_url 포함 |
+| 8 | `product_ingredients` | 제품↔원료 M:N | `raw_label_name` 보존 (정규화 추적) |
+| 9 | `evidence_studies` | 논문/근거 문서 | `screening_status`로 검수 추적 |
+| 10 | `evidence_outcomes` | 논문 결과지표 | 1논문 N결과 (피로+수면 동시 평가 등) |
+| + | `sources` | 출처 중앙관리 | 신뢰등급(`trust_level`) 포함 |
+| + | `source_links` | 출처↔엔티티 연결 | Polymorphic (체크 제약으로 보완) |
+| + | `code_tables` / `code_values` | ENUM 대체 코드 테이블 | 규칙 변경 시 migration 불필요 |
+| + | `ingredient_search_documents` | 검색 최적화 | PostgreSQL GIN 인덱스 |
+
+### 추가 운영 테이블
+| 테이블 | 설명 |
+|--------|------|
+| `ingredient_drug_interactions` | 약물 상호작용 (safety_items과 별도 분리) |
+| `regulatory_statuses` | 국가별 규제 상태 |
+| `label_snapshots` | 제품 라벨 버전 관리 (`raw_label_text` 보존) |
+| `evidence_grade_history` | 근거 등급 변경 이력 |
+| `review_tasks` | L1/L2/L3 검수 워크플로우 |
+| `revision_histories` | 모든 변경 이력 |
+
+### 부작용 3계층 — `safety_items.evidence_level` 매핑
+| 계층 | evidence_level 값 | 출처 | 신뢰도 |
+|------|-------------------|------|--------|
+| **1층: 확정적** | `label`, `guideline` | 규제기관 라벨/공식 경고, 재평가 문서 | 최고 |
+| **2층: 문헌** | `rct`, `observational`, `case_report` | RCT/체계적 문헌고찰, 증례 보고 | 높음 |
+| **3층: 신호** | `spontaneous_report` | 자발보고 DB (발생빈도 아닌 신호) | 참고 |
+
+### DDL 검토 시 수정한 사항
+1. `dosage_guidelines.source_id` → `sources` FK 추가 (`ALTER TABLE`)
+2. `ingredient_drug_interactions.source_id` → `sources` FK 추가 (`ALTER TABLE`)
+3. `evidence_studies`의 `pmid`/`doi` UNIQUE → NULL 허용 partial unique index로 변경
+4. `source_links.entity_type` → CHECK 제약 추가 (유효 값 범위 제한)
+5. 운영 필수 컬럼 반영: `ingredients`에 `slug`/`display_name`/`is_published`/`last_reviewed_at`/`last_synced_at`, `evidence_studies`에 `screening_status`/`included_in_summary`/`duplicate_group_key`, `products`에 `barcode`/`product_image_url`/`marketplace_category`
 
 ---
 
