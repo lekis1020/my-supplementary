@@ -718,22 +718,52 @@ CREATE TABLE review_tasks (
     task_type VARCHAR(50) NOT NULL,
     -- scientific_review, regulatory_review, data_validation, content_update
 
+    review_level VARCHAR(10) NOT NULL DEFAULT 'L1',
+    -- L1: 데이터 검수 (자동+QA)
+    -- L2: 과학 검수 (의학/약학 감수)
+    -- L3: 규제 검수 (RA 자문)
+
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
-    -- pending, in_progress, approved, rejected, needs_revision
+    -- pending, in_progress, approved, rejected, needs_revision, escalated
 
     priority VARCHAR(20) DEFAULT 'normal',
+    -- urgent, high, normal, low
+
     assigned_to VARCHAR(255),
+    assigned_role VARCHAR(50),
+    -- qa, scientific_reviewer, regulatory_reviewer
+
     reviewer_comment TEXT,
+    rejection_reason TEXT,
+    -- 반려 사유 (needs_revision 또는 rejected 시 필수)
+
+    parent_task_id BIGINT REFERENCES review_tasks(id),
+    -- L1 → L2 → L3 순차 검수 체인 추적
+    -- L1 task의 parent는 NULL, L2 task의 parent는 L1 task id
+
+    auto_check_passed BOOLEAN,
+    -- L1 자동 검증 통과 여부 (필드 누락, 단위 오류, 중복 탐지)
+    auto_check_details JSONB,
+    -- 자동 검증 상세 결과 (어떤 규칙이 통과/실패했는지)
 
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    reviewed_at TIMESTAMP
+    reviewed_at TIMESTAMP,
+    due_at TIMESTAMP
+    -- SLA 기한: L1=1일, L2=5일, L3=7일
 );
 
-COMMENT ON TABLE review_tasks IS '검수 워크플로우. L1(데이터), L2(과학), L3(규제) 검수용.';
+COMMENT ON TABLE review_tasks IS '정식 검수 워크플로우. L1(데이터)→L2(과학)→L3(규제) 순차 검수.';
+COMMENT ON COLUMN review_tasks.review_level IS 'L1: 자동+QA(1일), L2: 과학감수(3~5일), L3: 규제검수(5~7일)';
+COMMENT ON COLUMN review_tasks.parent_task_id IS 'L1→L2→L3 순차 검수 체인. L2의 parent는 L1 task.';
+COMMENT ON COLUMN review_tasks.auto_check_passed IS 'L1 자동 검증 결과. TRUE면 L2로 자동 에스컬레이션 가능.';
 
 CREATE INDEX idx_review_tasks_entity ON review_tasks (entity_type, entity_id);
 CREATE INDEX idx_review_tasks_status ON review_tasks (status);
+CREATE INDEX idx_review_tasks_level ON review_tasks (review_level, status);
+CREATE INDEX idx_review_tasks_assigned ON review_tasks (assigned_to, status);
+CREATE INDEX idx_review_tasks_due ON review_tasks (due_at) WHERE status IN ('pending', 'in_progress');
+CREATE INDEX idx_review_tasks_parent ON review_tasks (parent_task_id);
 
 
 -- ============================================================================
