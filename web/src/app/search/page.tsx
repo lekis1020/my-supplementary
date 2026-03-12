@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getIngredientTypeLabel } from "@/lib/utils";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface SearchResult {
   type: "ingredient" | "product";
@@ -21,8 +22,14 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
-  const supabase = createClient();
+  function getSupabase() {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  }
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +38,7 @@ export default function SearchPage() {
     setLoading(true);
     setSearched(true);
 
+    const supabase = getSupabase();
     const trimmed = query.trim();
 
     // 원료 검색

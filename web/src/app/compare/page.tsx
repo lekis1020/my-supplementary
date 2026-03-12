@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { X, Plus, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface Product {
   id: number;
@@ -35,11 +36,18 @@ export default function ComparePage() {
     Record<number, ProductIngredient[]>
   >({});
   const [loading, setLoading] = useState(true);
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
-  const supabase = createClient();
+  function getSupabase() {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  }
 
   useEffect(() => {
     async function loadProducts() {
+      const supabase = getSupabase();
       const { data } = await supabase
         .from("products")
         .select("id, product_name, brand_name, country_code")
@@ -49,10 +57,11 @@ export default function ComparePage() {
       setLoading(false);
     }
     loadProducts();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     async function loadIngredients() {
+      const supabase = getSupabase();
       const newIngredients: Record<number, ProductIngredient[]> = {};
       for (const id of selectedIds) {
         if (productIngredients[id]) {
