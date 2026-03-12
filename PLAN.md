@@ -46,36 +46,46 @@
 3. **모든 데이터에 출처와 갱신일** — `sources` + `source_links` 테이블
 4. **ENUM 대신 코드 테이블** — `code_tables` + `code_values` (운영 확장성)
 5. **변경 이력 보존** — `revision_histories` + `evidence_grade_history`
+6. **Raw-first 수집** — 원문 보존 후 파싱 (재처리 가능)
+7. **Confidence-based publishing** — 자동 추출 결과를 신뢰도 기반으로 게시/검수 분기
 
 ### ERD 개요
 
 ```
-ingredients ─────────── ingredient_synonyms
-     │
-     ├── ingredient_claims ────────── claims
-     │
-     ├── safety_items
-     │
-     ├── ingredient_drug_interactions
-     │
-     ├── dosage_guidelines
-     │
-     ├── regulatory_statuses
-     │
-     ├── product_ingredients ──────── products ──── label_snapshots
-     │
-     └── evidence_studies ─────────── evidence_outcomes
-                                           └──── claims (FK)
-
-sources ──── source_links (polymorphic, 모든 엔티티에 연결)
-code_tables ──── code_values
-review_tasks (검수 워크플로우)
-revision_histories (변경 이력)
-evidence_grade_history (근거 등급 변경 추적)
-ingredient_search_documents (검색 최적화, GIN index)
+┌─────────────────────────────────────────────────────────────┐
+│ 서비스 DB (MVP-Core)                                        │
+│                                                             │
+│ ingredients ─────────── ingredient_synonyms                 │
+│      │                                                      │
+│      ├── ingredient_claims ────────── claims                │
+│      ├── safety_items                                       │
+│      ├── ingredient_drug_interactions                       │
+│      ├── dosage_guidelines                                  │
+│      ├── regulatory_statuses                                │
+│      ├── product_ingredients ──────── products ── label_snapshots │
+│      └── evidence_studies ─────────── evidence_outcomes     │
+│                                            └──── claims (FK)│
+│                                                             │
+│ sources ──── source_links (polymorphic)                     │
+│ code_tables ──── code_values                                │
+│ review_tasks / revision_histories / evidence_grade_history  │
+│ ingredient_search_documents (GIN index)                     │
+└─────────────────────────────────────────────────────────────┘
+                           ▲ 데이터 공급
+┌─────────────────────────────────────────────────────────────┐
+│ 수집/갱신 계층                                              │
+│                                                             │
+│ sources ──1:N── source_connectors                           │
+│                      │                                      │
+│  MVP-Pipeline:       ├── raw_documents ── extraction_results│
+│                      │                                      │
+│  Phase 2:            ├── collection_jobs ── collection_runs │
+│                      ├── refresh_policies                   │
+│                      └── entity_refresh_states              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 핵심 테이블 (MVP 필수 10개 + 지원 4개)
+### 서비스 DB 테이블 (MVP-Core: 10개 + 지원 4개)
 
 | # | 테이블 | 설명 | 주요 관계 |
 |---|--------|------|-----------|
@@ -94,6 +104,23 @@ ingredient_search_documents (검색 최적화, GIN index)
 | + | `code_tables` / `code_values` | ENUM 대체 코드 테이블 | 규칙 변경 시 migration 불필요 |
 | + | `ingredient_search_documents` | 검색 최적화 | PostgreSQL GIN 인덱스 |
 
+### 수집/갱신 계층 테이블
+
+#### MVP-Pipeline (3개) — 수동/스크립트 수집 지원
+| 테이블 | 설명 |
+|--------|------|
+| `source_connectors` | 소스별 기술 접근 설정. `sources` 1:N `source_connectors` |
+| `raw_documents` | 원문 보존 (Raw-first). 대용량은 object storage, 소형만 PG |
+| `extraction_results` | 구조화 추출 결과 + `schema_version`으로 JSONB 검증 + `confidence_score` |
+
+#### Phase 2 (4개) — 자동화/스케줄링
+| 테이블 | 설명 |
+|--------|------|
+| `collection_jobs` | 수집 작업 정의 (full_sync, incremental, targeted, backfill) |
+| `collection_runs` | 실행 로그 (job 1:N run) |
+| `refresh_policies` | 갱신 주기 정책 (Airflow가 동적으로 읽어 스케줄 생성) |
+| `entity_refresh_states` | 엔티티별 갱신 상태 (targeted refresh 우선순위 결정) |
+
 ### 추가 운영 테이블
 | 테이블 | 설명 |
 |--------|------|
@@ -111,12 +138,29 @@ ingredient_search_documents (검색 최적화, GIN index)
 | **2층: 문헌** | `rct`, `observational`, `case_report` | RCT/체계적 문헌고찰, 증례 보고 | 높음 |
 | **3층: 신호** | `spontaneous_report` | 자발보고 DB (발생빈도 아닌 신호) | 참고 |
 
-### DDL 검토 시 수정한 사항
-1. `dosage_guidelines.source_id` → `sources` FK 추가 (`ALTER TABLE`)
-2. `ingredient_drug_interactions.source_id` → `sources` FK 추가 (`ALTER TABLE`)
-3. `evidence_studies`의 `pmid`/`doi` UNIQUE → NULL 허용 partial unique index로 변경
-4. `source_links.entity_type` → CHECK 제약 추가 (유효 값 범위 제한)
-5. 운영 필수 컬럼 반영: `ingredients`에 `slug`/`display_name`/`is_published`/`last_reviewed_at`/`last_synced_at`, `evidence_studies`에 `screening_status`/`included_in_summary`/`duplicate_group_key`, `products`에 `barcode`/`product_image_url`/`marketplace_category`
+### 수집 전략 원칙
+1. **API 우선** — 공식 API가 있으면 API 사용 (안정적, 구조화, 유지보수 저비용)
+2. **브라우저 에이전트 보완** — API 불완전 시 hybrid, API 없으면 browser_agent 단독
+3. **Raw-first** — 운영 DB에 바로 쓰지 않고, 항상 `raw_documents`에 원문 보존 후 파싱
+4. **Parser versioning** — `extraction_results.extraction_version`으로 파서 버전 관리
+5. **Confidence-based publishing** — 0.95+: 자동반영, 0.70~0.95: 조건부, <0.70: 검수대기
+6. **Soft delete** — 외부 소스에서 사라진 데이터는 삭제하지 않고 상태값(inactive/superseded) 관리
+
+### 변경 감지 방식 (혼합 권장)
+1. **1차: Metadata** — `updated_at`, `last-modified` 헤더
+2. **2차: Checksum** — `raw_documents.checksum` (SHA-256) 비교
+3. **3차: Semantic diff** — 주요 필드(경고문, 함량, 허용표현) 의미 비교
+4. 차이 발견 시 update + `review_tasks` 생성
+
+### 엔티티별 권장 갱신 주기
+| 엔티티 | 기본 주기 | 비고 |
+|--------|-----------|------|
+| 원료 마스터 | 월 1회 | 변경 적은 항목은 분기 1회 |
+| 기능성/규제 정보 | 주 1회 목록 확인 | 변경 감지 시 상세 즉시 수집 |
+| 제품/라벨 (인기) | 주 1회 | 일반 제품은 월 1회 |
+| 논문 근거 | 주 1~일 1회 | 고우선순위 원료: 일 1회 |
+| 부작용/안전성 공지 | 주 1회 | 중요 채널은 일 1회 |
+| PDF/고시문 | 목록 일 1회 | 신규 발견 시 상세 즉시 수집 |
 
 ---
 
@@ -193,37 +237,48 @@ ingredient_search_documents (검색 최적화, GIN index)
 
 ---
 
-## 8. ETL 파이프라인 설계
+## 8. 데이터 수집/갱신 아키텍처 (4계층)
 
 ```
-┌──────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────┐    ┌──────────┐
-│ 1. 수집   │ →  │ 2. 정규화 │ →  │ 3. 엔터티매칭 │ →  │ 4. 점수화 │ →  │ 5. 발행   │
-└──────────┘    └──────────┘    └──────────────┘    └──────────┘    └──────────┘
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ 1. 소스 접근  │ →  │ 2. 오케스트   │ →  │ 3. 정규화/   │ →  │ 4. 발행/     │
+│    계층       │    │    레이션     │    │    매핑       │    │    갱신       │
+│              │    │              │    │              │    │              │
+│ API Connector│    │ 스케줄 관리   │    │ raw → parsed │    │ insert/update│
+│ Browser Agent│    │ 실패 재시도   │    │ canonical    │    │ 버전 스냅샷   │
+│ Hybrid       │    │ rate limit   │    │ mapping      │    │ 검수 큐      │
+│              │    │ 변경 감지    │    │ 신뢰도 부여   │    │ 검색 인덱스   │
+└──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
+     source_          collection_         raw_documents       운영 DB 반영
+     connectors       jobs/runs           extraction_results  review_tasks
+                                                              revision_histories
 ```
 
-### 1단계: 원천 수집
-- **API 수집**: 식품안전나라, 공공데이터포털, PubMed, openFDA, DSLD, DailyMed
-- **문서 수집**: MFDS 고시/가이드 PDF, 공시문
-- **보조 수집**: 수동 큐레이션
+### 소스 접근 전략
+| 전략 | 설명 | 예시 |
+|------|------|------|
+| `api` | 공식 Open API | PubMed E-utilities, 식품안전나라 API |
+| `browser_agent` | 공개 페이지 탐색·추출 | 제품 상세페이지, PDF 게시판 |
+| `hybrid` | 목록은 API, 상세는 브라우저 (또는 반대) | 식품안전나라 (API+상세페이지) |
+| `file_import` | 파일 일괄 가져오기 | CSV/Excel 수동 입력 |
 
-### 2단계: 정규화
-- 문자 정리, 단위 변환
-- 동의어 매핑, 원료명 표준화
-- 국가별 claim 분리
+### 데이터 흐름 예시
 
-### 3단계: 엔터티 매칭
-- 제품 ↔ 라벨 / 제품 ↔ 원료
-- 원료 ↔ 논문 / 원료 ↔ 부작용 / 원료 ↔ 기능성
+**제품 라벨 갱신:**
+1. `collection_jobs`: "제품 라벨 주간 갱신" 등록
+2. 브라우저 에이전트가 제품 상세페이지 방문
+3. HTML/PDF → `raw_documents`에 원문 보존
+4. 파서 → `extraction_results`에 구조화 결과 저장
+5. 이전 `label_snapshots`와 diff 비교
+6. 변경 있으면 새 `label_snapshots` + `product_ingredients` 갱신
+7. `revision_histories` 기록 + 변경 크면 `review_tasks` 생성
 
-### 4단계: 증거 점수화
-- 출처 가중치, 연구 설계 가중치
-- 최신성 반영, 결과 일관성 반영
-
-### 5단계: 발행
-- 검색 인덱스 업데이트
-- 웹 API 갱신
-- 운영자 검수 대기열
-- 변경 로그 저장
+**논문 업데이트:**
+1. PubMed API 검색 실행
+2. 신규 PMID → `raw_documents`에 JSON 저장
+3. 파서 → `evidence_studies` + `evidence_outcomes` 생성
+4. 관련 claim 자동 연결 후보 생성
+5. 근거등급 변화 가능 시 `review_tasks` 전송
 
 ---
 
@@ -341,17 +396,27 @@ ingredient_search_documents (검색 최적화, GIN index)
 ### 1차 원료군 (20종)
 비타민 D · 마그네슘 · 오메가3 · 프로바이오틱스 · 철 · 칼슘 · 아연 · 홍삼 · 밀크시슬 · 루테인 · 코엔자임Q10 · 비오틴 · 엽산 · 비타민 B12 · 글루코사민 · MSM · 가르시니아 · 콜라겐 · 크레아틴 · 멜라토닌
 
-### MVP 포함 기능
+### MVP 2단계 구조
+
+**MVP-Core** (가치 검증, 4주 내)
+- 서비스 DB 10개 테이블 + 지원 4개 (수동 큐레이션)
 - 원료 상세 페이지 (기능성 요약, 근거 수준, 부작용, 국내 허용 기능성, 참고문헌)
 - 원료 목록/검색/필터
 - 관련 제품 리스트
 - 의료 면책 조항
+
+**MVP-Pipeline** (수집 기반, Core 이후 4주)
+- `source_connectors` + `raw_documents` + `extraction_results` 3개 테이블 추가
+- API 커넥터 프레임워크 (PubMed, 식품안전나라)
+- 브라우저 에이전트 프레임워크 (제품 상세페이지)
+- Raw-first 수집 + Confidence-based publishing
 
 ### MVP에서 제외
 - 개인 맞춤 추천 엔진
 - 후기 분석
 - AI 챗봇 추천
 - 복잡한 복합제 자동 해석
+- 자동 스케줄링 (Phase 2: `collection_jobs`, `refresh_policies` 등)
 
 ---
 
@@ -363,44 +428,59 @@ ingredient_search_documents (검색 최적화, GIN index)
 - [ ] 데이터 사전 작성
 - [ ] 원료 표준명 체계 설계
 - [ ] 단위 표준화 규칙 정의
+- [ ] 소스별 접근 전략 확정 (api / browser_agent / hybrid)
 
-### Phase 1: 수집기 개발 + MVP 프론트 (5~8주)
+### Phase 1: MVP-Core + MVP-Pipeline (5~10주)
+**서비스 기반 (5~8주)**
 - [ ] Next.js + TypeScript + Tailwind 프로젝트 초기화
-- [ ] 데이터 스키마 정의 (TypeScript 타입 + JSON 구조)
-- [ ] 식품안전나라/공공데이터 API 연동
-- [ ] PubMed E-utilities 수집기 개발
-- [ ] DSLD/DailyMed 수집기 개발
-- [ ] 1차 원료 20종 데이터 입력
+- [ ] PostgreSQL DDL 적용 (MVP-Core 10개 + 지원 4개 테이블)
+- [ ] 1차 원료 20종 수동 데이터 입력
 - [ ] 원료 목록/상세 페이지 구현
 - [ ] 기본 검색 기능
 - [ ] 의료 면책 조항 페이지
 
-### Phase 2: 정규화/매핑 + 제품 비교 (9~12주)
+**수집 기반 (8~10주)**
+- [ ] `source_connectors` + `raw_documents` + `extraction_results` 테이블 적용
+- [ ] API 커넥터 프레임워크 구축
+- [ ] 식품안전나라/공공데이터 API 연동
+- [ ] PubMed E-utilities 수집기 개발
+- [ ] Raw-first 수집 파이프라인 (원문 보존 → 파싱 → 신뢰도 평가)
+
+### Phase 2: 자동화 + 제품 비교 (11~16주)
+**수집 자동화**
+- [ ] `collection_jobs` + `collection_runs` 테이블 적용
+- [ ] `refresh_policies` + `entity_refresh_states` 테이블 적용
+- [ ] Airflow/Prefect 연동 (refresh_policies 동적 스케줄)
+- [ ] 변경 감지 로직 (checksum → semantic diff → review_tasks)
+- [ ] DSLD/DailyMed 수집기 개발
+- [ ] 브라우저 에이전트 프레임워크 구축
+
+**정규화/매핑**
 - [ ] 동의어 사전 구축
 - [ ] 단위 변환 로직 구현
 - [ ] 원료-기능성 연결 정제
 - [ ] 원료-논문 연결 정제
+
+**제품 기능**
 - [ ] 제품 데이터 입력 (인기 제품 30~50개)
 - [ ] 제품 목록/상세 페이지
 - [ ] 제품 비교 도구 (나란히 비교)
 - [ ] 성분 중복 경고 로직
 
-### Phase 3: 근거 평가 + 개인화 (13~16주)
+### Phase 3: 근거 평가 + 개인화 (17~20주)
 - [ ] 논문 스크리닝 기준 수립
 - [ ] 근거 등급 규칙 구현
-- [ ] 관리자 검수 UI (내부)
+- [ ] 관리자 검수 UI (review_tasks 기반)
 - [ ] 내 영양제함 기능 (localStorage)
 - [ ] 총 영양소 합산 대시보드
 - [ ] 과다 복용 경고 시스템
 - [ ] 상호작용 조회 기능
 
-### Phase 4: 고도화 + 품질 개선 (17~24주)
-- [ ] PostgreSQL 전환 + 백엔드 API 구축
+### Phase 4: 고도화 + 품질 개선 (21~24주)
 - [ ] OpenSearch 검색 엔진 도입
-- [ ] ETL 배치 파이프라인 (Airflow)
-- [ ] 재평가 문서 반영 자동화
+- [ ] 재평가 문서 반영 자동화 (event-driven refresh)
 - [ ] 안전성 정보 강화 (openFDA 연동)
-- [ ] 상호작용 데이터 정제
+- [ ] targeted refresh (인기 원료 우선 갱신)
 - [ ] 데이터 확장 (원료 50종+, 제품 100개+)
 - [ ] SEO 최적화
 - [ ] PWA 지원
@@ -424,20 +504,22 @@ ingredient_search_documents (검색 최적화, GIN index)
 
 ---
 
-## 17. 핵심 설계 원칙 5가지
+## 17. 핵심 설계 원칙 7가지
 
 1. **제품보다 원료를 중심으로 설계** — `ingredient_id`가 모든 것의 중심축
 2. **국내 규제 문구와 학술 근거를 분리** — 규제 리스크 차단
 3. **자발보고 부작용은 신호로만 표시** — 발생빈도로 오해 방지
 4. **모든 값에 출처와 갱신일을 남김** — 신뢰성 확보
 5. **자동화 + 전문가 검수 혼합 체계** — 확장성과 정확성 동시 확보
+6. **Raw-first 수집** — 운영 DB에 바로 쓰지 않고, 항상 원문 보존 후 파싱 (재처리 가능)
+7. **Confidence-based publishing** — 자동 추출 결과를 신뢰도 기반으로 게시/검수 분기
 
 ---
 
 ## 다음 단계
 
 이 계획이 확정되면 다음 순서로 진행:
-1. **DB 스키마 초안 (ERD)** 작성
-2. **데이터 사전** (필드 정의서) 작성
-3. Next.js 프로젝트 초기화 + TypeScript 타입 정의
-4. 1차 원료 20종 데이터 구축 시작
+1. Next.js 프로젝트 초기화 + TypeScript 타입 정의
+2. PostgreSQL DDL 적용 (MVP-Core)
+3. 1차 원료 20종 데이터 구축 시작
+4. 원료 목록/상세 페이지 구현

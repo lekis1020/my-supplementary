@@ -1,11 +1,25 @@
 -- ============================================================================
 -- 영양제·건강기능식품 비교 분석 플랫폼 — PostgreSQL DDL
--- Version: 1.0.0
+-- Version: 2.0.0
 -- 설계 원칙:
 --   1. ingredient_id 중심 연결 (원료 중심 DB)
 --   2. 국내 규제 문구와 학술 근거 분리
 --   3. 모든 데이터에 출처(source)와 갱신일 연결
 --   4. ENUM 대신 코드 테이블 사용 (운영 확장성)
+--   5. Raw-first 수집: 원문 보존 후 파싱 (재처리 가능)
+--   6. 수집/갱신 계층 분리: 소스접근 → 오케스트레이션 → 정규화 → 발행
+--
+-- 테이블 구성:
+--   [0]  코드 테이블 (code_tables, code_values)
+--   [1-8]  핵심 엔티티 (ingredients ~ dosage_guidelines)
+--   [9-11] 제품/라벨 (products, product_ingredients, label_snapshots)
+--   [12-14] 근거문헌 (evidence_studies, evidence_outcomes, evidence_grade_history)
+--   [15-16] 출처관리 (sources, source_links)
+--   [17-18] 운영/검수 (review_tasks, revision_histories)
+--   [19] 검색최적화 (ingredient_search_documents)
+--   [20] 지연 FK
+--   [21] 초기 시드 데이터
+--   [22-28] 수집/갱신 계층 (source_connectors ~ entity_refresh_states)
 -- ============================================================================
 
 -- ============================================================================
@@ -798,23 +812,322 @@ INSERT INTO sources (source_name, source_type, organization_name, source_url, co
 
 
 -- ============================================================================
--- 요약: MVP 필수 테이블 (10개)
+-- 22. 소스 커넥터 (Source Connectors)
 -- ============================================================================
--- 1. ingredients
--- 2. ingredient_synonyms
--- 3. claims
--- 4. ingredient_claims
--- 5. safety_items
--- 6. dosage_guidelines
--- 7. products
--- 8. product_ingredients
--- 9. evidence_studies
--- 10. evidence_outcomes
+-- sources = "누가 데이터를 제공하는가" (신뢰도·권위 메타데이터)
+-- source_connectors = "어떻게 기술적으로 접근하는가" (접속 설정)
+-- 관계: sources 1:N source_connectors
+-- 예: "식품안전나라" 1개 소스 → API 커넥터 + 브라우저 커넥터 2개
+
+CREATE TABLE source_connectors (
+    id BIGSERIAL PRIMARY KEY,
+    source_id BIGINT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    -- sources 테이블과 명확히 연결: 신뢰도/권위는 sources, 기술 설정은 여기
+
+    connector_name VARCHAR(255) NOT NULL,
+
+    source_category VARCHAR(100) NOT NULL,
+    -- regulator, literature, product_catalog, safety_db, label_db
+
+    base_url TEXT,
+
+    access_strategy VARCHAR(50) NOT NULL,
+    -- api, browser_agent, hybrid, file_import
+
+    auth_type VARCHAR(50) DEFAULT 'none',
+    -- none, api_key, oauth, cookie, manual
+
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    rate_limit_per_minute INTEGER,
+    retry_policy JSONB,
+    -- 예: {"max_retries": 3, "backoff_seconds": [2, 4, 8]}
+
+    parser_config JSONB,
+    -- 예: {"parser_name": "mfds_detail_v2", "selectors": {...}}
+
+    schedule_policy JSONB,
+    -- 예: {"full_sync_cron": "0 3 1 * *", "incremental_cron": "0 6 * * 1"}
+    -- Airflow/Prefect가 이 필드를 읽어 동적 스케줄 생성
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE source_connectors IS '소스별 기술적 접근 설정. sources(신뢰/권위)와 분리.';
+COMMENT ON COLUMN source_connectors.source_id IS 'sources 테이블 FK. 1개 소스가 여러 커넥터(API+브라우저 등)를 가질 수 있음.';
+COMMENT ON COLUMN source_connectors.schedule_policy IS 'Airflow/Prefect가 이 필드를 읽어 동적 스케줄을 생성. DAG 재배포 없이 정책 변경 가능.';
+
+CREATE INDEX idx_source_connectors_source_id ON source_connectors (source_id);
+CREATE INDEX idx_source_connectors_strategy ON source_connectors (access_strategy);
+
+
+-- ============================================================================
+-- 23. 수집 작업 정의 (Collection Jobs)
+-- ============================================================================
+-- Phase 2 테이블: MVP에서는 수동/스크립트 실행, Phase 2에서 자동화
+
+CREATE TABLE collection_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    source_connector_id BIGINT NOT NULL REFERENCES source_connectors(id),
+
+    job_type VARCHAR(50) NOT NULL,
+    -- full_sync, incremental_sync, targeted_refresh, backfill
+
+    entity_type VARCHAR(50) NOT NULL,
+    -- ingredient, product, label, evidence, safety, regulation
+
+    job_name VARCHAR(255) NOT NULL,
+    query_payload JSONB,
+    -- 예: {"search_term": "vitamin D", "date_from": "2024-01-01"}
+
+    priority VARCHAR(20) DEFAULT 'normal',
+
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    -- pending, queued, running, succeeded, failed, partial, cancelled
+
+    scheduled_at TIMESTAMP,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE collection_jobs IS '수집 작업 정의. Phase 2에서 Airflow와 연동.';
+
+CREATE INDEX idx_collection_jobs_connector ON collection_jobs (source_connector_id);
+CREATE INDEX idx_collection_jobs_status ON collection_jobs (status);
+CREATE INDEX idx_collection_jobs_scheduled ON collection_jobs (scheduled_at);
+
+
+-- ============================================================================
+-- 24. 수집 실행 로그 (Collection Runs)
+-- ============================================================================
+-- Phase 2 테이블: job과 run을 분리해야 반복 실행과 이력 비교가 가능
+
+CREATE TABLE collection_runs (
+    id BIGSERIAL PRIMARY KEY,
+    collection_job_id BIGINT NOT NULL REFERENCES collection_jobs(id) ON DELETE CASCADE,
+
+    run_status VARCHAR(50) NOT NULL,
+    -- running, succeeded, failed, partial
+
+    records_fetched INTEGER DEFAULT 0,
+    records_created INTEGER DEFAULT 0,
+    records_updated INTEGER DEFAULT 0,
+    records_unchanged INTEGER DEFAULT 0,
+    records_failed INTEGER DEFAULT 0,
+
+    started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMP,
+    execution_log TEXT,
+    error_details JSONB
+);
+
+COMMENT ON TABLE collection_runs IS '수집 실행 결과 로그. job 1:N run.';
+
+CREATE INDEX idx_collection_runs_job ON collection_runs (collection_job_id);
+CREATE INDEX idx_collection_runs_status ON collection_runs (run_status);
+
+
+-- ============================================================================
+-- 25. 원문 저장소 (Raw Documents)
+-- ============================================================================
+-- MVP-Pipeline 테이블: 모든 수집 결과의 원문을 보존 (Raw-first 정책)
+-- 파서가 바뀌어도 원본에서 재처리 가능
 --
--- + 지원 테이블: sources, source_links, code_tables, code_values
+-- 저장 정책:
+--   - raw_text: 소형 텍스트 전용 (API JSON 응답, 짧은 HTML 등)
+--   - raw_json: 구조화된 API 응답
+--   - file_path: 대용량 파일 (PDF, 전체 HTML) → object storage 경로
+--   - screenshot_path: 브라우저 캡처 → object storage 경로
+--   주의: 대용량 HTML/PDF는 raw_text에 넣지 말고 반드시 file_path 사용
+
+CREATE TABLE raw_documents (
+    id BIGSERIAL PRIMARY KEY,
+    source_connector_id BIGINT NOT NULL REFERENCES source_connectors(id),
+
+    entity_type VARCHAR(50) NOT NULL,
+    entity_external_id VARCHAR(255),
+    -- 외부 시스템의 식별자 (예: PMID, 제품번호, 공시번호)
+
+    source_url TEXT,
+
+    content_type VARCHAR(100),
+    -- text/html, application/json, application/pdf, text/plain
+
+    raw_text TEXT,
+    -- 소형 텍스트 전용. 대용량은 file_path 사용
+    raw_json JSONB,
+    -- 구조화 API 응답
+
+    file_path TEXT,
+    -- object storage 경로 (대용량 PDF, HTML 등)
+    screenshot_path TEXT,
+    -- 브라우저 캡처 경로
+    html_snapshot_path TEXT,
+    -- HTML 스냅샷 경로
+
+    checksum VARCHAR(128),
+    -- 변경 감지용. SHA-256 등
+
+    fetched_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE raw_documents IS '수집 원문 저장소. Raw-first 정책: 항상 원문 보존 후 파싱.';
+COMMENT ON COLUMN raw_documents.raw_text IS '소형 텍스트 전용. 대용량(PDF, 전체HTML)은 file_path로 object storage 사용.';
+COMMENT ON COLUMN raw_documents.checksum IS 'SHA-256. 변경 감지(checksum diff)에 사용.';
+
+CREATE INDEX idx_raw_documents_connector ON raw_documents (source_connector_id);
+CREATE INDEX idx_raw_documents_entity ON raw_documents (entity_type, entity_external_id);
+CREATE INDEX idx_raw_documents_checksum ON raw_documents (checksum);
+CREATE INDEX idx_raw_documents_fetched ON raw_documents (fetched_at);
+
+
+-- ============================================================================
+-- 26. 추출 결과 (Extraction Results)
+-- ============================================================================
+-- MVP-Pipeline 테이블: 원문에서 추출한 구조화 필드
+-- schema_version으로 JSONB 유효성을 애플리케이션 레이어에서 검증
+
+CREATE TABLE extraction_results (
+    id BIGSERIAL PRIMARY KEY,
+    raw_document_id BIGINT NOT NULL REFERENCES raw_documents(id) ON DELETE CASCADE,
+
+    extraction_version VARCHAR(50) NOT NULL,
+    -- 파서 버전. 예: label_parser_v1, pubmed_parser_v3
+
+    schema_version VARCHAR(50) NOT NULL,
+    -- 추출 결과 JSON의 스키마 버전. 애플리케이션에서 JSON Schema 검증 수행
+    -- 예: ingredient_extract_v1, product_label_v2
+
+    extraction_method VARCHAR(50) NOT NULL,
+    -- api_parser, html_parser, browser_agent, llm_extractor, manual_review
+
+    extracted_fields JSONB NOT NULL,
+    -- 구조화 추출 결과. schema_version에 맞는 JSON Schema로 검증
+
+    confidence_score NUMERIC(5,2),
+    -- 0.00 ~ 1.00
+    -- >= 0.95: 자동 반영 가능
+    -- 0.70 ~ 0.95: 조건부 반영, 부분 공개
+    -- < 0.70: 검수 대기
+
+    needs_review BOOLEAN NOT NULL DEFAULT FALSE,
+    -- confidence_score < 0.70이면 자동으로 TRUE 설정 권장
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE extraction_results IS '원문에서 추출한 구조화 결과. Confidence-based publishing 적용.';
+COMMENT ON COLUMN extraction_results.schema_version IS 'JSONB 구조의 스키마 버전. 앱 레이어에서 JSON Schema 검증.';
+COMMENT ON COLUMN extraction_results.confidence_score IS '0.95+: 자동반영, 0.70~0.95: 조건부, <0.70: 검수대기';
+
+CREATE INDEX idx_extraction_results_raw_doc ON extraction_results (raw_document_id);
+CREATE INDEX idx_extraction_results_needs_review ON extraction_results (needs_review) WHERE needs_review = TRUE;
+CREATE INDEX idx_extraction_results_confidence ON extraction_results (confidence_score);
+
+
+-- ============================================================================
+-- 27. 갱신 정책 (Refresh Policies)
+-- ============================================================================
+-- Phase 2 테이블: Airflow/Prefect가 이 테이블을 읽어 동적 스케줄 생성
+
+CREATE TABLE refresh_policies (
+    id BIGSERIAL PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,
+    source_connector_id BIGINT REFERENCES source_connectors(id),
+
+    refresh_mode VARCHAR(50) NOT NULL,
+    -- periodic, event_driven, manual, hybrid
+
+    full_sync_cron VARCHAR(100),
+    -- cron 표현식. Airflow DAG이 동적으로 읽음
+    incremental_sync_cron VARCHAR(100),
+
+    staleness_days INTEGER,
+    -- 이 일수 초과 시 stale로 판단
+
+    change_detection_method VARCHAR(50),
+    -- checksum, updated_at_field, content_diff, search_requery
+
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE refresh_policies IS '엔티티별 갱신 주기 정책. Airflow가 동적으로 읽어 스케줄 생성.';
+COMMENT ON COLUMN refresh_policies.full_sync_cron IS 'Airflow/Prefect용 cron. DAG 재배포 없이 런타임 정책 변경.';
+
+CREATE INDEX idx_refresh_policies_entity ON refresh_policies (entity_type);
+CREATE INDEX idx_refresh_policies_connector ON refresh_policies (source_connector_id);
+
+
+-- ============================================================================
+-- 28. 엔티티 갱신 상태 (Entity Refresh States)
+-- ============================================================================
+-- Phase 2 테이블: 각 레코드의 마지막 갱신 상태. "무엇을 언제 다시 수집할지" 결정
+
+CREATE TABLE entity_refresh_states (
+    id BIGSERIAL PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id BIGINT NOT NULL,
+
+    source_connector_id BIGINT REFERENCES source_connectors(id),
+    external_id VARCHAR(255),
+    -- 외부 시스템 식별자
+
+    last_fetched_at TIMESTAMP,
+    last_changed_at TIMESTAMP,
+    last_checksum VARCHAR(128),
+
+    last_refresh_status VARCHAR(50),
+    -- success, unchanged, failed, needs_review
+
+    next_scheduled_refresh_at TIMESTAMP,
+    refresh_priority VARCHAR(20) DEFAULT 'normal',
+    -- high: 조회수 높은 원료, 최근 규제 변경
+    -- normal: 일반
+    -- low: 변경 빈도 낮은 항목
+
+    UNIQUE (entity_type, entity_id, source_connector_id)
+);
+
+COMMENT ON TABLE entity_refresh_states IS '엔티티별 갱신 상태 추적. targeted refresh 우선순위 결정에 사용.';
+COMMENT ON COLUMN entity_refresh_states.refresh_priority IS 'high: 인기/규제변경, normal: 일반, low: 변경빈도 낮음';
+
+CREATE INDEX idx_refresh_states_next ON entity_refresh_states (next_scheduled_refresh_at);
+CREATE INDEX idx_refresh_states_status ON entity_refresh_states (last_refresh_status);
+CREATE INDEX idx_refresh_states_entity ON entity_refresh_states (entity_type, entity_id);
+
+
+-- ============================================================================
+-- 요약
+-- ============================================================================
 --
--- 이 구조로 아래 화면이 가능:
---   - 원료 상세 페이지 (기능성 요약, 근거 수준, 부작용, 복용량)
---   - 관련 제품 리스트
---   - 근거 문헌 목록
---   - 국내 허용 기능성 vs 학술 연구 분리 표시
+-- MVP-Core (10개 + 지원 4개):
+--   1. ingredients               6. dosage_guidelines
+--   2. ingredient_synonyms       7. products
+--   3. claims                    8. product_ingredients
+--   4. ingredient_claims         9. evidence_studies
+--   5. safety_items             10. evidence_outcomes
+--   + sources, source_links, code_tables, code_values
+--
+-- MVP-Pipeline (수집 기반 3개):
+--   22. source_connectors   — 소스별 기술 접근 설정
+--   25. raw_documents       — 원문 보존 (Raw-first)
+--   26. extraction_results  — 구조화 추출 결과 (Confidence-based)
+--
+-- Phase 2 — 자동화/갱신 (4개):
+--   23. collection_jobs         — 수집 작업 정의
+--   24. collection_runs         — 실행 로그
+--   27. refresh_policies        — 갱신 주기 정책
+--   28. entity_refresh_states   — 엔티티별 갱신 상태
+--
+-- 운영/검수:
+--   ingredient_drug_interactions, regulatory_statuses, label_snapshots,
+--   evidence_grade_history, review_tasks, revision_histories,
+--   ingredient_search_documents
