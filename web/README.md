@@ -1,4 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the web app for the supplement comparison project.
+
+## Environment
+
+Create `web/.env.local` from `web/.env.local.example`.
+
+Required variables:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+FOODSAFETY_KOREA_API_KEY=
+DATA_GO_KR_SERVICE_KEY_ENCODED=
+DATA_GO_KR_SERVICE_KEY_DECODED=
+```
+
+Notes:
+
+- `NEXT_PUBLIC_*` values are exposed to the browser. Keep API keys out of this prefix.
+- `FOODSAFETY_KOREA_API_KEY` is for `foodsafetykorea.go.kr` Open API calls.
+- `DATA_GO_KR_SERVICE_KEY_ENCODED` and `DATA_GO_KR_SERVICE_KEY_DECODED` are for `data.go.kr` Open API calls. Some clients or sample URLs expect the encoded key, while server-side code often works better with the decoded key.
+- Government API keys should be used only in server-side code, route handlers, scripts, or background jobs.
 
 ## Getting Started
 
