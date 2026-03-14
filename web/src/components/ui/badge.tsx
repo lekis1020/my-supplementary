@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 interface BadgeProps {
   children: React.ReactNode;
   className?: string;
+  variant?: "default" | "secondary" | "outline" | "destructive";
 }
 
 export function Badge({ children, className }: BadgeProps) {
