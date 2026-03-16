@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gov:smoke:kr": "node ../scripts/test_korean_gov_apis.mjs",
+    "gov:backfill:kr": "node scripts/backfill_kr_gov_raw.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

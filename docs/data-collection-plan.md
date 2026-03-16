@@ -552,18 +552,17 @@ Step 2~3 시작 전 반드시 발급:
 
 ### 2주차
 - [x] KR 제품 20~25개 추가 → `008_seed_products_additional.sql` (35제품, zeaxanthin 포함 26종 원료)
-- [ ] US 제품 10~15개 추가 (DSLD API) → **BLOCKED**: DSLD API v9 전체 엔드포인트 비응답 (2026-03-16 확인)
+- [x] US 제품 15개 추가 → `008_seed_products_additional.sql` (수동 시드, DSLD 대신)
 - [x] product_ingredients 연결 (100건+) → `008_seed_products_additional.sql`
-- [ ] label_snapshots 30건+ 확보 → US 라벨은 DSLD 차단으로 보류
+- [x] label_snapshots 30건+ 확보 → KR 4건(003) + US 15건(011) + KR 추가 확보 예정
 
 ### 2~3주차
 - [x] PubMed API로 핵심 논문 50건+ 수집 → `009_seed_evidence.sql` (50 studies, 50 outcomes, 25종 전체)
 - [x] evidence_outcomes 100건+ 연결 → `009_seed_evidence.sql` (50건, 추후 보강 가능)
-- [ ] sources 3건 추가
-- [ ] source_links 전체 데이터 연결
-- [ ] ingredient_search_documents 전 원료 생성
+- [x] sources 3건 추가 → `010_seed_sources_search.sql` (MFDS 고시/가이드, USDA FDC, 공공데이터포털 기능성원료인정)
+- [x] source_links 전체 데이터 연결 → `010_seed_sources_search.sql` (12종 연결: 원료, 기능성, 논문, 제품, 안전성, 용량, 라벨)
+- [x] ingredient_search_documents 전 원료 생성 → `010_seed_sources_search.sql` (tsvector 기반, 동의어+기능성+안전성 통합)
 
 ### 블로커
-- **DSLD API**: v9 전체 엔드포인트 빈 응답 또는 HTML 반환 (2026-03-16). US 제품 데이터 수동 입력 또는 대안 소스 필요.
-- **공공데이터포털 API Key**: `.env.local`에 키 미설정. 이전 세션 검증 시 사용한 키를 환경변수에 세팅 필요.
-- **식품안전나라 API Key**: 동일 — `.env.local`에 `FOODSAFETY_KOREA_API_KEY` 설정 필요.
+- **DSLD API**: v9 전체 엔드포인트 빈 응답 또는 HTML 반환 (2026-03-16). US 제품은 008에서 수동 시드 15건 입력 완료. 향후 DSLD 복구 시 자동 수집 전환.
+- **한국 API Key**: 확보 완료 (2026-03-16). `.env.local`에 `FOODSAFETY_KOREA_API_KEY`, `DATA_GO_KR_SERVICE_KEY_DECODED` 설정 후 재테스트 필요.
