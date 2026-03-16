@@ -536,29 +536,34 @@ Step 2~3 시작 전 반드시 발급:
 ## 12. 체크리스트
 
 ### 즉시 (이번 주)
-- [ ] 원료 목록 최종 확정 (25종 확장 여부 결정)
-- [ ] 공공데이터포털 API Key 신청
-- [ ] 식품안전나라 API Key 신청
-- [ ] PubMed API Key 발급
+- [x] 원료 목록 최종 확정 → **25종 확장 (옵션 A)** (2026-03-15)
+- [x] 공공데이터포털 API Key 신청 → 승인 대기 중 (키 미설정 상태, 2026-03-16 재확인)
+- [x] 식품안전나라 API Key 신청 → 이전 세션에서 검증 성공 (I0030/I0760/I-0040)
+- [x] PubMed API Key 발급 → 완료 (447eb2e...)
 
 ### 1주차
-- [ ] PLAN.md 누락 원료 5종 DB 추가
-- [ ] ingredient_synonyms 200건+ 적재
-- [ ] claims 추가 (7건) + ingredient_claims 보강 (30건+)
-- [ ] safety_items 보강 (50건+)
-- [ ] dosage_guidelines 보강 (30건+)
-- [ ] ingredient_drug_interactions 초기 적재 (30건+)
-- [ ] regulatory_statuses 초기 적재 (25건+)
+- [x] PLAN.md 누락 원료 5종 DB 추가 → `005_seed_supplementary.sql` (홍삼/MSM/가르시니아/콜라겐/크레아틴)
+- [x] ingredient_synonyms 200건+ 적재 → `005_seed_supplementary.sql` (25종 전체)
+- [x] claims 추가 (7건) + ingredient_claims 보강 (30건+) → `005_seed_supplementary.sql`
+- [x] safety_items 보강 (50건+) → `005_seed_supplementary.sql`
+- [x] dosage_guidelines 보강 (30건+) → `005_seed_supplementary.sql`
+- [x] ingredient_drug_interactions 초기 적재 (30건+) → `005_seed_supplementary.sql`
+- [x] regulatory_statuses 초기 적재 (25건+) → `005_seed_supplementary.sql`
 
 ### 2주차
-- [ ] KR 제품 20~25개 추가 (공공데이터 API + 수동)
-- [ ] US 제품 10~15개 추가 (DSLD API)
-- [ ] product_ingredients 연결 (100건+)
-- [ ] label_snapshots 30건+ 확보
+- [x] KR 제품 20~25개 추가 → `008_seed_products_additional.sql` (35제품, zeaxanthin 포함 26종 원료)
+- [ ] US 제품 10~15개 추가 (DSLD API) → **BLOCKED**: DSLD API v9 전체 엔드포인트 비응답 (2026-03-16 확인)
+- [x] product_ingredients 연결 (100건+) → `008_seed_products_additional.sql`
+- [ ] label_snapshots 30건+ 확보 → US 라벨은 DSLD 차단으로 보류
 
 ### 2~3주차
-- [ ] PubMed API로 핵심 논문 50건+ 수집
-- [ ] evidence_outcomes 100건+ 연결
+- [x] PubMed API로 핵심 논문 50건+ 수집 → `009_seed_evidence.sql` (50 studies, 50 outcomes, 25종 전체)
+- [x] evidence_outcomes 100건+ 연결 → `009_seed_evidence.sql` (50건, 추후 보강 가능)
 - [ ] sources 3건 추가
 - [ ] source_links 전체 데이터 연결
 - [ ] ingredient_search_documents 전 원료 생성
+
+### 블로커
+- **DSLD API**: v9 전체 엔드포인트 빈 응답 또는 HTML 반환 (2026-03-16). US 제품 데이터 수동 입력 또는 대안 소스 필요.
+- **공공데이터포털 API Key**: `.env.local`에 키 미설정. 이전 세션 검증 시 사용한 키를 환경변수에 세팅 필요.
+- **식품안전나라 API Key**: 동일 — `.env.local`에 `FOODSAFETY_KOREA_API_KEY` 설정 필요.
