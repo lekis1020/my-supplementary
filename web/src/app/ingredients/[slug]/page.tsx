@@ -10,8 +10,14 @@ import {
   getEvidenceGradeColor,
   getSeverityColor,
   getClaimScopeLabel,
+  getStudyDesignLabel,
+  getStudyDesignColor,
+  getEffectDirectionLabel,
+  getEffectDirectionBadgeColor,
 } from "@/lib/utils";
-import { ArrowLeft, AlertTriangle, Pill, FlaskConical, Scale } from "lucide-react";
+import {
+  ArrowLeft, AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
+} from "lucide-react";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +77,7 @@ export default async function IngredientDetailPage({ params }: Props) {
   if (!ingredient) notFound();
 
   // 병렬 쿼리: 기능성, 안전성, 약물상호작용, 용량, 포함 제품
-  const [claimsRes, safetyRes, drugRes, dosageRes, productsRes] = await Promise.all([
+  const [claimsRes, safetyRes, drugRes, dosageRes, productsRes, evidenceRes] = await Promise.all([
     supabase
       .from("ingredient_claims")
       .select("*, claims(*)")
@@ -93,12 +99,19 @@ export default async function IngredientDetailPage({ params }: Props) {
       .from("product_ingredients")
       .select("*, products(*)")
       .eq("ingredient_id", ingredient.id),
+    supabase
+      .from("evidence_studies")
+      .select("*, evidence_outcomes(*, claims(claim_code, claim_name_ko))")
+      .eq("ingredient_id", ingredient.id)
+      .eq("included_in_summary", true)
+      .order("publication_year", { ascending: false }),
   ]);
 
   const ingredientClaims = claimsRes.data ?? [];
   const safetyItems = safetyRes.data ?? [];
   const drugInteractions = drugRes.data ?? [];
   const dosageGuidelines = dosageRes.data ?? [];
+  const evidenceStudies = evidenceRes.data ?? [];
   const productLinks = productsRes.data ?? [];
   const category = getIngredientCategory(ingredient.ingredient_type);
 
@@ -193,6 +206,160 @@ export default async function IngredientDetailPage({ params }: Props) {
                     )}
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 연구 근거 */}
+        {evidenceStudies.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-purple-600" />
+                  연구 근거
+                </span>
+              </CardTitle>
+              <p className="mt-1 text-sm text-gray-500">
+                PubMed 등록 학술 연구 {evidenceStudies.length}건
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {evidenceStudies.map((study: any) => {
+                  const outcome = study.evidence_outcomes?.[0];
+                  const pubmedUrl =
+                    study.external_url ||
+                    (study.pmid
+                      ? `https://pubmed.ncbi.nlm.nih.gov/${study.pmid}/`
+                      : null);
+                  const firstAuthor = study.authors
+                    ?.split(",")[0]
+                    ?.trim();
+                  const hasMultipleAuthors =
+                    study.authors?.includes(",");
+
+                  return (
+                    <div
+                      key={study.id}
+                      className="rounded-lg border border-gray-200 p-4"
+                    >
+                      {/* 배지 행 */}
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        {study.study_design && (
+                          <Badge
+                            className={getStudyDesignColor(
+                              study.study_design,
+                            )}
+                          >
+                            {getStudyDesignLabel(study.study_design)}
+                          </Badge>
+                        )}
+                        {study.publication_year && (
+                          <span className="text-xs text-gray-400">
+                            {study.publication_year}
+                          </span>
+                        )}
+                        {study.sample_size && (
+                          <span className="text-xs text-gray-400">
+                            n=
+                            {study.sample_size.toLocaleString()}
+                          </span>
+                        )}
+                        {outcome?.effect_direction && (
+                          <Badge
+                            className={getEffectDirectionBadgeColor(
+                              outcome.effect_direction,
+                            )}
+                          >
+                            {getEffectDirectionLabel(
+                              outcome.effect_direction,
+                            )}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* 제목 + PubMed 링크 */}
+                      {pubmedUrl ? (
+                        <a
+                          href={pubmedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-start gap-2"
+                        >
+                          <h4 className="flex-1 text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600">
+                            {study.title}
+                          </h4>
+                          <ExternalLink className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-300 group-hover:text-blue-500" />
+                        </a>
+                      ) : (
+                        <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
+                          {study.title}
+                        </h4>
+                      )}
+
+                      {/* 저널 · 저자 */}
+                      <p className="mt-1 text-xs text-gray-400">
+                        {study.journal_name}
+                        {firstAuthor &&
+                          ` · ${firstAuthor}${hasMultipleAuthors ? " et al." : ""}`}
+                      </p>
+
+                      {/* 대상 · 기간 */}
+                      {(study.population_text ||
+                        study.duration_text) && (
+                        <p className="mt-1 text-xs text-gray-400">
+                          {study.population_text}
+                          {study.duration_text &&
+                            study.duration_text !== "-" &&
+                            ` · ${study.duration_text}`}
+                        </p>
+                      )}
+
+                      {/* 결과 요약 */}
+                      {outcome?.conclusion_summary && (
+                        <div className="mt-3 rounded-md bg-gray-50 p-3">
+                          {outcome.claims?.claim_name_ko && (
+                            <p className="mb-1 text-xs font-medium text-purple-600">
+                              {outcome.claims.claim_name_ko}
+                            </p>
+                          )}
+                          <p className="text-sm leading-relaxed text-gray-700">
+                            {outcome.conclusion_summary}
+                          </p>
+                          {(outcome.effect_size_text ||
+                            outcome.p_value_text) && (
+                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
+                              {outcome.effect_size_text && (
+                                <span>
+                                  효과크기:{" "}
+                                  {outcome.effect_size_text}
+                                </span>
+                              )}
+                              {outcome.p_value_text &&
+                                outcome.p_value_text !== "-" && (
+                                  <span>
+                                    {outcome.p_value_text}
+                                  </span>
+                                )}
+                              {outcome.confidence_interval_text &&
+                                outcome.confidence_interval_text !==
+                                  "-" && (
+                                  <span>
+                                    CI:{" "}
+                                    {
+                                      outcome.confidence_interval_text
+                                    }
+                                  </span>
+                                )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

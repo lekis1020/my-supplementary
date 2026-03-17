@@ -1204,6 +1204,34 @@ INSERT INTO product_ingredients (product_id, ingredient_id, amount_per_serving, 
 ((SELECT id FROM products WHERE product_name LIKE '세노비스%'),(SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-bb12'),NULL,'억 CFU','active','Bifidobacterium animalis subsp. lactis BB-12')
 ON CONFLICT DO NOTHING;
 
+-- 017: 근거 매핑 교정 — claim_id 오류 수정, 데이터 오류 제외, 신규 claim
+
+INSERT INTO claims (claim_code, claim_name_ko, claim_name_en, claim_category, claim_scope, description) VALUES
+('REPRODUCTIVE_HEALTH', '생식 건강에 도움', 'Reproductive Health', 'endocrine', 'studied', '난소 기능, 생식능 등 생식 건강 관련 연구')
+ON CONFLICT (claim_code) DO NOTHING;
+
+-- CoQ10 논문: 심혈관 → 생식 건강 교정
+UPDATE evidence_outcomes SET
+  claim_id = (SELECT id FROM claims WHERE claim_code = 'REPRODUCTIVE_HEALTH')
+WHERE evidence_study_id = (SELECT id FROM evidence_studies WHERE pmid = '39019217' LIMIT 1);
+
+UPDATE evidence_outcomes SET
+  claim_id = (SELECT id FROM claims WHERE claim_code = 'REPRODUCTIVE_HEALTH')
+WHERE evidence_study_id = (SELECT id FROM evidence_studies WHERE pmid = '39129455' LIMIT 1);
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved, approval_country_code, allowed_expression)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='coq10'),
+  (SELECT id FROM claims WHERE claim_code='REPRODUCTIVE_HEALTH'),
+  'B', 'CoQ10이 DOR 여성의 임상 임신율 84% 증가 (OR 1.84), 채취 난자 수 증가. 2개 메타분석', false, NULL, NULL
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+-- MSM 데이터 오류 논문 제외
+UPDATE evidence_studies SET
+  screening_status = 'excluded',
+  included_in_summary = false
+WHERE pmid = '35545381';
+
 -- 완료!
 SELECT 'SUCCESS: 모든 데이터가 적용되었습니다.' AS result,
        (SELECT count(*) FROM ingredients) AS ingredients_count,

@@ -226,3 +226,41 @@ export interface RegulatoryStatus {
   created_at: string;
   updated_at: string;
 }
+
+export interface EvidenceStudy {
+  id: number;
+  ingredient_id: number;
+  source_type: string;
+  title: string;
+  abstract_text: string | null;
+  authors: string | null;
+  journal_name: string | null;
+  publication_year: number | null;
+  pmid: string | null;
+  doi: string | null;
+  external_url: string | null;
+  study_design: string | null;
+  population_text: string | null;
+  sample_size: number | null;
+  duration_text: string | null;
+  screening_status: string | null;
+  included_in_summary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EvidenceOutcome {
+  id: number;
+  evidence_study_id: number;
+  claim_id: number | null;
+  outcome_name: string;
+  outcome_type: string | null;
+  effect_direction: string | null;
+  effect_size_text: string | null;
+  p_value_text: string | null;
+  confidence_interval_text: string | null;
+  conclusion_summary: string | null;
+  adverse_event_summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
