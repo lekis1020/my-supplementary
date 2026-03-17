@@ -107,106 +107,106 @@ export default async function ProductDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="space-y-8">
-        <BenefitHexagon
-          title="제품 효능 육각형"
-          description="포함된 원료의 기능성 데이터를 묶어, 이 제품이 어느 효능 축을 커버하는지 요약한 시각화입니다."
-          profile={benefitProfile}
-        />
-
-        {/* 원료 조성 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <span className="flex items-center gap-2">
-                <Tag className="h-5 w-5 text-green-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        {/* Left Content: Ingredients Table (2/3 width) */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* 원료 조성 */}
+          <Card className="border-slate-200 shadow-sm overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+              <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Tag className="h-5 w-5 text-emerald-500" />
                 원료 조성 ({productIngredients.length}종)
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {productIngredients.length === 0 ? (
-              <p className="text-sm text-gray-400">원료 정보가 없습니다.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-gray-500">
-                      <th className="pb-2 pr-4">원료명</th>
-                      <th className="pb-2 pr-4">1회 함량</th>
-                      <th className="pb-2 pr-4">역할</th>
-                      <th className="pb-2">라벨 표기명</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {productIngredients.map((pi: any) => (
-                      <tr key={pi.id} className="border-b border-gray-50">
-                        <td className="py-2.5 pr-4">
-                          <Link
-                            href={getIngredientHref({
-                              id: pi.ingredients?.id,
-                              slug: pi.ingredients?.slug,
-                            })}
-                            className="font-medium text-green-600 hover:underline"
-                          >
-                            {pi.ingredients?.canonical_name_ko}
-                          </Link>
-                        </td>
-                        <td className="py-2.5 pr-4">
-                          {pi.amount_per_serving} {pi.amount_unit}
-                        </td>
-                        <td className="py-2.5 pr-4">
-                          <Badge className="bg-gray-100 text-gray-600">
-                            {pi.ingredient_role === "active" ? "주성분" : pi.ingredient_role}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 text-xs text-gray-400">
-                          {pi.raw_label_name}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 라벨 정보 */}
-        {label && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-500" />
-                  라벨 정보
-                </span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm">
-                {label.serving_size_text && (
-                  <InfoRow label="1회 섭취량" value={label.serving_size_text} />
-                )}
-                {label.servings_per_container && (
-                  <InfoRow label="총 내용량" value={label.servings_per_container} />
-                )}
-                {label.directions_text && (
-                  <InfoRow label="섭취 방법" value={label.directions_text} />
-                )}
-                {label.warning_text && (
-                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-                    <p className="font-medium text-yellow-800">주의사항</p>
-                    <p className="mt-1 text-yellow-700">{label.warning_text}</p>
-                  </div>
-                )}
-                {label.storage_text && (
-                  <InfoRow label="보관 방법" value={label.storage_text} />
-                )}
-              </div>
+            <CardContent className="p-0">
+              {productIngredients.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-sm text-slate-400">원료 정보가 아직 등록되지 않았습니다.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50/30 text-left text-slate-500 border-b border-slate-100">
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[11px]">원료명</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[11px]">함량 (1회)</th>
+                        <th className="px-6 py-4 font-bold uppercase tracking-wider text-[11px]">역할</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 text-slate-700">
+                      {productIngredients.map((pi: any) => (
+                        <tr key={pi.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <Link
+                              href={getIngredientHref({
+                                id: pi.ingredients?.id,
+                                slug: pi.ingredients?.slug,
+                              })}
+                              className="font-black text-emerald-600 hover:underline flex flex-col"
+                            >
+                              <span>{pi.ingredients?.canonical_name_ko}</span>
+                              <span className="text-[10px] font-medium text-slate-400 mt-0.5">{pi.raw_label_name}</span>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-slate-900">
+                            {pi.amount_per_serving} {pi.amount_unit}
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge className={cn(
+                              "px-2 py-0.5 rounded-md text-[10px] font-black border-none",
+                              pi.ingredient_role === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                            )}>
+                              {pi.ingredient_role === "active" ? "주성분" : "부원료"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
+
+          {/* 라벨 정보 (필요시) */}
+          {label && (
+            <Card className="border-slate-200 shadow-sm overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+                <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  제품 상세 정보
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4 text-sm">
+                  {label.serving_size_text && (
+                    <InfoRow label="1회 섭취량" value={label.serving_size_text} />
+                  )}
+                  {label.directions_text && (
+                    <InfoRow label="섭취 방법" value={label.directions_text} />
+                  )}
+                  {label.warning_text && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+                      <p className="font-black text-amber-800 flex items-center gap-1.5 mb-2">
+                        <span className="text-lg">⚠️</span> 주의사항
+                      </p>
+                      <p className="text-xs leading-relaxed text-amber-900 font-medium">{label.warning_text}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Content: Benefit Hexagon (1/3 width, Sticky) */}
+        <div className="lg:sticky lg:top-8">
+          <BenefitHexagon
+            title="효능 분석 요약"
+            description="원료 데이터를 기반으로 이 제품이 기여하는 주요 건강 효능을 시각화합니다."
+            profile={benefitProfile}
+          />
+        </div>
       </div>
     </div>
   );

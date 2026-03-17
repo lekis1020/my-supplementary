@@ -87,22 +87,24 @@ const VERTEX_LAYOUT: Record<
   BenefitCategoryKey,
   { x: number; y: number; labelX: number; labelY: number; labelAlign: string }
 > = {
-  immune_antioxidant: { x: 128, y: 16, labelX: 50, labelY: 2, labelAlign: "left-1/2 -translate-x-1/2" },
-  gut_digestive: { x: 220, y: 68, labelX: 82, labelY: 18, labelAlign: "left-full -translate-x-full" },
-  cardiometabolic: { x: 220, y: 180, labelX: 82, labelY: 72, labelAlign: "left-full -translate-x-full" },
-  bone_joint_mobility: { x: 128, y: 232, labelX: 50, labelY: 90, labelAlign: "left-1/2 -translate-x-1/2" },
-  beauty_vision: { x: 36, y: 180, labelX: 18, labelY: 72, labelAlign: "left-0" },
-  liver_cognitive_vitality: { x: 36, y: 68, labelX: 18, labelY: 18, labelAlign: "left-0" },
+  immune_antioxidant: { x: 128, y: 16, labelX: 50, labelY: -8, labelAlign: "left-1/2 -translate-x-1/2" },
+  gut_digestive: { x: 220, y: 68, labelX: 95, labelY: 15, labelAlign: "left-full -translate-x-full" },
+  cardiometabolic: { x: 220, y: 180, labelX: 95, labelY: 75, labelAlign: "left-full -translate-x-full" },
+  bone_joint_mobility: { x: 128, y: 232, labelX: 50, labelY: 102, labelAlign: "left-1/2 -translate-x-1/2" },
+  beauty_vision: { x: 36, y: 180, labelX: 5, labelY: 75, labelAlign: "left-0" },
+  liver_cognitive_vitality: { x: 36, y: 68, labelX: 5, labelY: 15, labelAlign: "left-0" },
 };
 
 export function BenefitHexagon({
   title,
   description,
   profile,
+  className,
 }: {
   title: string;
   description: string;
   profile: BenefitProfileItem[];
+  className?: string;
 }) {
   const items = BENEFIT_CATEGORY_ORDER.map((key) => {
     const item = profile.find((entry) => entry.key === key);
@@ -111,164 +113,146 @@ export function BenefitHexagon({
   const activeItems = items.filter((item) => item.state !== "inactive");
 
   return (
-    <Card className="overflow-hidden border-slate-200 shadow-sm">
-      <CardHeader className="border-b border-slate-100 bg-gradient-to-br from-white via-slate-50 to-emerald-50/40">
-        <CardTitle className="flex items-center gap-2 text-slate-900">
-          <Sparkles className="h-5 w-5 text-emerald-600" />
+    <Card className={cn("overflow-hidden border-slate-200 shadow-md bg-white/50 backdrop-blur-sm", className)}>
+      <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-5">
+        <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+          <Sparkles className="h-5 w-5 text-emerald-500 fill-emerald-100" />
           {title}
         </CardTitle>
-        <p className="text-sm leading-6 text-slate-500">{description}</p>
+        <p className="text-xs font-medium leading-relaxed text-slate-500">{description}</p>
       </CardHeader>
-      <CardContent className="grid gap-8 px-5 py-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center">
-        <div className="mx-auto w-full max-w-[280px]">
-          <div className="relative aspect-square rounded-[2rem] border border-slate-200 bg-white/90 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.55)]">
+      <CardContent className="p-0">
+        <div className="flex flex-col items-center justify-center p-8 pb-12">
+          <div className="relative h-[320px] w-full max-w-[320px]">
+            {/* SVG Hexagon Core */}
             <svg
               viewBox="0 0 256 248"
               aria-hidden="true"
-              className="absolute inset-4 h-[calc(100%-2rem)] w-[calc(100%-2rem)]"
+              className="absolute inset-0 h-full w-full drop-shadow-sm"
             >
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+              {/* Outer boundary */}
               <polygon
                 points="128,16 220,68 220,180 128,232 36,180 36,68"
                 fill="none"
-                stroke="rgb(203 213 225)"
-                strokeWidth="2"
+                stroke="rgb(226 232 240)"
+                strokeWidth="1.5"
+                strokeDasharray="4 4"
               />
-              <circle cx="128" cy="124" r="26" fill="rgb(248 250 252)" stroke="rgb(226 232 240)" />
-              <text
-                x="128"
-                y="118"
-                textAnchor="middle"
-                className="fill-slate-600 text-[10px] font-semibold"
-              >
-                효능 범위
-              </text>
-              <text
-                x="128"
-                y="132"
-                textAnchor="middle"
-                className="fill-slate-400 text-[8px]"
-              >
-                강도 비교 아님
-              </text>
+              {/* Inner connecting lines */}
               {items.map((item) => {
                 const layout = VERTEX_LAYOUT[item.key];
-                const isActive = item.state === "active";
-                const isPossible = item.state === "possible";
-                const meta = CATEGORY_META[item.key];
-
                 return (
-                  <g key={item.key}>
-                    <line
-                      x1="128"
-                      y1="124"
-                      x2={layout.x}
-                      y2={layout.y}
-                      stroke={isActive ? "rgb(16 185 129 / 0.28)" : isPossible ? "rgb(148 163 184 / 0.45)" : "rgb(226 232 240)"}
-                      strokeDasharray={isPossible ? "4 4" : undefined}
-                    />
-                    <circle
-                      cx={layout.x}
-                      cy={layout.y}
-                      r={isActive ? "10" : "8"}
-                      fill={isActive ? meta.activeFill : isPossible ? "white" : "rgb(241 245 249)"}
-                      stroke={isActive ? meta.activeStroke : isPossible ? "rgb(148 163 184)" : "rgb(226 232 240)"}
-                      strokeWidth="3"
-                    />
-                  </g>
+                  <line
+                    key={`line-${item.key}`}
+                    x1="128"
+                    y1="124"
+                    x2={layout.x}
+                    y2={layout.y}
+                    stroke="rgb(226 232 240)"
+                    strokeWidth="1"
+                  />
                 );
               })}
+              
+              {/* Active Area Filling */}
+              <polygon
+                points={items.map((item) => {
+                  const layout = VERTEX_LAYOUT[item.key];
+                  const factor = item.state === "active" ? 1 : item.state === "possible" ? 0.6 : 0.2;
+                  const targetX = 128 + (layout.x - 128) * factor;
+                  const targetY = 124 + (layout.y - 124) * factor;
+                  return `${targetX},${targetY}`;
+                }).join(" ")}
+                fill="rgba(16, 185, 129, 0.15)"
+                stroke="rgb(16 185 129)"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+
+              {/* Central Core */}
+              <circle cx="128" cy="124" r="28" fill="white" stroke="rgb(226 232 240)" strokeWidth="1" />
+              <text
+                x="128"
+                y="128"
+                textAnchor="middle"
+                className="fill-slate-900 text-[10px] font-black tracking-tight"
+              >
+                BENEFITS
+              </text>
             </svg>
 
+            {/* Labels (Vertices) */}
             {items.map((item) => {
               const meta = CATEGORY_META[item.key];
               const Icon = meta.icon;
               const layout = VERTEX_LAYOUT[item.key];
+              const isActive = item.state === "active";
 
               return (
                 <div
                   key={item.key}
                   className={cn(
-                    "absolute flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold shadow-sm backdrop-blur",
+                    "absolute flex flex-col items-center gap-1.5 transition-all duration-500",
                     layout.labelAlign,
-                    meta.colorClass,
-                    item.state === "active"
-                      ? `${meta.tintClass} bg-white`
-                      : item.state === "possible"
-                        ? "border-slate-200 bg-white text-slate-600"
-                        : "border-slate-100 bg-slate-50 text-slate-400",
+                    isActive ? "scale-110 z-10" : "scale-90 opacity-80"
                   )}
                   style={{
                     top: `${layout.labelY}%`,
                     left: `${layout.labelX}%`,
                   }}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{meta.shortLabel}</span>
+                  <div className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-2xl border-2 shadow-lg transition-transform hover:scale-110",
+                    isActive 
+                      ? `${meta.tintClass} ${meta.colorClass} border-current ring-4 ring-white` 
+                      : "border-slate-100 bg-white text-slate-400"
+                  )}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className={cn(
+                    "whitespace-nowrap rounded-lg border px-2.5 py-1 text-[11px] font-black shadow-sm transition-all",
+                    isActive
+                      ? `${meta.tintClass} ${meta.colorClass} border-current`
+                      : "border-slate-100 bg-white text-slate-500"
+                  )}>
+                    {meta.shortLabel}
+                  </span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {activeItems.length > 0 ? (
-              activeItems.map((item) => {
-                const meta = CATEGORY_META[item.key];
-                return (
-                  <span
-                    key={item.key}
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-                      item.state === "active"
-                        ? `${meta.tintClass} ${meta.colorClass}`
-                        : "border-slate-200 bg-white text-slate-600",
-                    )}
-                  >
-                    {meta.shortLabel}
-                  </span>
-                );
-              })
-            ) : (
-              <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500">
-                아직 정리된 효능 축 정보가 충분하지 않습니다.
-              </span>
-            )}
-          </div>
-
+        {/* Legend / Descriptions */}
+        <div className="border-t border-slate-100 bg-slate-50/30 p-6">
           <div className="grid gap-3 sm:grid-cols-2">
-            {items.map((item) => {
+            {activeItems.map((item) => {
               const meta = CATEGORY_META[item.key];
               return (
                 <div
                   key={item.key}
                   className={cn(
-                    "rounded-2xl border px-4 py-3",
-                    item.state === "active"
-                      ? meta.tintClass
-                      : item.state === "possible"
-                        ? "border-slate-200 bg-white"
-                        : "border-slate-100 bg-slate-50",
+                    "flex items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm",
+                    meta.tintClass
                   )}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className={cn("text-sm font-semibold", item.state === "inactive" ? "text-slate-400" : meta.colorClass)}>
-                      {meta.shortLabel}
-                    </p>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        item.state === "active"
-                          ? "bg-white/80 text-slate-700"
-                          : item.state === "possible"
-                            ? "bg-slate-100 text-slate-600"
-                            : "bg-white text-slate-400",
-                      )}
-                    >
-                      {item.state === "active" ? "해당" : item.state === "possible" ? "가능성" : "없음"}
-                    </span>
+                  <div className={cn("mt-0.5 rounded-lg p-1.5", meta.tintClass)}>
+                    <meta.icon className={cn("h-4 w-4", meta.colorClass)} />
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">{meta.fullLabel}</p>
+                  <div>
+                    <h4 className={cn("text-xs font-black uppercase tracking-wider", meta.colorClass)}>
+                      {meta.shortLabel}
+                    </h4>
+                    <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
+                      {meta.fullLabel}
+                    </p>
+                  </div>
                 </div>
               );
             })}
