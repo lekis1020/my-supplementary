@@ -12,10 +12,11 @@ export const metadata: Metadata = {
 export default async function ProductsPage() {
   const supabase = await createClient();
 
-  // 쿼리 확장: 가격(price), 용량(capacity), 주요성분(serving_size_note 등) 필드 추가
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, product_name, brand_name, price, capacity, unit, country_code, product_type")
+    .select(
+      "id, product_name, brand_name, manufacturer_name, country_code, product_type, approval_or_report_no"
+    )
     .eq("is_published", true)
     .order("product_name");
 
@@ -30,17 +31,16 @@ export default async function ProductsPage() {
     );
   }
 
-  // 임시 데이터 보완 (실제 DB 연동 전 시각화를 위해 함량 데이터 추가 매핑)
-  const enrichedProducts = (products ?? []).map(p => ({
-    ...p,
-    // TODO: 실제 ingredient_content 테이블과 조인하여 가져오도록 추후 고도화
-    main_ingredient: p.product_name.includes("비타민") ? "비타민 C" : "오메가-3",
-    percentage: Math.floor(Math.random() * 40) + 80, // 80~120% 사이 랜덤 시뮬레이션
-    tags: p.country_code === "KR" ? ["식약처인증", "가성비"] : ["US_Labels", "Premium"]
+  const normalizedProducts = (products ?? []).map((product) => ({
+    ...product,
+    tags:
+      product.country_code === "KR"
+        ? ["식품안전나라", "공개데이터"]
+        : ["Global", "Supplement"],
   }));
 
-  const krProducts = enrichedProducts.filter((p) => p.country_code === "KR");
-  const usProducts = enrichedProducts.filter((p) => p.country_code === "US");
+  const krProducts = normalizedProducts.filter((p) => p.country_code === "KR");
+  const usProducts = normalizedProducts.filter((p) => p.country_code === "US");
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -51,7 +51,7 @@ export default async function ProductsPage() {
           </div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">영양제 제품 목록</h1>
           <p className="mt-3 text-slate-500 text-lg max-w-2xl leading-relaxed">
-            총 {products?.length ?? 0}개의 검증된 제품 데이터를 기반으로 원료 함량과 단위당 가격을 비교해 보세요.
+            총 {products?.length ?? 0}개의 검증된 제품 데이터를 기반으로 제품 유형, 제조사, 신고번호를 빠르게 확인해 보세요.
           </p>
         </div>
       </div>

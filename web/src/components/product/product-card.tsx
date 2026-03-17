@@ -3,9 +3,8 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  ShoppingCart, 
-  Zap, 
-  TrendingDown,
+  Factory,
+  FileBadge2,
   ChevronRight
 } from "lucide-react";
 
@@ -13,30 +12,21 @@ interface ProductCardProps {
   product: {
     id: string;
     product_name: string;
-    brand_name: string;
-    price?: number;
-    capacity?: number;
-    unit?: string;
+    brand_name: string | null;
+    manufacturer_name?: string | null;
+    approval_or_report_no?: string | null;
     product_type?: string;
     country_code?: string;
-    main_ingredient?: string;
-    percentage?: number;
     tags?: string[];
   };
 }
 
 /**
  * [bochoong.com 개선안] 고도화된 제품 카드 컴포넌트
- * - 데이터 기반 시각화 (권장량 대비 함량)
- * - 단위 가격 자동 산출 (10mg/unit당 가격)
+ * - 실제 제품 메타데이터 기반 요약
  * - Medical Clean 테마 적용
  */
 export const EnhancedProductCard = ({ product }: ProductCardProps) => {
-  // 단위 가격 계산 (예시: 10단위당 가격)
-  const unitPrice = product.price && product.capacity 
-    ? Math.round(product.price / (product.capacity / 10)) 
-    : null;
-
   // 건강기능식품 여부 레이블
   const typeLabel = product.product_type === "health_functional_food" 
     ? "건강기능식품" 
@@ -70,23 +60,28 @@ export const EnhancedProductCard = ({ product }: ProductCardProps) => {
             </h3>
           </div>
           
-          {/* 핵심 성분 함량 시각화 (실데이터 연동 준비) */}
           <div className="space-y-4 mb-6 mt-auto">
-            {product.main_ingredient && (
-              <div>
-                <div className="flex justify-between text-[11px] mb-1.5">
-                  <span className="text-slate-500 font-medium">핵심성분: {product.main_ingredient}</span>
-                  <span className="text-emerald-600 font-bold">{product.percentage || 0}%</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-700 ease-out"
-                    style={{ width: `${product.percentage || 0}%` }}
-                  />
+            <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+              <div className="flex items-start gap-2 text-[11px] text-slate-500">
+                <Factory size={12} className="mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold text-slate-600">제조사</div>
+                  <div className="mt-0.5 line-clamp-2 text-slate-500">
+                    {product.manufacturer_name || product.brand_name || "정보 없음"}
+                  </div>
                 </div>
               </div>
-            )}
-            
+              <div className="flex items-start gap-2 text-[11px] text-slate-500">
+                <FileBadge2 size={12} className="mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold text-slate-600">신고번호</div>
+                  <div className="mt-0.5 text-slate-500">
+                    {product.approval_or_report_no || "정보 없음"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-1.5">
               {(product.tags || []).slice(0, 2).map((tag) => (
                 <span key={tag} className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-100">
@@ -96,17 +91,13 @@ export const EnhancedProductCard = ({ product }: ProductCardProps) => {
             </div>
           </div>
 
-          {/* 하단: 가격 및 가성비 지표 */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-2">
             <div>
-              {unitPrice && (
-                <div className="flex items-center gap-1 text-slate-400 mb-0.5">
-                  <TrendingDown size={10} />
-                  <span className="text-[10px] font-medium">단위당 {unitPrice}원</span>
-                </div>
-              )}
-              <div className="text-lg font-black text-slate-900 tracking-tight">
-                {product.price ? product.price.toLocaleString() : "가격 미정"}<span className="text-xs font-normal ml-0.5">원</span>
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                Product Record
+              </div>
+              <div className="mt-1 text-base font-black text-slate-900 tracking-tight">
+                상세 보기
               </div>
             </div>
             <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center group-hover:bg-emerald-600 transition-colors shadow-sm">
