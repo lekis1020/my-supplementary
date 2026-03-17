@@ -28,12 +28,12 @@ const EnhancedProductCard = ({ product }: { product: any }) => {
           </span>
           <div className="flex gap-1">
             {product.isBest && (
-              <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 px-2 py-0.5 text-[10px] font-bold">
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 px-2 py-0.5 text-[10px] font-bold">
                 BEST 가성비
               </Badge>
             )}
             {product.isNew && (
-              <Badge variant="outline" className="text-blue-600 border-blue-200 px-2 py-0.5 text-[10px] font-bold">
+              <Badge className="text-blue-600 border-blue-200 px-2 py-0.5 text-[10px] font-bold">
                 NEW
               </Badge>
             )}
@@ -142,7 +142,7 @@ export default function DesignLabPage() {
       {/* Header Area */}
       <div className="bg-white border-b border-slate-200 px-6 py-12 mb-8">
         <div className="max-w-5xl mx-auto">
-          <Badge className="mb-4 bg-emerald-500 hover:bg-emerald-600 border-none px-3 py-1">Design Lab</Badge>
+          <Badge className="mb-4 bg-emerald-500 text-white border-none px-3 py-1 font-bold">Design Lab</Badge>
           <h1 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">영양제 비교 디자인 개선안</h1>
           <p className="text-slate-500 text-lg max-w-2xl leading-relaxed">
             랄플랜(ralplan) 5회 이터레이션을 통해 도출된 최종 UI 컴포넌트입니다. 

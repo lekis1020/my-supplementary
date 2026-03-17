@@ -52,11 +52,11 @@ export const EnhancedProductCard = ({ product }: ProductCardProps) => {
               {product.brand_name}
             </span>
             <div className="flex gap-1">
-              <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 px-2 py-0.5 text-[9px] font-bold">
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 px-2 py-0.5 text-[9px] font-bold">
                 {typeLabel}
               </Badge>
               {product.country_code === "KR" && (
-                <Badge variant="outline" className="text-slate-400 border-slate-200 px-2 py-0.5 text-[9px] font-bold">
+                <Badge className="text-slate-400 border-slate-200 px-2 py-0.5 text-[9px] font-bold">
                   KOREA
                 </Badge>
               )}
