@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
+import { buildBenefitProfile } from "@/lib/benefit-profile";
 import {
   getIngredientCategory,
   getIngredientCategoryLabel,
@@ -97,8 +99,11 @@ export default async function IngredientDetailPage({ params }: Props) {
       .eq("ingredient_id", ingredient.id),
     supabase
       .from("product_ingredients")
-      .select("*, products(*)")
-      .eq("ingredient_id", ingredient.id),
+      .select("id, amount_per_serving, amount_unit, products!inner(id, product_name, brand_name)", {
+        count: "exact",
+      })
+      .eq("ingredient_id", ingredient.id)
+      .limit(3),
     supabase
       .from("evidence_studies")
       .select("*, evidence_outcomes(*, claims(claim_code, claim_name_ko))")
@@ -113,7 +118,9 @@ export default async function IngredientDetailPage({ params }: Props) {
   const dosageGuidelines = dosageRes.data ?? [];
   const evidenceStudies = evidenceRes.data ?? [];
   const productLinks = productsRes.data ?? [];
+  const productCount = productsRes.count ?? productLinks.length;
   const category = getIngredientCategory(ingredient.ingredient_type);
+  const benefitProfile = buildBenefitProfile(ingredientClaims);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -166,6 +173,12 @@ export default async function IngredientDetailPage({ params }: Props) {
       </div>
 
       <div className="space-y-8">
+        <BenefitHexagon
+          title="효능 육각형"
+          description="강도 비교가 아니라, 이 원료가 어떤 효능 축에 관련되는지를 빠르게 읽기 위한 요약입니다."
+          profile={benefitProfile}
+        />
+
         {/* 기능성/효능 */}
         {ingredientClaims.length > 0 && (
           <Card>
@@ -490,32 +503,43 @@ export default async function IngredientDetailPage({ params }: Props) {
         )}
 
         {/* 이 원료를 포함한 제품 */}
-        {productLinks.length > 0 && (
+        {productCount > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>이 원료를 포함한 제품</CardTitle>
+              <p className="text-sm text-gray-500">
+                총 {productCount.toLocaleString()}개 제품이 이 원료를 포함하고 있습니다.
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {productLinks.map((pl: any) => (
-                  <Link
-                    key={pl.id}
-                    href={`/products/${pl.products?.id}`}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <p className="text-sm leading-6 text-gray-600">
+                  개별 제품을 이 페이지에서 길게 펼치기보다, 제품 목록에서 이 원료를 기준으로
+                  탐색하는 편이 더 효율적입니다.
+                </p>
+                {productLinks.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {productLinks.map((pl: any) => (
+                      <span
+                        key={pl.id}
+                        className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600"
+                      >
                         {pl.products?.product_name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {pl.products?.brand_name}
-                      </p>
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      {pl.amount_per_serving} {pl.amount_unit}
-                    </p>
-                  </Link>
-                ))}
+                      </span>
+                    ))}
+                    {productCount > productLinks.length && (
+                      <span className="inline-flex rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs font-medium text-gray-500">
+                        외 {(productCount - productLinks.length).toLocaleString()}개
+                      </span>
+                    )}
+                  </div>
+                )}
+                <Link
+                  href={`/products?ingredientId=${ingredient.id}`}
+                  className="mt-5 inline-flex items-center rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                >
+                  제품 목록에서 보기
+                </Link>
               </div>
             </CardContent>
           </Card>
