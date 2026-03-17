@@ -12,11 +12,11 @@ BEGIN;
 -- 이름이 같은 원료 중 가장 먼저 생성된 ID(MIN)를 유지하고 나머지를 통합합니다.
 CREATE TEMP TABLE tmp_ingredient_mapping AS
 SELECT 
-    ingredient_name,
+    canonical_name_ko,
     MIN(id) as keep_id,
     ARRAY_AGG(id) as all_ids
 FROM ingredients
-GROUP BY ingredient_name
+GROUP BY canonical_name_ko
 HAVING COUNT(*) > 1;
 
 -- 중복된 원료를 참조하던 제품-원료 연결 데이터를 메인 ID로 업데이트
@@ -99,7 +99,7 @@ WHERE id IN (
 -- 데이터가 깨끗해진 상태에서 인덱스를 생성하여 앞으로의 중복을 원천 차단합니다.
 
 -- 원료 이름 중복 방지
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ingredients_name_unique ON ingredients (ingredient_name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ingredients_name_unique ON ingredients (canonical_name_ko);
 
 -- 제품 중복 방지 (이름 + 브랜드 + 품목제조번호 조합)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_products_unique_identity 
