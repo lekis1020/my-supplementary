@@ -53,6 +53,7 @@ function getClaimMeta(claim: ClaimShape): {
 
   return Array.isArray(claim.claims) ? claim.claims[0] ?? null : claim.claims;
 }
+
 function mapClaimCategoryToBenefitCategory(
   claimCategory: string | null | undefined,
 ): BenefitCategoryKey | null {
@@ -163,8 +164,16 @@ export function buildBenefitClaimDetails(claims: ClaimShape[]): BenefitClaimDeta
       return;
     }
 
-    const previousScore = Number(previous.isRegulatorApproved) * 10 + Number(previous.evidenceGrade === "A") * 3 + Number(previous.evidenceGrade === "B") * 2 + Number(Boolean(previous.evidenceGrade));
-    const nextScore = Number(nextDetail.isRegulatorApproved) * 10 + Number(nextDetail.evidenceGrade === "A") * 3 + Number(nextDetail.evidenceGrade === "B") * 2 + Number(Boolean(nextDetail.evidenceGrade));
+    const previousScore =
+      Number(previous.isRegulatorApproved) * 10 +
+      Number(previous.evidenceGrade === "A") * 3 +
+      Number(previous.evidenceGrade === "B") * 2 +
+      Number(Boolean(previous.evidenceGrade));
+    const nextScore =
+      Number(nextDetail.isRegulatorApproved) * 10 +
+      Number(nextDetail.evidenceGrade === "A") * 3 +
+      Number(nextDetail.evidenceGrade === "B") * 2 +
+      Number(Boolean(nextDetail.evidenceGrade));
 
     if (nextScore > previousScore) {
       detailMap.set(mapKey, nextDetail);

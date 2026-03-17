@@ -1489,6 +1489,337 @@ INSERT INTO evidence_outcomes (
   '야맹증: 0.21-0.50; 홍역: 0.30-0.69'
 ) ON CONFLICT DO NOTHING;
 
+-- ============================================================================
+-- 019: 마지막 5개 성분 근거 논문 추가 (콜라겐, 가르시니아, 크레아틴, 홍삼, MSM)
+-- ============================================================================
+
+-- 신규 claim 추가
+INSERT INTO claims (claim_code, claim_name_ko, claim_name_en, claim_category, claim_scope, description) VALUES
+('WEIGHT_MANAGEMENT', '체중 관리에 도움', 'Weight Management', 'metabolic', 'studied', '체중 감소, 식욕 억제, 체지방 감소 관련 연구'),
+('EXERCISE_PERFORMANCE', '운동 수행능력 향상', 'Exercise Performance', 'musculoskeletal', 'studied', '운동 능력, 근력, 근비대, 운동 퍼포먼스 관련 연구'),
+('FATIGUE_RECOVERY', '피로 회복에 도움', 'Fatigue Recovery', 'general_wellness', 'studied', '피로 개선, 활력 증진, 에너지 수준 관련 연구')
+ON CONFLICT (claim_code) DO NOTHING;
+
+-- ingredient_claims 연결
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='collagen'),
+  (SELECT id FROM claims WHERE claim_code='SKIN_HEALTH'),
+  'B', '콜라겐 펩타이드 경구 보충이 피부 탄력 및 수분 유의 개선. 체계적 문헌고찰 및 메타분석', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='collagen'),
+  (SELECT id FROM claims WHERE claim_code='COLLAGEN_SYNTHESIS'),
+  'B', '가수분해 콜라겐이 내인성 콜라겐 합성 촉진에 기여. 피부 노화 지표 유의 개선', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='garcinia'),
+  (SELECT id FROM claims WHERE claim_code='WEIGHT_MANAGEMENT'),
+  'C', '가르시니아 캄보지아(HCA)의 체중 감소 효과 메타분석에서 소규모 효과 관찰. 근거 수준 제한적', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='creatine'),
+  (SELECT id FROM claims WHERE claim_code='EXERCISE_PERFORMANCE'),
+  'A', '크레아틴 보충이 근력, 근비대, 운동 수행능력을 유의하게 향상시킴. 다수의 메타분석에서 일관된 결과', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='red-ginseng'),
+  (SELECT id FROM claims WHERE claim_code='FATIGUE_RECOVERY'),
+  'B', '인삼/홍삼 보충이 피로 관련 증상 유의 개선. 2개 메타분석에서 질병 관련 및 일반 피로 모두에서 효과 확인', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='msm'),
+  (SELECT id FROM claims WHERE claim_code='JOINT_HEALTH'),
+  'B', 'MSM(메틸설포닐메탄)이 무릎 골관절염 통증 감소 및 관절 기능 개선. 메타분석 및 RCT 근거', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+-- 콜라겐 (PMID 33742704)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  sample_size, population_text, duration_text,
+  screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='collagen'),
+  'pubmed',
+  'Effects of hydrolyzed collagen supplementation on skin aging: a systematic review and meta-analysis.',
+  '가수분해 콜라겐 경구 보충이 피부 노화에 미치는 효과를 분석한 체계적 문헌고찰 및 메타분석. 19개 RCT(1,125명)에서 콜라겐 보충이 피부 수분, 탄력, 주름을 유의하게 개선.',
+  'de Miranda RB, Weimer P, Rossi RC',
+  'International Journal of Dermatology',
+  2021, '33742704', '10.1111/ijd.15518',
+  'https://pubmed.ncbi.nlm.nih.gov/33742704/',
+  'meta_analysis',
+  1125, '건강 성인 (19개 RCT, 1,125명)', '4-24주',
+  'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='33742704' LIMIT 1), (SELECT id FROM claims WHERE claim_code='SKIN_HEALTH'), '콜라겐 보충의 피부 노화 개선 효과', 'efficacy', 'positive', '가수분해 콜라겐 보충이 피부 탄력, 수분, 주름 모두 유의하게 개선', '피부 탄력, 수분, 주름 모두 유의한 개선', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='33742704' LIMIT 1), (SELECT id FROM claims WHERE claim_code='COLLAGEN_SYNTHESIS'), '경구 콜라겐의 콜라겐 합성 촉진', 'biomarker', 'positive', '콜라겐 펩타이드 경구 보충이 진피 콜라겐 밀도 증가 및 프로콜라겐 합성 촉진에 기여', '진피 콜라겐 밀도 증가', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 가르시니아 (PMID 31984610)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='garcinia'), 'pubmed',
+  'Effectiveness of herbal medicines for weight loss: A systematic review and meta-analysis of randomized controlled trials.',
+  '가르시니아 캄보지아 포함 약용식물의 체중 감소 효과를 분석한 메타분석. 가르시니아(HCA)는 소규모 체중 감소 효과를 보였으나 근거 수준은 낮음.',
+  'Maunder A, Bessell E, Lauche R', 'Diabetes, Obesity and Metabolism',
+  2020, '31984610', '10.1111/dom.13973', 'https://pubmed.ncbi.nlm.nih.gov/31984610/',
+  'meta_analysis', '과체중/비만 성인 (RCT)', '연구별 상이', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='31984610' LIMIT 1), (SELECT id FROM claims WHERE claim_code='WEIGHT_MANAGEMENT'), '가르시니아의 체중 감소 효과', 'efficacy', 'positive', '가르시니아 캄보지아(HCA)가 소규모 체중 감소 효과를 보임. 효과 크기가 작고 연구 질이 제한적', '소규모 체중 감소 (임상적 유의성 제한적)', 'P<0.05 (일부 연구)', '-') ON CONFLICT DO NOTHING;
+
+-- 크레아틴 (PMID 37432300)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='creatine'), 'pubmed',
+  'The Effects of Creatine Supplementation Combined with Resistance Training on Regional Measures of Muscle Hypertrophy: A Systematic Review with Meta-Analysis.',
+  '크레아틴 보충 + 저항 운동이 부위별 근비대에 미치는 효과를 분석한 메타분석.',
+  'Burke R, Piñero A, Coleman M, Mohan A, Sapber M, Fahmi R, Joy JM, Moon JR, Schoenfeld BJ, De Souza EO', 'Nutrients',
+  2023, '37432300', '10.3390/nu15092116', 'https://pubmed.ncbi.nlm.nih.gov/37432300/',
+  'meta_analysis', '저항 운동 성인 (RCT)', '4주 이상', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='37432300' LIMIT 1), (SELECT id FROM claims WHERE claim_code='EXERCISE_PERFORMANCE'), '크레아틴의 근비대 촉진 효과', 'efficacy', 'positive', '크레아틴 보충이 저항 운동과 결합 시 상체(ES 0.38) 및 하체(ES 0.28) 제지방량을 유의하게 증가', 'ES 0.38 (상체); ES 0.28 (하체)', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 크레아틴 (PMID 30935142)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='creatine'), 'pubmed',
+  'Effects of Creatine Supplementation on Athletic Performance in Soccer Players: A Systematic Review and Meta-Analysis.',
+  '축구 선수에서 크레아틴 보충의 운동 수행능력 효과를 분석한 메타분석.',
+  'Mielgo-Ayuso J, Calleja-Gonzalez J, Marqués-Jiménez D, Caballero-García A, Córdova A, Fernández-Lázaro D', 'Nutrients',
+  2019, '30935142', '10.3390/nu11040757', 'https://pubmed.ncbi.nlm.nih.gov/30935142/',
+  'meta_analysis', '축구 선수 (RCT)', '1-8주', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='30935142' LIMIT 1), (SELECT id FROM claims WHERE claim_code='EXERCISE_PERFORMANCE'), '크레아틴의 운동 수행능력 향상', 'efficacy', 'positive', '크레아틴 보충이 축구 선수의 반복 스프린트, 점프 높이, 제지방량을 유의하게 향상', '반복 스프린트, 점프, 제지방량 유의 향상', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 홍삼 (PMID 36730693)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='red-ginseng'), 'pubmed',
+  'Ginseng and Ginseng Herbal Formulas for Symptomatic Management of Fatigue: A Systematic Review and Meta-Analysis.',
+  '인삼 및 인삼 복합 처방의 피로 증상 관리 효과를 분석한 메타분석. 인삼이 피로 증상 유의하게 개선.',
+  'Li X, Guo W, Huang L, Choi H, Wang X, Liu P, Lee B', 'Journal of Integrative and Complementary Medicine',
+  2023, '36730693', '10.1089/jicm.2022.0532', 'https://pubmed.ncbi.nlm.nih.gov/36730693/',
+  'meta_analysis', '피로 증상 성인 (RCT)', '연구별 상이', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='36730693' LIMIT 1), (SELECT id FROM claims WHERE claim_code='FATIGUE_RECOVERY'), '인삼의 피로 증상 개선 효과', 'efficacy', 'positive', '인삼 보충이 피로 관련 증상을 유의하게 개선. 특히 만성 피로 및 질병 관련 피로에서 효과적', '피로 점수 유의 개선', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 홍삼 (PMID 35776997)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  sample_size, population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='red-ginseng'), 'pubmed',
+  'Efficacy of ginseng supplements on disease-related fatigue: A systematic review and meta-analysis.',
+  '인삼 보충의 질병 관련 피로 개선 효과를 분석한 메타분석. 10개 RCT(868명).',
+  'Zhu J, Chen S, Wu Z, Wang J, Guo J', 'Medicine',
+  2022, '35776997', '10.1097/MD.0000000000029767', 'https://pubmed.ncbi.nlm.nih.gov/35776997/',
+  'meta_analysis', 868, '질병 관련 피로 환자 (10개 RCT, 868명)', '4-12주', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='35776997' LIMIT 1), (SELECT id FROM claims WHERE claim_code='FATIGUE_RECOVERY'), '인삼의 질병 관련 피로 감소', 'efficacy', 'positive', '인삼 보충이 질병 관련 피로를 유의하게 감소 (SMD -0.34, 95% CI: -0.53 to -0.14)', 'SMD -0.34', 'P=0.0006', '-0.53 to -0.14') ON CONFLICT DO NOTHING;
+
+-- MSM (PMID 19474240)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='msm'), 'pubmed',
+  'Meta-analysis of the related nutritional supplements dimethyl sulfoxide and methylsulfonylmethane in the treatment of osteoarthritis of the knee.',
+  'DMSO/MSM의 무릎 골관절염 치료 효과 메타분석. MSM이 통증 및 신체 기능 개선에 유의한 효과.',
+  'Brien S, Prescott P, Lewith G', 'Evidence-Based Complementary and Alternative Medicine',
+  2011, '19474240', '10.1093/ecam/nep045', 'https://pubmed.ncbi.nlm.nih.gov/19474240/',
+  'meta_analysis', '무릎 골관절염 환자 (RCT)', '12주', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='19474240' LIMIT 1), (SELECT id FROM claims WHERE claim_code='JOINT_HEALTH'), 'MSM의 골관절염 통증 감소 효과', 'efficacy', 'positive', 'MSM이 무릎 골관절염 환자의 통증 감소(ES 1.0-1.5)와 신체 기능 개선에 유의한 효과', 'ES 1.0-1.5 (통증 감소)', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- MSM (PMID 37447322)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  sample_size, population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='msm'), 'pubmed',
+  'Methylsulfonylmethane Improves Knee Quality of Life in Participants with Mild Knee Pain: A Randomized, Double-Blind, Placebo-Controlled Trial.',
+  '경미한 무릎 통증 참가자에서 MSM의 무릎 관련 삶의 질 개선 효과를 평가한 이중맹검 RCT.',
+  'Toguchi A, Noguchi N, Kanno T, Yamada A', 'Nutrients',
+  2023, '37447322', '10.3390/nu15132995', 'https://pubmed.ncbi.nlm.nih.gov/37447322/',
+  'rct', 100, '경미한 무릎 통증 성인 100명', '12주', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='37447322' LIMIT 1), (SELECT id FROM claims WHERE claim_code='JOINT_HEALTH'), 'MSM의 무릎 관련 삶의 질 개선', 'efficacy', 'positive', 'MSM 3g/일 12주 보충이 무릎 관련 삶의 질(JKOM) 점수를 위약 대비 유의하게 개선', 'JKOM 점수 유의 개선', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- 020: 효능별 근거 커버리지 갭 해소
+-- ============================================================================
+
+-- 신규 ingredient_claims
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='vitamin-a'),
+  (SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),
+  'A', '비타민 A 보충이 소아 감염 발생률(홍역 55%, 설사) 유의 감소. 코크란 체계적 문헌고찰', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='vitamin-a'),
+  (SELECT id FROM claims WHERE claim_code='SKIN_HEALTH'),
+  'B', '비타민 A(레티놀)가 피부 상피세포 성장과 분화에 필수적. 피부 장벽 유지 및 상처 치유 촉진', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved)
+VALUES (
+  (SELECT id FROM ingredients WHERE slug='red-ginseng'),
+  (SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),
+  'B', '인삼 다당체가 면역세포 활성화 및 백신 항체 반응 개선. RCT 근거', false
+) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+-- 비타민 D → IMMUNE_FUNCTION (PMID 28202713)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  sample_size, population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='vitamin-d'), 'pubmed',
+  'Vitamin D supplementation to prevent acute respiratory tract infections: systematic review and meta-analysis of individual participant data.',
+  '비타민 D 보충이 급성 호흡기 감염(ARI) 예방 효과. 25개 RCT, 11,321명. ARI 위험 12% 감소, 결핍자에서 70% 감소.',
+  'Martineau AR, Jolliffe DA, Hooper RL, Greenberg L, Aloia JF, Bergman P',
+  'BMJ', 2017, '28202713', '10.1136/bmj.i6583', 'https://pubmed.ncbi.nlm.nih.gov/28202713/',
+  'meta_analysis', 11321, '다양한 연령 (25개 RCT, 11,321명)', '연구별 상이', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='28202713' LIMIT 1), (SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'), '비타민 D의 급성 호흡기 감염 예방 효과', 'efficacy', 'positive', '비타민 D 보충이 급성 호흡기 감염 위험을 12% 감소 (OR 0.88). 결핍자에서 70% 감소', 'OR 0.88 (전체); OR 0.30 (결핍자)', 'P<0.001', '전체: 0.81-0.96; 결핍자: 0.17-0.53') ON CONFLICT DO NOTHING;
+
+-- 비타민 C → IMMUNE_FUNCTION (PMID 30069463)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='vitamin-c'), 'pubmed',
+  'Extra Dose of Vitamin C Based on a Daily Supplementation Shortens the Common Cold: A Meta-Analysis of 9 Randomized Controlled Trials.',
+  '비타민 C 추가 보충이 감기 기간 단축 및 증상 완화. 9개 RCT 메타분석.',
+  'Ran L, Zhao W, Wang J, Wang H, Zhao Y, Tseng Y, Bu H',
+  'BioMed Research International', 2018, '30069463', '10.1155/2018/1837634', 'https://pubmed.ncbi.nlm.nih.gov/30069463/',
+  'meta_analysis', '감기 환자 (9개 RCT)', '감기 기간', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='30069463' LIMIT 1), (SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'), '비타민 C의 감기 기간 단축 효과', 'efficacy', 'positive', '비타민 C 추가 보충이 감기 기간을 유의하게 단축. 증상 완화', '감기 기간 유의 단축, 증상 완화', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 오메가-3 → CARDIOVASCULAR (PMID 36103100)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='omega-3'), 'pubmed',
+  'Efficacy and Safety of Omega-3 Fatty Acids in the Prevention of Cardiovascular Disease: A Systematic Review and Meta-analysis.',
+  '오메가-3의 심혈관질환 예방 효과. 38개 RCT. 심혈관 사망률, 심근경색, CHD 이벤트 유의 감소.',
+  'Yan J, Liu H, Li H, Chen L, Bian Y, Zhao B, Zhang L, Zhang B',
+  'Cardiovascular Drugs and Therapy', 2024, '36103100', '10.1007/s10557-022-07379-z', 'https://pubmed.ncbi.nlm.nih.gov/36103100/',
+  'meta_analysis', '심혈관 고위험군 포함 성인 (38개 RCT)', '연구별 상이', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='36103100' LIMIT 1), (SELECT id FROM claims WHERE claim_code='CARDIOVASCULAR'), '오메가-3의 심혈관질환 예방 효과', 'efficacy', 'positive', '오메가-3 보충이 심혈관 사망률, 심근경색, CHD 이벤트를 유의하게 감소. 38개 RCT 메타분석', '심혈관 사망, 심근경색, CHD 이벤트 유의 감소', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 마그네슘 → BONE_HEALTH (PMID 34666201)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='magnesium'), 'pubmed',
+  'Impact of magnesium on bone health in older adults: A systematic review and meta-analysis.',
+  '마그네슘의 노인 골건강 영향. 마그네슘 섭취와 BMD 양의 상관관계, 골절 위험 감소 경향.',
+  'Groenendijk I, van Delft M, Versloot P, van Loon LJC, de Groot LCPGM',
+  'Bone', 2022, '34666201', '10.1016/j.bone.2021.116233', 'https://pubmed.ncbi.nlm.nih.gov/34666201/',
+  'meta_analysis', '노인 (체계적 문헌고찰 및 메타분석)', '연구별 상이', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='34666201' LIMIT 1), (SELECT id FROM claims WHERE claim_code='BONE_HEALTH'), '마그네슘의 골밀도 및 골절 위험 개선', 'efficacy', 'positive', '마그네슘 섭취량이 높을수록 BMD가 유의하게 높고 골절 위험 감소 경향', 'BMD와 양의 상관관계, 골절 위험 감소 경향', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
+-- 비타민 A → IMMUNE_FUNCTION (기존 PMID 35294044에 outcome 추가)
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='35294044' LIMIT 1), (SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'), '비타민 A 보충의 감염 예방 효과 (면역기능)', 'efficacy', 'positive', '비타민 A 보충이 소아 홍역 발생을 55% 감소 (RR 0.45), 설사 발생을 15% 감소 (RR 0.85)', 'RR 0.45 (홍역); RR 0.85 (설사)', 'P<0.05', '홍역: 0.30-0.69; 설사: 0.82-0.87') ON CONFLICT DO NOTHING;
+
+-- 비타민 A → SKIN_HEALTH (PMID 38256329)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='vitamin-a'), 'pubmed',
+  'Nutritional Supplements for Skin Health-A Review of What Should Be Chosen and Why.',
+  '비타민 A(레티놀)가 표피 분화, 피부 장벽 기능, 콜라겐 합성에 필수적인 역할.',
+  'Januszewski J, Forma A, Sitarz R, Grochowski C',
+  'Medicina', 2023, '38256329', '10.3390/medicina60010068', 'https://pubmed.ncbi.nlm.nih.gov/38256329/',
+  'systematic_review', '피부 건강 관련 종합 문헌고찰', '기전 중심', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='38256329' LIMIT 1), (SELECT id FROM claims WHERE claim_code='SKIN_HEALTH'), '비타민 A의 피부 건강 유지 역할', 'efficacy', 'positive', '비타민 A(레티놀)가 표피세포 분화와 성장, 피부 장벽 기능 유지, 콜라겐 합성 촉진에 필수적', '표피 분화·장벽 기능·콜라겐 합성에 필수', '-', '-') ON CONFLICT DO NOTHING;
+
+-- 홍삼 → IMMUNE_FUNCTION (PMID 25297058)
+INSERT INTO evidence_studies (
+  ingredient_id, source_type, title, abstract_text, authors, journal_name,
+  publication_year, pmid, doi, external_url, study_design,
+  population_text, duration_text, screening_status, included_in_summary
+) VALUES (
+  (SELECT id FROM ingredients WHERE slug='red-ginseng'), 'pubmed',
+  'A 14-week randomized, placebo-controlled, double-blind clinical trial to evaluate the efficacy and safety of ginseng polysaccharide (Y-75).',
+  '인삼 다당체의 면역 기능 개선 효과. 14주 이중맹검 RCT. NK 세포 활성 증가, 백신 항체가 상승.',
+  'Cho YJ, Son HJ, Kim KS',
+  'Journal of Translational Medicine', 2014, '25297058', '10.1186/s12967-014-0283-1', 'https://pubmed.ncbi.nlm.nih.gov/25297058/',
+  'rct', '건강 성인 (14주 이중맹검 RCT)', '14주', 'included', true
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO evidence_outcomes (evidence_study_id, claim_id, outcome_name, outcome_type, effect_direction, conclusion_summary, effect_size_text, p_value_text, confidence_interval_text)
+VALUES ((SELECT id FROM evidence_studies WHERE pmid='25297058' LIMIT 1), (SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'), '인삼 다당체의 면역세포 활성화 및 항체 반응 개선', 'efficacy', 'positive', '인삼 다당체가 NK 세포 활성을 유의하게 증가시키고 백신 항체가를 유의하게 상승시킴', 'NK 세포 활성 증가, 백신 항체가 상승', 'P<0.05', '-') ON CONFLICT DO NOTHING;
+
 -- 완료!
 SELECT 'SUCCESS: 모든 데이터가 적용되었습니다.' AS result,
        (SELECT count(*) FROM ingredients) AS ingredients_count,

@@ -8,6 +8,7 @@ import {
   getIngredientCategoryLabel,
   getIngredientSubgroupLabel,
   getProbioticSubgroup,
+  getVitaminSubgroups,
   INGREDIENT_CATEGORY_ORDER,
   isIngredientCategory,
   type IngredientCategory,
@@ -112,6 +113,11 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
         <p className="mt-6 text-sm font-medium text-slate-400">
           총 {categoryIngredients.length.toLocaleString()}개 원료
         </p>
+        {category === "vitamins" && (
+          <p className="mt-2 text-sm text-slate-500">
+            복합 비타민 원료는 포함된 성분 기준으로 여러 세부 분류에 함께 표시됩니다.
+          </p>
+        )}
       </div>
 
       <div className="space-y-10">
@@ -128,7 +134,9 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
                 <IngredientCard
                   key={ingredient.id}
                   ingredient={ingredient}
-                  subgroupLabel={category === "probiotics" ? groupName : null}
+                  subgroupLabel={
+                    category === "probiotics" || category === "vitamins" ? groupName : null
+                  }
                 />
               ))}
             </div>
@@ -143,6 +151,46 @@ function groupIngredients(
   ingredients: IngredientRow[],
   category: IngredientCategory,
 ): Array<[string, IngredientRow[]]> {
+  if (category === "vitamins") {
+    const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
+      const subgroups = getVitaminSubgroups({
+        canonicalNameKo: ingredient.canonical_name_ko,
+        canonicalNameEn: ingredient.canonical_name_en,
+        scientificName: ingredient.scientific_name,
+      });
+
+      subgroups.forEach((subgroup) => {
+        if (!acc[subgroup]) acc[subgroup] = [];
+        acc[subgroup].push(ingredient);
+      });
+
+      return acc;
+    }, {});
+
+    const vitaminOrder = [
+      "비타민 A",
+      "비타민 B군",
+      "비타민 B1",
+      "비타민 B2",
+      "비타민 B3",
+      "비타민 B5",
+      "비타민 B6",
+      "비타민 B7",
+      "비타민 B9",
+      "비타민 B12",
+      "비타민 C",
+      "비타민 D",
+      "비타민 E",
+      "비타민 K",
+      "루테인·카로티노이드",
+      "기타 복합 비타민",
+    ];
+
+    return vitaminOrder
+      .map((groupName) => [groupName, grouped[groupName] ?? []] as [string, IngredientRow[]])
+      .filter(([, items]) => items.length > 0);
+  }
+
   if (category === "probiotics") {
     const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
       const subgroup = getProbioticSubgroup({
