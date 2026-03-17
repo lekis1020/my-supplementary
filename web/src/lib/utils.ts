@@ -187,3 +187,10 @@ export function getProbioticSubgroup(input: {
 
   return "기타 균주";
 }
+
+export function getIngredientHref(input: {
+  id: number | string;
+  slug?: string | null;
+}): string {
+  return input.slug ? `/ingredients/${input.slug}` : `/ingredients/${input.id}`;
+}

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getIngredientTypeLabel } from "@/lib/utils";
+import { getIngredientHref, getIngredientTypeLabel } from "@/lib/utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface SearchResult {
@@ -72,7 +72,7 @@ export default function SearchPage() {
         id: ing.id,
         title: ing.canonical_name_ko,
         subtitle: ing.canonical_name_en,
-        href: `/ingredients/${ing.slug}`,
+        href: getIngredientHref({ id: ing.id, slug: ing.slug }),
         badge: getIngredientTypeLabel(ing.ingredient_type),
       });
     }

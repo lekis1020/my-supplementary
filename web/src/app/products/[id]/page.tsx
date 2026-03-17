@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { getIngredientHref } from "@/lib/utils";
 import { ArrowLeft, Tag, FileText } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -122,7 +123,10 @@ export default async function ProductDetailPage({ params }: Props) {
                       <tr key={pi.id} className="border-b border-gray-50">
                         <td className="py-2.5 pr-4">
                           <Link
-                            href={`/ingredients/${pi.ingredients?.slug}`}
+                            href={getIngredientHref({
+                              id: pi.ingredients?.id,
+                              slug: pi.ingredients?.slug,
+                            })}
                             className="font-medium text-green-600 hover:underline"
                           >
                             {pi.ingredients?.canonical_name_ko}

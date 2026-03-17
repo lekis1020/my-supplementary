@@ -23,11 +23,20 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
-  const { data } = await supabase
+  const numericId = Number(slug);
+  let query = supabase
     .from("ingredients")
     .select("canonical_name_ko, canonical_name_en, description")
-    .eq("slug", slug)
-    .single();
+    .eq("slug", slug);
+
+  if (Number.isInteger(numericId) && numericId > 0) {
+    query = supabase
+      .from("ingredients")
+      .select("canonical_name_ko, canonical_name_en, description")
+      .eq("id", numericId);
+  }
+
+  const { data } = await query.single();
 
   if (!data) return { title: "원료를 찾을 수 없습니다" };
 
@@ -40,14 +49,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function IngredientDetailPage({ params }: Props) {
   const { slug } = await params;
   const supabase = await createClient();
+  const numericId = Number(slug);
 
   // 원료 기본 정보
-  const { data: ingredient } = await supabase
+  let ingredientQuery = supabase
     .from("ingredients")
     .select("*")
     .eq("slug", slug)
-    .eq("is_published", true)
-    .single();
+    .eq("is_published", true);
+
+  if (Number.isInteger(numericId) && numericId > 0) {
+    ingredientQuery = supabase
+      .from("ingredients")
+      .select("*")
+      .eq("id", numericId)
+      .eq("is_published", true);
+  }
+
+  const { data: ingredient } = await ingredientQuery.single();
 
   if (!ingredient) notFound();
 

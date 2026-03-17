@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { getIngredientSubgroupLabel, getIngredientTypeLabel } from "@/lib/utils";
+import {
+  getIngredientHref,
+  getIngredientSubgroupLabel,
+  getIngredientTypeLabel,
+} from "@/lib/utils";
 
 interface IngredientCardProps {
   ingredient: {
@@ -17,7 +21,7 @@ interface IngredientCardProps {
 export function IngredientCard({ ingredient, subgroupLabel }: IngredientCardProps) {
   return (
     <Link
-      href={ingredient.slug ? `/ingredients/${ingredient.slug}` : "/ingredients"}
+      href={getIngredientHref({ id: ingredient.id, slug: ingredient.slug })}
       className="group rounded-lg border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
