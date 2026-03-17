@@ -50,6 +50,87 @@ This script writes record-level API responses into `raw_documents` and updates
 `source_connectors`, `collection_jobs`, and `collection_runs`. It requires
 `DATABASE_URL` unless you use `--dry-run` or `--out-dir`.
 
+Import KR staging JSONL into database:
+
+```bash
+npm run gov:import-staging:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:import-staging:kr -- --dry-run
+npm run gov:import-staging:kr -- --only=products --truncate
+npm run gov:import-staging:kr -- --batch-size=1000 --import-batch=kr-stage-v1
+```
+
+Before running the importer, apply [012_staging_tables.sql](/Users/napler/.superset/worktrees/my-supplementary/OpenClaw-Backup/update-data-base/db/012_staging_tables.sql).
+
+Import KR core entities directly into hosted Supabase main tables:
+
+```bash
+npm run gov:import-core:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:import-core:kr -- --dry-run
+npm run gov:import-core:kr -- --batch-size=500
+npm run gov:import-core:kr -- --unpublished
+```
+
+This importer uses `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+If `SUPABASE_SERVICE_ROLE_KEY` is not set, it will try to resolve the linked
+project's service role key via the `supabase` CLI.
+
+Import KR claims and ingredient-claim links into hosted Supabase:
+
+```bash
+npm run gov:import-claims:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:import-claims:kr -- --dry-run
+npm run gov:import-claims:kr -- --batch-size=250
+```
+
+This importer expects the claim normalization migration to be applied first.
+
+Import KR dosage guidelines into hosted Supabase:
+
+```bash
+npm run gov:import-dosage:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:import-dosage:kr -- --dry-run
+npm run gov:import-dosage:kr -- --batch-size=250
+```
+
+This importer reads KR ingredient profiles and writes normalized daily intake
+guidelines into `dosage_guidelines`.
+
+Import KR product label text snapshots into hosted Supabase:
+
+```bash
+npm run gov:import-labels:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:import-labels:kr -- --dry-run
+npm run gov:import-labels:kr -- --batch-size=250
+```
+
+This importer writes one current `label_snapshots` row per product when
+directions, warnings, storage text, or standards text are available.
+
 ## Getting Started
 
 First, run the development server:
