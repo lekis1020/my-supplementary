@@ -131,6 +131,22 @@ npm run gov:import-labels:kr -- --batch-size=250
 This importer writes one current `label_snapshots` row per product when
 directions, warnings, storage text, or standards text are available.
 
+Import KR ingredient safety warnings into hosted Supabase:
+
+```bash
+npm run gov:import-safety:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:import-safety:kr -- --dry-run
+npm run gov:import-safety:kr -- --batch-size=250
+```
+
+This importer converts regulatory warning text into `safety_items` rows and
+deletes only previously imported rows where `evidence_level = regulatory`.
+
 ## Getting Started
 
 First, run the development server:
