@@ -250,6 +250,32 @@ export function getProbioticSubgroup(input: {
   return "기타 균주";
 }
 
+export function getVitaminSubgroups(input: {
+  canonicalNameKo?: string | null;
+  canonicalNameEn?: string | null;
+  scientificName?: string | null;
+}): string[] {
+  const haystack = [input.canonicalNameKo ?? "", input.canonicalNameEn ?? "", input.scientificName ?? ""]
+    .join(" ")
+    .toLowerCase();
+
+  if (!haystack.trim()) return ["기타 비타민"];
+
+  const subgroupMatchers: Array<{ label: string; pattern: RegExp }> = [
+    {
+      label: "비타민 B1",
+      pattern: /비타민\s*b1(?!\d)|비타민b1(?!\d)|\bb1(?!\d)\b|티아민|thiamin|thiamine/,
+    },
+    { label: "비타민 B12", pattern: /비타민\s*b12(?!\d)|비타민b12(?!\d)|\bb12(?!\d)\b|코발라민|cobalamin/ },
+  ];
+
+  const matches = subgroupMatchers
+    .filter(({ pattern }) => pattern.test(haystack))
+    .map(({ label }) => label);
+
+  return matches.length > 0 ? matches : ["기타 비타민"];
+}
+
 export function getIngredientHref(input: {
   id: number | string;
   slug?: string | null;

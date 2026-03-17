@@ -2,7 +2,7 @@ import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import type { BenefitClaimDetail, BenefitProfileItem } from "@/lib/benefit-profile";
 
 const MOCK_PROFILE: BenefitProfileItem[] = [
-  { key: "immune_antioxidant", state: "active", strength: 3 },
+  { key: "immune_antioxidant", state: "active", strength: 2 },
   { key: "gut_digestive", state: "active", strength: 2 },
   { key: "cardiometabolic", state: "possible", strength: 1 },
   { key: "bone_joint_mobility", state: "inactive", strength: 0 },
