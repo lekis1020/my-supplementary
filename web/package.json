@@ -13,7 +13,8 @@
     "gov:import-core:kr": "node scripts/import_kr_core_to_supabase.mjs",
     "gov:import-claims:kr": "node scripts/import_kr_claims_to_supabase.mjs",
     "gov:import-dosage:kr": "node scripts/import_kr_dosage_to_supabase.mjs",
-    "gov:import-labels:kr": "node scripts/import_kr_label_snapshots_to_supabase.mjs"
+    "gov:import-labels:kr": "node scripts/import_kr_label_snapshots_to_supabase.mjs",
+    "gov:import-safety:kr": "node scripts/import_kr_safety_to_supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
