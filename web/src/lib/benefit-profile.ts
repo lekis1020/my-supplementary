@@ -28,13 +28,31 @@ interface ClaimShape {
   evidence_grade?: string | null;
   is_regulator_approved?: boolean | null;
   raw_claim_text?: string | null;
-  claims?: {
-    claim_category?: string | null;
-    claim_scope?: string | null;
-    claim_name_ko?: string | null;
-  } | null;
+  claims?:
+    | {
+        claim_category?: string | null;
+        claim_scope?: string | null;
+        claim_name_ko?: string | null;
+      }
+    | Array<{
+        claim_category?: string | null;
+        claim_scope?: string | null;
+        claim_name_ko?: string | null;
+      }>
+    | null;
 }
 
+function getClaimMeta(claim: ClaimShape): {
+  claim_category?: string | null;
+  claim_scope?: string | null;
+  claim_name_ko?: string | null;
+} | null {
+  if (!claim.claims) {
+    return null;
+  }
+
+  return Array.isArray(claim.claims) ? claim.claims[0] ?? null : claim.claims;
+}
 function mapClaimCategoryToBenefitCategory(
   claimCategory: string | null | undefined,
 ): BenefitCategoryKey | null {
@@ -65,10 +83,12 @@ function mapClaimCategoryToBenefitCategory(
 }
 
 function getClaimWeight(claim: ClaimShape): number {
+  const claimMeta = getClaimMeta(claim);
+
   if (
     claim.is_regulator_approved ||
-    claim.claims?.claim_scope === "approved_kr" ||
-    claim.claims?.claim_scope === "approved_us"
+    claimMeta?.claim_scope === "approved_kr" ||
+    claimMeta?.claim_scope === "approved_us"
   ) {
     return 2;
   }
@@ -77,7 +97,7 @@ function getClaimWeight(claim: ClaimShape): number {
     return 2;
   }
 
-  if (claim.evidence_grade || claim.claims?.claim_scope === "studied") {
+  if (claim.evidence_grade || claimMeta?.claim_scope === "studied") {
     return 1;
   }
 
@@ -90,7 +110,8 @@ export function buildBenefitProfile(claims: ClaimShape[]): BenefitProfileItem[] 
   );
 
   claims.forEach((claim) => {
-    const category = mapClaimCategoryToBenefitCategory(claim.claims?.claim_category);
+    const claimMeta = getClaimMeta(claim);
+    const category = mapClaimCategoryToBenefitCategory(claimMeta?.claim_category);
 
     if (!category) {
       return;
@@ -116,12 +137,13 @@ export function buildBenefitClaimDetails(claims: ClaimShape[]): BenefitClaimDeta
   const detailMap = new Map<string, BenefitClaimDetail>();
 
   claims.forEach((claim) => {
-    const key = mapClaimCategoryToBenefitCategory(claim.claims?.claim_category);
+    const claimMeta = getClaimMeta(claim);
+    const key = mapClaimCategoryToBenefitCategory(claimMeta?.claim_category);
     if (!key) {
       return;
     }
 
-    const claimNameKo = claim.claims?.claim_name_ko?.trim() || claim.raw_claim_text?.trim();
+    const claimNameKo = claimMeta?.claim_name_ko?.trim() || claim.raw_claim_text?.trim();
     if (!claimNameKo) {
       return;
     }
@@ -131,7 +153,7 @@ export function buildBenefitClaimDetails(claims: ClaimShape[]): BenefitClaimDeta
     const nextDetail: BenefitClaimDetail = {
       key,
       claimNameKo,
-      claimScope: claim.claims?.claim_scope ?? null,
+      claimScope: claimMeta?.claim_scope ?? null,
       evidenceGrade: claim.evidence_grade ?? null,
       isRegulatorApproved: Boolean(claim.is_regulator_approved),
     };
