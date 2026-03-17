@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { buildBenefitProfile } from "@/lib/benefit-profile";
+import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
 import { getIngredientHref } from "@/lib/utils";
 import { ArrowLeft, Tag, FileText } from "lucide-react";
 import type { Metadata } from "next";
@@ -65,11 +65,12 @@ export default async function ProductDetailPage({ params }: Props) {
     ? (
         await supabase
           .from("ingredient_claims")
-          .select("ingredient_id, evidence_grade, is_regulator_approved, claims(claim_category, claim_scope)")
+          .select("ingredient_id, evidence_grade, is_regulator_approved, raw_claim_text, claims(claim_category, claim_scope, claim_name_ko)")
           .in("ingredient_id", ingredientIds)
       ).data ?? []
     : [];
-  const benefitProfile = buildBenefitProfile(productClaims as any[]);
+  const benefitProfile = buildBenefitProfile(productClaims);
+  const benefitClaimDetails = buildBenefitClaimDetails(productClaims);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -112,6 +113,7 @@ export default async function ProductDetailPage({ params }: Props) {
           title="제품 효능 육각형"
           description="포함된 원료의 기능성 데이터를 묶어, 이 제품이 어느 효능 축을 커버하는지 요약한 시각화입니다."
           profile={benefitProfile}
+          claimDetails={benefitClaimDetails}
         />
 
         {/* 원료 조성 */}
