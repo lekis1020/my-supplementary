@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
+import { buildBenefitProfile } from "@/lib/benefit-profile";
 import {
   getIngredientCategory,
   getIngredientCategoryLabel,
@@ -118,6 +120,7 @@ export default async function IngredientDetailPage({ params }: Props) {
   const productLinks = productsRes.data ?? [];
   const productCount = productsRes.count ?? productLinks.length;
   const category = getIngredientCategory(ingredient.ingredient_type);
+  const benefitProfile = buildBenefitProfile(ingredientClaims);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -170,6 +173,12 @@ export default async function IngredientDetailPage({ params }: Props) {
       </div>
 
       <div className="space-y-8">
+        <BenefitHexagon
+          title="효능 육각형"
+          description="강도 비교가 아니라, 이 원료가 어떤 효능 축에 관련되는지를 빠르게 읽기 위한 요약입니다."
+          profile={benefitProfile}
+        />
+
         {/* 기능성/효능 */}
         {ingredientClaims.length > 0 && (
           <Card>
