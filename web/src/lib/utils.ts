@@ -138,6 +138,90 @@ export function getIngredientSubgroupLabel(type: string): string {
   return map[type] || type;
 }
 
+export function getVitaminSubgroups(input: {
+  canonicalNameKo?: string | null;
+  canonicalNameEn?: string | null;
+  scientificName?: string | null;
+}): string[] {
+  const haystack = [
+    input.canonicalNameKo ?? "",
+    input.canonicalNameEn ?? "",
+    input.scientificName ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  const groups = new Set<string>();
+
+  if (
+    /비타민\s*a|비타민a|레티놀|retinol|베타카로틴|beta[\s-]?carotene/.test(haystack)
+  ) {
+    groups.add("비타민 A");
+  }
+
+  if (/비타민\s*b군|비타민b군|vitamin b complex|b-complex|b complex/.test(haystack)) {
+    groups.add("비타민 B군");
+  }
+
+  if (/비타민\s*b1|비타민b1|티아민|thiamin|thiamine/.test(haystack)) {
+    groups.add("비타민 B1");
+  }
+
+  if (/비타민\s*b2|비타민b2|리보플라빈|riboflavin/.test(haystack)) {
+    groups.add("비타민 B2");
+  }
+
+  if (/비타민\s*b3|비타민b3|나이아신|niacin/.test(haystack)) {
+    groups.add("비타민 B3");
+  }
+
+  if (/비타민\s*b5|비타민b5|판토텐|pantothen/.test(haystack)) {
+    groups.add("비타민 B5");
+  }
+
+  if (/비타민\s*b6|비타민b6|피리독신|pyridox/.test(haystack)) {
+    groups.add("비타민 B6");
+  }
+
+  if (/비타민\s*b7|비타민b7|비오틴|biotin/.test(haystack)) {
+    groups.add("비타민 B7");
+  }
+
+  if (/비타민\s*b9|비타민b9|엽산|folate|folic acid/.test(haystack)) {
+    groups.add("비타민 B9");
+  }
+
+  if (/비타민\s*b12|비타민b12|코발라민|cobalamin|메틸코발라민/.test(haystack)) {
+    groups.add("비타민 B12");
+  }
+
+  if (/비타민\s*c|비타민c|아스코르브|ascorb/.test(haystack)) {
+    groups.add("비타민 C");
+  }
+
+  if (/비타민\s*d|비타민d|콜레칼시페롤|cholecalciferol|에르고칼시페롤|ergocalciferol/.test(haystack)) {
+    groups.add("비타민 D");
+  }
+
+  if (/비타민\s*e|비타민e|토코페롤|tocopherol|토코트리에놀|tocotrienol/.test(haystack)) {
+    groups.add("비타민 E");
+  }
+
+  if (/비타민\s*k|비타민k|메나퀴논|menaquinone|필로퀴논|phylloquinone/.test(haystack)) {
+    groups.add("비타민 K");
+  }
+
+  if (/루테인|lutein|지아잔틴|zeaxanthin/.test(haystack)) {
+    groups.add("루테인·카로티노이드");
+  }
+
+  if (groups.size === 0) {
+    groups.add("기타 복합 비타민");
+  }
+
+  return Array.from(groups);
+}
+
 /** 연구 설계 한글 변환 */
 export function getStudyDesignLabel(design: string | null): string {
   const map: Record<string, string> = {

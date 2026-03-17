@@ -5,7 +5,7 @@ import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { buildBenefitProfile } from "@/lib/benefit-profile";
-import { getIngredientHref } from "@/lib/utils";
+import { cn, getIngredientHref } from "@/lib/utils";
 import { ArrowLeft, Tag, FileText } from "lucide-react";
 import type { Metadata } from "next";
 
