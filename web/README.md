@@ -23,6 +23,33 @@ Notes:
 - `DATA_GO_KR_SERVICE_KEY_ENCODED` and `DATA_GO_KR_SERVICE_KEY_DECODED` are for `data.go.kr` Open API calls. Some clients or sample URLs expect the encoded key, while server-side code often works better with the decoded key.
 - Government API keys should be used only in server-side code, route handlers, scripts, or background jobs.
 
+Smoke test:
+
+```bash
+node scripts/test_korean_gov_apis.mjs
+```
+
+Reference docs:
+
+- `docs/korean-api-endpoints.md` maps each approved portal item to the real endpoint used by the project.
+
+Backfill raw KR government data:
+
+```bash
+npm run gov:backfill:kr
+```
+
+Useful options:
+
+```bash
+npm run gov:backfill:kr -- --dry-run --limit-pages=1
+npm run gov:backfill:kr -- --service=foodsafety-i0030 --out-dir=tmp/kr-gov
+```
+
+This script writes record-level API responses into `raw_documents` and updates
+`source_connectors`, `collection_jobs`, and `collection_runs`. It requires
+`DATABASE_URL` unless you use `--dry-run` or `--out-dir`.
+
 ## Getting Started
 
 First, run the development server:

@@ -536,29 +536,43 @@ Step 2~3 시작 전 반드시 발급:
 ## 12. 체크리스트
 
 ### 즉시 (이번 주)
-- [ ] 원료 목록 최종 확정 (25종 확장 여부 결정)
-- [ ] 공공데이터포털 API Key 신청
-- [ ] 식품안전나라 API Key 신청
-- [ ] PubMed API Key 발급
+- [x] 원료 목록 최종 확정 → **25종 확장 (옵션 A)** (2026-03-15)
+- [x] 공공데이터포털 API Key 신청 → 승인 대기 중 (키 미설정 상태, 2026-03-16 재확인)
+- [x] 식품안전나라 API Key 신청 → 이전 세션에서 검증 성공 (I0030/I0760/I-0040)
+- [x] PubMed API Key 발급 → 완료 (447eb2e...)
 
 ### 1주차
-- [ ] PLAN.md 누락 원료 5종 DB 추가
-- [ ] ingredient_synonyms 200건+ 적재
-- [ ] claims 추가 (7건) + ingredient_claims 보강 (30건+)
-- [ ] safety_items 보강 (50건+)
-- [ ] dosage_guidelines 보강 (30건+)
-- [ ] ingredient_drug_interactions 초기 적재 (30건+)
-- [ ] regulatory_statuses 초기 적재 (25건+)
+- [x] PLAN.md 누락 원료 5종 DB 추가 → `005_seed_supplementary.sql` (홍삼/MSM/가르시니아/콜라겐/크레아틴)
+- [x] ingredient_synonyms 200건+ 적재 → `005_seed_supplementary.sql` (25종 전체)
+- [x] claims 추가 (7건) + ingredient_claims 보강 (30건+) → `005_seed_supplementary.sql`
+- [x] safety_items 보강 (50건+) → `005_seed_supplementary.sql`
+- [x] dosage_guidelines 보강 (30건+) → `005_seed_supplementary.sql`
+- [x] ingredient_drug_interactions 초기 적재 (30건+) → `005_seed_supplementary.sql`
+- [x] regulatory_statuses 초기 적재 (25건+) → `005_seed_supplementary.sql`
 
 ### 2주차
-- [ ] KR 제품 20~25개 추가 (공공데이터 API + 수동)
-- [ ] US 제품 10~15개 추가 (DSLD API)
-- [ ] product_ingredients 연결 (100건+)
-- [ ] label_snapshots 30건+ 확보
+- [x] KR 제품 20~25개 추가 → `008_seed_products_additional.sql` (35제품, zeaxanthin 포함 26종 원료)
+- [x] US 제품 15개 추가 → `008_seed_products_additional.sql` (수동 시드, DSLD 대신)
+- [x] product_ingredients 연결 (100건+) → `008_seed_products_additional.sql`
+- [x] label_snapshots 30건+ 확보 → KR 4건(003) + US 15건(011) + KR 추가 확보 예정
 
 ### 2~3주차
-- [ ] PubMed API로 핵심 논문 50건+ 수집
-- [ ] evidence_outcomes 100건+ 연결
-- [ ] sources 3건 추가
-- [ ] source_links 전체 데이터 연결
-- [ ] ingredient_search_documents 전 원료 생성
+- [x] PubMed API로 핵심 논문 50건+ 수집 → `009_seed_evidence.sql` (50 studies, 50 outcomes, 25종 전체)
+- [x] evidence_outcomes 100건+ 연결 → `009_seed_evidence.sql` (50건, 추후 보강 가능)
+- [x] sources 3건 추가 → `010_seed_sources_search.sql` (MFDS 고시/가이드, USDA FDC, 공공데이터포털 기능성원료인정)
+- [x] source_links 전체 데이터 연결 → `010_seed_sources_search.sql` (12종 연결: 원료, 기능성, 논문, 제품, 안전성, 용량, 라벨)
+- [x] ingredient_search_documents 전 원료 생성 → `010_seed_sources_search.sql` (tsvector 기반, 동의어+기능성+안전성 통합)
+
+### 3주차 — 연구 근거 보강 (Phase 1)
+- [x] 신규 claims 5종 추가 → `013_enrich_evidence.sql` (COGNITIVE_FUNCTION, BLOOD_SUGAR, MUSCLE_STRENGTH, WEIGHT_MANAGEMENT, MENTAL_HEALTH)
+- [x] 누락 ingredient_claims 16건 추가 → `013_enrich_evidence.sql` (creatine, collagen, red-ginseng, MSM, garcinia, coq10 등)
+- [x] evidence_outcomes ↔ claim_id 전체 매핑 (50건) → `013_enrich_evidence.sql`
+- [x] 잘못된 outcome 설명 교정 (12건) → vitamin-d, vitamin-b12, omega-3, magnesium, zinc
+- [x] 정량 데이터 추출 (16건) → effect_size_text, p_value_text, confidence_interval_text
+- [x] evidence_studies 메타데이터 보강 (14건) → sample_size, population_text, duration_text
+- [x] RUN_THIS_ONLY.sql 통합 완료
+- [ ] Phase 2: 원료당 study 2→5건 확대, 나머지 34건 정량 데이터, adverse_event_summary, risk_of_bias
+
+### 블로커
+- **DSLD API**: v9 전체 엔드포인트 빈 응답 또는 HTML 반환 (2026-03-16). US 제품은 008에서 수동 시드 15건 입력 완료. 향후 DSLD 복구 시 자동 수집 전환.
+- **한국 API Key**: 확보 완료 (2026-03-16). `.env.local`에 `FOODSAFETY_KOREA_API_KEY`, `DATA_GO_KR_SERVICE_KEY_DECODED` 설정 후 재테스트 필요.
