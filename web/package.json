@@ -8,7 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "gov:smoke:kr": "node ../scripts/test_korean_gov_apis.mjs",
-    "gov:backfill:kr": "node scripts/backfill_kr_gov_raw.mjs"
+    "gov:backfill:kr": "node scripts/backfill_kr_gov_raw.mjs",
+    "gov:import-staging:kr": "node scripts/import_kr_staging_to_db.mjs",
+    "gov:import-core:kr": "node scripts/import_kr_core_to_supabase.mjs",
+    "gov:import-claims:kr": "node scripts/import_kr_claims_to_supabase.mjs",
+    "gov:import-dosage:kr": "node scripts/import_kr_dosage_to_supabase.mjs",
+    "gov:import-labels:kr": "node scripts/import_kr_label_snapshots_to_supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
