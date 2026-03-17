@@ -138,6 +138,68 @@ export function getIngredientSubgroupLabel(type: string): string {
   return map[type] || type;
 }
 
+/** 연구 설계 한글 변환 */
+export function getStudyDesignLabel(design: string | null): string {
+  const map: Record<string, string> = {
+    meta_analysis: "메타분석",
+    systematic_review: "체계적 문헌고찰",
+    rct: "RCT",
+    cohort: "코호트",
+    case_control: "사례대조",
+    guideline: "가이드라인",
+    in_vitro: "시험관 연구",
+    animal: "동물 연구",
+  };
+  return map[design ?? ""] ?? design ?? "";
+}
+
+/** 연구 설계 배지 색상 */
+export function getStudyDesignColor(design: string | null): string {
+  switch (design) {
+    case "meta_analysis":
+    case "systematic_review":
+      return "bg-purple-100 text-purple-800";
+    case "rct":
+      return "bg-blue-100 text-blue-800";
+    case "guideline":
+      return "bg-teal-100 text-teal-800";
+    default:
+      return "bg-gray-100 text-gray-600";
+  }
+}
+
+/** 효과 방향 한글 변환 */
+export function getEffectDirectionLabel(direction: string | null): string {
+  switch (direction) {
+    case "positive":
+      return "긍정적";
+    case "negative":
+      return "부정적";
+    case "neutral":
+      return "중립/제한적";
+    case "mixed":
+      return "혼합";
+    default:
+      return "";
+  }
+}
+
+/** 효과 방향 배지 색상 */
+export function getEffectDirectionBadgeColor(direction: string | null): string {
+  switch (direction) {
+    case "positive":
+      return "bg-green-50 text-green-700";
+    case "negative":
+      return "bg-red-50 text-red-700";
+    case "neutral":
+      return "bg-gray-100 text-gray-600";
+    case "mixed":
+      return "bg-yellow-50 text-yellow-700";
+    default:
+      return "bg-gray-50 text-gray-500";
+  }
+}
+
 export function getProbioticSubgroup(input: {
   canonicalNameKo?: string | null;
   canonicalNameEn?: string | null;
