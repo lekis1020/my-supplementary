@@ -1120,9 +1120,94 @@ VALUES (
   'B', '크레아틴이 기억력 개선 (SMD 0.29); 고령자에서 대효과 (SMD 0.88)', false, NULL, NULL
 ) ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
 
+-- ============================================================================
+-- 016: 프로바이오틱스 균주 세분화
+-- ============================================================================
+
+-- 균주 하위 원료 (14종)
+INSERT INTO ingredients (canonical_name_ko, canonical_name_en, display_name, scientific_name, slug, ingredient_type, parent_ingredient_id, description, origin_type, form_description, standardization_info, is_active, is_published) VALUES
+('락토바실러스 람노서스 GG','Lactobacillus rhamnosus GG','L. rhamnosus GG (LGG)','Lacticaseibacillus rhamnosus GG','lactobacillus-rhamnosus-gg','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'세계 최다 연구 균주. 300+ RCT. AAD 예방 ESPGHAN 권장.','natural','LGG (ATCC 53103)','1~100억 CFU/일',true,true),
+('비피도박테리움 아니말리스 BB-12','Bifidobacterium animalis subsp. lactis BB-12','B. lactis BB-12','Bifidobacterium animalis subsp. lactis BB-12','bifidobacterium-lactis-bb12','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'300+ 문헌. 배변 빈도·장내 균총 개선. Chr. Hansen 독점.','natural','BB-12 (DSM 15954)','10~300억 CFU/일',true,true),
+('락토바실러스 애시도필루스 NCFM','Lactobacillus acidophilus NCFM','L. acidophilus NCFM','Lactobacillus acidophilus NCFM','lactobacillus-acidophilus-ncfm','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'45+ 임상시험. IBS 팽만감 73% 개선.','natural','NCFM','10~100억 CFU/일',true,true),
+('비피도박테리움 롱검 BB536','Bifidobacterium longum BB536','B. longum BB536','Bifidobacterium longum subsp. longum BB536','bifidobacterium-longum-bb536','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'280+ 연구. 면역 조절, 알레르기 완화. Morinaga 독점.','natural','BB536','10~100억 CFU/일',true,true),
+('락토바실러스 람노서스 HN001','Lactobacillus rhamnosus HN001','L. rhamnosus HN001','Lacticaseibacillus rhamnosus HN001','lactobacillus-rhamnosus-hn001','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'면역 강화, 질 건강, 불안 감소, 유아 아토피 예방.','natural','HN001','10~60억 CFU/일',true,true),
+('비피도박테리움 아니말리스 HN019','Bifidobacterium animalis subsp. lactis HN019','B. lactis HN019','Bifidobacterium animalis subsp. lactis HN019','bifidobacterium-lactis-hn019','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'NK세포 활성화 면역 강화. 장 통과 시간 개선.','natural','HN019 (Howaru Bifido)','10~90억 CFU/일',true,true),
+('락토바실러스 카제이 시로타','Lactobacillus casei Shirota','L. casei Shirota','Lacticaseibacillus paracasei Shirota','lactobacillus-casei-shirota','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'500+ 연구. 1930년 발견. NK세포 활성. 40개국 판매.','natural','Shirota','65~1000억 CFU/일',true,true),
+('락토바실러스 로이테리 DSM 17938','Lactobacillus reuteri DSM 17938','L. reuteri DSM 17938','Limosilactobacillus reuteri DSM 17938','lactobacillus-reuteri-dsm17938','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'영아 산통 예방/치료. BioGaia 독점. 최저 유효 CFU.','natural','DSM 17938','1~10억 CFU/일',true,true),
+('락토플란티바실러스 플란타룸 299v','Lactiplantibacillus plantarum 299v','L. plantarum 299v','Lactiplantibacillus plantarum 299v','lactobacillus-plantarum-299v','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'IBS 복통 EFSA Level 2 근거. C. difficile 예방.','natural','299v (DSM 9843)','100~200억 CFU/일',true,true),
+('락토바실러스 헬베티쿠스 R0052','Lactobacillus helveticus R0052','L. helveticus R0052','Lactobacillus helveticus R0052','lactobacillus-helveticus-r0052','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'불안·스트레스 완화. GABA 촉진. R0175와 조합.','natural','R0052 (Lallemand)','30~60억 CFU/일',true,true),
+('비피도박테리움 롱검 R0175','Bifidobacterium longum R0175','B. longum R0175','Bifidobacterium longum R0175','bifidobacterium-longum-r0175','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'우울증 보조. BDNF 증가. R0052와 조합 전용.','natural','R0175 (Lallemand)','30~60억 CFU/일',true,true),
+('락토바실러스 가세리 BNR17','Lactobacillus gasseri BNR17','L. gasseri BNR17','Lactobacillus gasseri BNR17','lactobacillus-gasseri-bnr17','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'한국 개발. 식약처 최초 체지방 감소 인정 균주.','natural','BNR17 (AceBiome)','10~100억 CFU/일',true,true),
+('스트렙토코커스 써모필루스','Streptococcus thermophilus','S. thermophilus','Streptococcus thermophilus','streptococcus-thermophilus','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'유당 분해 지원. 식약처 19종 포함. EFSA 인정.','natural','다양한 균주','10~100억 CFU/일',true,true),
+('비피도박테리움 비피덤 BGN4','Bifidobacterium bifidum BGN4','B. bifidum BGN4','Bifidobacterium bifidum BGN4','bifidobacterium-bifidum-bgn4','probiotic',(SELECT id FROM ingredients WHERE slug='probiotics'),'한국 연구. IBS·아토피 개선. 면역 균형.','natural','BGN4','10~50억 CFU/일',true,true)
+ON CONFLICT (slug) DO NOTHING;
+
+-- 균주별 동의어
+INSERT INTO ingredient_synonyms (ingredient_id, synonym, language_code, synonym_type, is_preferred) VALUES
+((SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-gg'),'LGG','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-gg'),'Lacticaseibacillus rhamnosus GG','en','scientific',false),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-bb12'),'BB-12','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-acidophilus-ncfm'),'NCFM','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-longum-bb536'),'BB536','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-hn001'),'HN001','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-hn019'),'HN019','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-hn019'),'Howaru Bifido','en','brand_like',false),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-casei-shirota'),'시로타균','ko','common',false),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-casei-shirota'),'Shirota','en','common',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-casei-shirota'),'야쿠르트균','ko','common',false),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-reuteri-dsm17938'),'DSM 17938','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-reuteri-dsm17938'),'BioGaia Protectis','en','brand_like',false),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-plantarum-299v'),'LP299v','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-helveticus-r0052'),'R0052','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-longum-r0175'),'R0175','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-gasseri-bnr17'),'BNR17','en','abbreviation',true),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-gasseri-bnr17'),'가세리균','ko','common',false),
+((SELECT id FROM ingredients WHERE slug='streptococcus-thermophilus'),'써모필루스','ko','common',false),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-bifidum-bgn4'),'BGN4','en','abbreviation',true)
+ON CONFLICT DO NOTHING;
+
+-- 균주별 기능성 매핑
+INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence_summary, is_regulator_approved, approval_country_code, allowed_expression) VALUES
+((SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-gg'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'A','AAD 예방 ESPGHAN 권장. 300+ RCT',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-gg'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'B','소아 호흡기 감염 감소. sIgA 증가',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-bb12'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'A','배변 빈도·균총 개선. 300+ 문헌',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-bb12'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'B','sIgA 증가, AAD 예방 보조',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-acidophilus-ncfm'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'B','IBS 팽만감 73% 개선 (RCT)',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-longum-bb536'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'A','IBS 복통 완화. 280+ 연구',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-longum-bb536'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'B','면역 조절, 알레르기 완화',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-hn001'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'B','NK세포 활성, 유아 아토피 예방',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-hn019'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'B','NK세포, IFN-α 활성 증가',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-hn019'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'B','장 통과 시간 개선, 변비 완화',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-casei-shirota'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'A','장내 균총 개선. 500+ 연구',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-casei-shirota'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'B','NK세포 활성, 스트레스 장 건강',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-reuteri-dsm17938'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'B','영아 산통 50% 감소. 급성 설사 단축',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-plantarum-299v'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'B','IBS 복통 EFSA Level 2. C. difficile 예방',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-helveticus-r0052'),(SELECT id FROM claims WHERE claim_code='MENTAL_HEALTH'),'B','R0175 조합 불안 완화. WFSBP/CANMAT 잠정 권장',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-longum-r0175'),(SELECT id FROM claims WHERE claim_code='MENTAL_HEALTH'),'B','R0052 조합 우울증 보조. BDNF 증가',false,NULL,NULL),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-gasseri-bnr17'),(SELECT id FROM claims WHERE claim_code='WEIGHT_MANAGEMENT'),'B','식약처 체지방 감소 인정',true,'KR','체지방 감소에 도움'),
+((SELECT id FROM ingredients WHERE slug='lactobacillus-gasseri-bnr17'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'C','장내 균총 개선 보조',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='streptococcus-thermophilus'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'B','유당 분해 EFSA 인정',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-bifidum-bgn4'),(SELECT id FROM claims WHERE claim_code='GUT_HEALTH'),'B','IBS 증상 완화, 유해균 억제',true,'KR','유익균 증식 및 유해균 억제에 도움'),
+((SELECT id FROM ingredients WHERE slug='bifidobacterium-bifidum-bgn4'),(SELECT id FROM claims WHERE claim_code='IMMUNE_FUNCTION'),'C','아토피 개선, 면역 균형',false,NULL,NULL)
+ON CONFLICT (ingredient_id, claim_id, approval_country_code) DO NOTHING;
+
+-- 제품별 균주 구성
+INSERT INTO product_ingredients (product_id, ingredient_id, amount_per_serving, amount_unit, ingredient_role, raw_label_name) VALUES
+((SELECT id FROM products WHERE product_name='Culturelle Daily Probiotic'),(SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-gg'),100,'억 CFU','active','Lactobacillus rhamnosus GG (LGG) 10 Billion CFU'),
+((SELECT id FROM products WHERE product_name LIKE '한미양행%'),(SELECT id FROM ingredients WHERE slug='lactobacillus-acidophilus-ncfm'),NULL,'억 CFU','active','Lactobacillus acidophilus'),
+((SELECT id FROM products WHERE product_name LIKE '한미양행%'),(SELECT id FROM ingredients WHERE slug='bifidobacterium-longum-bb536'),NULL,'억 CFU','active','Bifidobacterium longum'),
+((SELECT id FROM products WHERE product_name LIKE '한미양행%'),(SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-gg'),NULL,'억 CFU','active','Lactobacillus rhamnosus'),
+((SELECT id FROM products WHERE product_name LIKE '한미양행%'),(SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-bb12'),NULL,'억 CFU','active','Bifidobacterium animalis subsp. lactis'),
+((SELECT id FROM products WHERE product_name LIKE '한미양행%'),(SELECT id FROM ingredients WHERE slug='streptococcus-thermophilus'),NULL,'억 CFU','active','Streptococcus thermophilus'),
+((SELECT id FROM products WHERE product_name LIKE '한미양행%'),(SELECT id FROM ingredients WHERE slug='bifidobacterium-bifidum-bgn4'),NULL,'억 CFU','active','Bifidobacterium bifidum'),
+((SELECT id FROM products WHERE product_name LIKE '세노비스%'),(SELECT id FROM ingredients WHERE slug='lactobacillus-rhamnosus-hn001'),NULL,'억 CFU','active','Lactobacillus rhamnosus HN001'),
+((SELECT id FROM products WHERE product_name LIKE '세노비스%'),(SELECT id FROM ingredients WHERE slug='bifidobacterium-lactis-bb12'),NULL,'억 CFU','active','Bifidobacterium animalis subsp. lactis BB-12')
+ON CONFLICT DO NOTHING;
+
 -- 완료!
 SELECT 'SUCCESS: 모든 데이터가 적용되었습니다.' AS result,
        (SELECT count(*) FROM ingredients) AS ingredients_count,
+       (SELECT count(*) FROM ingredients WHERE parent_ingredient_id = (SELECT id FROM ingredients WHERE slug='probiotics')) AS probiotic_strains,
        (SELECT count(*) FROM products) AS products_count,
        (SELECT count(*) FROM ingredient_claims) AS ingredient_claims_count,
        (SELECT count(*) FROM claims) AS claims_count,
