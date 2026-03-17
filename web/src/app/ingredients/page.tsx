@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { IngredientCategoryCard } from "@/components/ingredient/ingredient-category-card";
 import {
-  getIngredientCategory,
+  getIngredientCategories,
   getIngredientCategoryDescription,
   getIngredientCategoryLabel,
   INGREDIENT_CATEGORY_ORDER,
@@ -99,9 +99,10 @@ export default async function IngredientsPage() {
 function buildCategorySummaries(ingredients: IngredientRow[]): CategorySummary[] {
   const grouped = ingredients.reduce<Record<IngredientCategory, IngredientRow[]>>(
     (acc, ingredient) => {
-      const category = getIngredientCategory(ingredient.ingredient_type);
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(ingredient);
+      getIngredientCategories(ingredient.ingredient_type).forEach((category) => {
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(ingredient);
+      });
       return acc;
     },
     {

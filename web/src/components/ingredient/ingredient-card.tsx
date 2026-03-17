@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   getIngredientHref,
   getIngredientSubgroupLabel,
-  getIngredientTypeLabel,
+  getIngredientTypeLabels,
 } from "@/lib/utils";
 
 interface IngredientCardProps {
@@ -19,6 +19,8 @@ interface IngredientCardProps {
 }
 
 export function IngredientCard({ ingredient, subgroupLabel }: IngredientCardProps) {
+  const typeLabels = getIngredientTypeLabels(ingredient.ingredient_type);
+
   return (
     <Link
       href={getIngredientHref({ id: ingredient.id, slug: ingredient.slug })}
@@ -33,11 +35,15 @@ export function IngredientCard({ ingredient, subgroupLabel }: IngredientCardProp
             <p className="text-sm text-gray-400">{ingredient.canonical_name_en}</p>
           )}
         </div>
-        <Badge className="bg-gray-100 text-gray-600">
-          {getIngredientTypeLabel(ingredient.ingredient_type)}
-        </Badge>
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {typeLabels.map((label) => (
+            <Badge key={label} className="bg-gray-100 text-gray-600">
+              {label}
+            </Badge>
+          ))}
+        </div>
       </div>
-      {subgroupLabel && subgroupLabel !== getIngredientSubgroupLabel(ingredient.ingredient_type) && (
+      {subgroupLabel && !typeLabels.includes(subgroupLabel) && subgroupLabel !== getIngredientSubgroupLabel(ingredient.ingredient_type) && (
         <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-emerald-600">
           {subgroupLabel}
         </p>

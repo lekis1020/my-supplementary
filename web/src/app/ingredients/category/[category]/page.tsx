@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { IngredientCard } from "@/components/ingredient/ingredient-card";
 import {
-  getIngredientCategory,
+  getIngredientCategories,
   getIngredientCategoryDescription,
   getIngredientCategoryLabel,
   getIngredientSubgroupLabel,
+  getIngredientTypeLabels,
   getProbioticSubgroup,
   getVitaminSubgroups,
   INGREDIENT_CATEGORY_ORDER,
@@ -65,7 +66,7 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
   }
 
   const categoryIngredients = (ingredients ?? []).filter(
-    (ingredient) => getIngredientCategory(ingredient.ingredient_type) === category,
+    (ingredient) => getIngredientCategories(ingredient.ingredient_type).includes(category),
   );
 
   if (categoryIngredients.length === 0) {
@@ -116,6 +117,7 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
         {category === "vitamins" && (
           <p className="mt-2 text-sm text-slate-500">
             복합 비타민 원료는 포함된 성분 기준으로 여러 세부 분류에 함께 표시됩니다.
+            복합 유형 원료는 관련 카테고리에 각각 나뉘어 표시됩니다.
           </p>
         )}
       </div>
@@ -220,9 +222,17 @@ function groupIngredients(
 
   if (category === "others") {
     const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
-      const subgroup = getIngredientSubgroupLabel(ingredient.ingredient_type);
-      if (!acc[subgroup]) acc[subgroup] = [];
-      acc[subgroup].push(ingredient);
+      const subgroups = getIngredientTypeLabels(ingredient.ingredient_type).filter((label) =>
+        ["아미노산", "효소", "기타"].includes(label),
+      );
+
+      (subgroups.length > 0 ? subgroups : [getIngredientSubgroupLabel(ingredient.ingredient_type)]).forEach(
+        (subgroup) => {
+          if (!acc[subgroup]) acc[subgroup] = [];
+          acc[subgroup].push(ingredient);
+        },
+      );
+
       return acc;
     }, {});
 

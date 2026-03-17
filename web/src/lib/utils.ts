@@ -11,6 +11,17 @@ export const INGREDIENT_CATEGORY_ORDER = [
 
 export type IngredientCategory = (typeof INGREDIENT_CATEGORY_ORDER)[number];
 
+const INGREDIENT_TYPE_LABELS: Record<string, string> = {
+  vitamin: "비타민",
+  mineral: "미네랄",
+  amino_acid: "아미노산",
+  fatty_acid: "지방산",
+  probiotic: "프로바이오틱스",
+  herbal: "허브/식물성",
+  enzyme: "효소",
+  other: "기타",
+};
+
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
@@ -63,37 +74,99 @@ export function getClaimScopeLabel(scope: string): string {
 
 /** ingredient_type 한글 변환 */
 export function getIngredientTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    vitamin: "비타민",
-    mineral: "미네랄",
-    amino_acid: "아미노산",
-    fatty_acid: "지방산",
-    probiotic: "프로바이오틱스",
-    herbal: "허브/식물성",
-    enzyme: "효소",
-    other: "기타",
-  };
-  return map[type] || type;
+  return getIngredientTypeLabels(type).join(" · ");
+}
+
+function normalizeIngredientTypeToken(token: string): string | null {
+  switch (token.trim().toLowerCase()) {
+    case "vitamin":
+    case "비타민":
+      return "vitamin";
+    case "mineral":
+    case "미네랄":
+      return "mineral";
+    case "amino_acid":
+    case "amino-acid":
+    case "amino acid":
+    case "아미노산":
+      return "amino_acid";
+    case "fatty_acid":
+    case "fatty-acid":
+    case "fatty acid":
+    case "지방산":
+      return "fatty_acid";
+    case "probiotic":
+    case "probiotics":
+    case "프로바이오틱스":
+    case "유산균":
+      return "probiotic";
+    case "herbal":
+    case "허브":
+    case "식물성":
+    case "허브/식물성":
+      return "herbal";
+    case "enzyme":
+    case "효소":
+    case "coenzyme":
+    case "코엔자임":
+      return "enzyme";
+    case "other":
+    case "기타":
+      return "other";
+    default:
+      return null;
+  }
+}
+
+export function getIngredientTypeCodes(type: string): string[] {
+  const normalized = type
+    .split(/[\/,|·]+/)
+    .map((token) => normalizeIngredientTypeToken(token))
+    .filter((token): token is string => Boolean(token));
+
+  if (normalized.length > 0) {
+    return Array.from(new Set(normalized));
+  }
+
+  const wholeToken = normalizeIngredientTypeToken(type);
+  return wholeToken ? [wholeToken] : [];
+}
+
+export function getIngredientTypeLabels(type: string): string[] {
+  const codes = getIngredientTypeCodes(type);
+  if (codes.length === 0) {
+    return [type];
+  }
+
+  return codes.map((code) => INGREDIENT_TYPE_LABELS[code] ?? code);
+}
+
+export function getIngredientCategories(type: string): IngredientCategory[] {
+  const categories = getIngredientTypeCodes(type).map((code) => {
+    switch (code) {
+      case "vitamin":
+        return "vitamins";
+      case "mineral":
+        return "minerals";
+      case "fatty_acid":
+        return "fatty-acids";
+      case "probiotic":
+        return "probiotics";
+      case "herbal":
+        return "herbals";
+      case "amino_acid":
+      case "enzyme":
+      case "other":
+      default:
+        return "others";
+    }
+  });
+
+  return Array.from(new Set(categories));
 }
 
 export function getIngredientCategory(type: string): IngredientCategory {
-  switch (type) {
-    case "vitamin":
-      return "vitamins";
-    case "mineral":
-      return "minerals";
-    case "fatty_acid":
-      return "fatty-acids";
-    case "probiotic":
-      return "probiotics";
-    case "herbal":
-      return "herbals";
-    case "amino_acid":
-    case "enzyme":
-    case "other":
-    default:
-      return "others";
-  }
+  return getIngredientCategories(type)[0] ?? "others";
 }
 
 export function getIngredientCategoryLabel(category: IngredientCategory): string {
@@ -125,17 +198,7 @@ export function isIngredientCategory(value: string): value is IngredientCategory
 }
 
 export function getIngredientSubgroupLabel(type: string): string {
-  const map: Record<string, string> = {
-    amino_acid: "아미노산",
-    enzyme: "효소",
-    other: "기타",
-    herbal: "허브/식물성",
-    probiotic: "프로바이오틱스",
-    vitamin: "비타민",
-    mineral: "미네랄",
-    fatty_acid: "지방산",
-  };
-  return map[type] || type;
+  return getIngredientTypeLabels(type)[0] ?? type;
 }
 
 export function getVitaminSubgroups(input: {
