@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
+  getIngredientCategory,
+  getIngredientCategoryLabel,
   getIngredientTypeLabel,
   getEvidenceGradeColor,
   getSeverityColor,
@@ -79,17 +81,26 @@ export default async function IngredientDetailPage({ params }: Props) {
   const drugInteractions = drugRes.data ?? [];
   const dosageGuidelines = dosageRes.data ?? [];
   const productLinks = productsRes.data ?? [];
+  const category = getIngredientCategory(ingredient.ingredient_type);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       {/* Breadcrumb */}
-      <Link
-        href="/ingredients"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-600"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        원료 사전
-      </Link>
+      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+        <Link href="/ingredients" className="inline-flex items-center gap-1 hover:text-green-600">
+          <ArrowLeft className="h-4 w-4" />
+          원료 사전
+        </Link>
+        <span>/</span>
+        <Link
+          href={`/ingredients/category/${category}`}
+          className="hover:text-green-600"
+        >
+          {getIngredientCategoryLabel(category)}
+        </Link>
+        <span>/</span>
+        <span className="font-medium text-gray-700">{ingredient.canonical_name_ko}</span>
+      </div>
 
       {/* Header */}
       <div className="mb-8">
