@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { buildBenefitProfile } from "@/lib/benefit-profile";
 import { getIngredientHref } from "@/lib/utils";
 import { ArrowLeft, Tag, FileText } from "lucide-react";
 import type { Metadata } from "next";
@@ -56,6 +58,18 @@ export default async function ProductDetailPage({ params }: Props) {
 
   const productIngredients = ingredientsRes.data ?? [];
   const label = labelsRes.data?.[0] ?? null;
+  const ingredientIds = productIngredients
+    .map((pi: any) => pi.ingredients?.id)
+    .filter((value: number | null | undefined): value is number => Number.isInteger(value));
+  const productClaims = ingredientIds.length > 0
+    ? (
+        await supabase
+          .from("ingredient_claims")
+          .select("ingredient_id, evidence_grade, is_regulator_approved, claims(claim_category, claim_scope)")
+          .in("ingredient_id", ingredientIds)
+      ).data ?? []
+    : [];
+  const benefitProfile = buildBenefitProfile(productClaims as any[]);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -94,6 +108,12 @@ export default async function ProductDetailPage({ params }: Props) {
       </div>
 
       <div className="space-y-8">
+        <BenefitHexagon
+          title="제품 효능 육각형"
+          description="포함된 원료의 기능성 데이터를 묶어, 이 제품이 어느 효능 축을 커버하는지 요약한 시각화입니다."
+          profile={benefitProfile}
+        />
+
         {/* 원료 조성 */}
         <Card>
           <CardHeader>
