@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "exit",
+        "hooks": [
+          {
+            "name": "update-progress",
+            "type": "command",
+            "command": "bash .gemini/hooks/update_progress.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

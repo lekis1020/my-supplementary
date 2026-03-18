@@ -91,6 +91,14 @@ python3 scripts/fetch_pubmed_evidence_v2.py
 
 ---
 
+## Session Lifecycle & Progress Tracking
+
+- **Session Summary**: At the end of each session, Gemini MUST write a concise summary of its work to `.gemini/tmp/current_session_summary.md`.
+- **Automatic Update**: A `SessionEnd` hook is configured in `.gemini/settings.json` to automatically append this summary to `PROGRESS.md` upon exit.
+- **Format**: Follow the existing `PROGRESS.md` style (Day X — Date: Title, Agent, Bullet points).
+
+---
+
 ## Key Files for Reference
 - `PLAN.md`: Comprehensive project roadmap and technical strategy.
 - `db/001_schema.sql`: Core database structure (28+ tables).
