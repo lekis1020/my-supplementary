@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 export function Footer() {
+  const projectReadmeHref = "https://github.com/lekis1020/my-supplementary#readme";
+
   return (
     <footer className="border-t border-gray-200 bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -24,9 +26,14 @@ export function Footer() {
               <Link href="/disclaimer" className="hover:text-gray-700">
                 의료 면책 조항
               </Link>
-              <Link href="/about" className="hover:text-gray-700">
+              <a
+                href={projectReadmeHref}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-gray-700"
+              >
                 서비스 소개
-              </Link>
+              </a>
             </div>
           </div>
         </div>

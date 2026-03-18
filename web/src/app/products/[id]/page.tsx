@@ -5,7 +5,7 @@ import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
-import { cn, getIngredientHref } from "@/lib/utils";
+import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
 import { ArrowLeft, Clock, FileText, Tag } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -13,6 +13,23 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+interface ProductIngredientRelation {
+  id: number | null;
+  canonical_name_ko: string | null;
+  canonical_name_en: string | null;
+  slug: string | null;
+  ingredient_type: string | null;
+}
+
+interface ProductIngredientRow {
+  id: number;
+  ingredient_role: string | null;
+  amount_per_serving: string | number | null;
+  amount_unit: string | null;
+  raw_label_name: string | null;
+  ingredients: ProductIngredientRelation | ProductIngredientRelation[] | null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,8 +42,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .single();
 
   if (!data) return { title: "제품을 찾을 수 없습니다" };
+
+  const productTitle = formatProductName(data.product_name);
+  const brandSuffix = data.brand_name ? ` - ${data.brand_name}` : "";
+
   return {
-    title: `${data.product_name} — ${data.brand_name ?? ""}`,
+    title: `${productTitle}${brandSuffix}`,
   };
 }
 
@@ -56,10 +77,13 @@ export default async function ProductDetailPage({ params }: Props) {
       .limit(1),
   ]);
 
-  const productIngredients = ingredientsRes.data ?? [];
+  const productIngredients: ProductIngredientRow[] = ingredientsRes.data ?? [];
   const label = labelsRes.data?.[0] ?? null;
   const ingredientIds = productIngredients
-    .map((pi: any) => pi.ingredients?.id)
+    .map((pi) => {
+      const ingredient = Array.isArray(pi.ingredients) ? pi.ingredients[0] : pi.ingredients;
+      return ingredient?.id;
+    })
     .filter((value: number | null | undefined): value is number => Number.isInteger(value));
   const productClaims = ingredientIds.length > 0
     ? (
@@ -73,6 +97,7 @@ export default async function ProductDetailPage({ params }: Props) {
     : [];
   const benefitProfile = buildBenefitProfile(productClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(productClaims);
+  const displayProductName = formatProductName(product.product_name);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
@@ -85,7 +110,7 @@ export default async function ProductDetailPage({ params }: Props) {
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{product.product_name}</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{displayProductName}</h1>
         <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500">
           {product.brand_name && <span>브랜드: {product.brand_name}</span>}
           {product.manufacturer_name && (
@@ -140,17 +165,22 @@ export default async function ProductDetailPage({ params }: Props) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 text-slate-700">
-                      {productIngredients.map((pi: any) => (
+                      {productIngredients.map((pi) => {
+                        const ingredient = Array.isArray(pi.ingredients) ? pi.ingredients[0] : pi.ingredients;
+
+                        const ingredientHref = getIngredientHref({
+                          id: ingredient?.id ?? pi.id,
+                          slug: ingredient?.slug,
+                        });
+
+                        return (
                         <tr key={pi.id} className="transition-colors hover:bg-slate-50/50">
                           <td className="px-6 py-4">
                             <Link
-                              href={getIngredientHref({
-                                id: pi.ingredients?.id,
-                                slug: pi.ingredients?.slug,
-                              })}
+                              href={ingredientHref}
                               className="flex flex-col font-black text-emerald-600 hover:underline"
                             >
-                              <span>{pi.ingredients?.canonical_name_ko}</span>
+                              <span>{ingredient?.canonical_name_ko ?? "원료명 확인 중"}</span>
                               {pi.raw_label_name && (
                                 <span className="mt-0.5 text-[10px] font-medium text-slate-400">
                                   {pi.raw_label_name}
@@ -170,11 +200,12 @@ export default async function ProductDetailPage({ params }: Props) {
                                   : "bg-slate-100 text-slate-500",
                               )}
                             >
-                              {pi.ingredient_role === "active" ? "주성분" : "부원료"}
+                              {getIngredientRoleLabel(pi.ingredient_role)}
                             </Badge>
                           </td>
                         </tr>
-                      ))}
+                      );
+                      })}
                     </tbody>
                   </table>
                 </div>

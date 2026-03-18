@@ -26,6 +26,28 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+export function formatProductName(name: string | null | undefined): string {
+  if (!name) return "제품명 없음";
+
+  return name
+    .replace(/^[\s:：]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function getIngredientRoleLabel(role: string | null | undefined): string {
+  switch (role) {
+    case "active":
+      return "주성분";
+    case "supporting":
+      return "부원료";
+    case "capsule":
+      return "캡슐/코팅";
+    default:
+      return role || "구분 없음";
+  }
+}
+
 /** 근거 등급 배지 색상 */
 export function getEvidenceGradeColor(grade: string | null): string {
   switch (grade) {

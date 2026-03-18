@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { cn, getIngredientHref } from "@/lib/utils";
+import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
 import { AlertTriangle, Plus, Scale, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -224,7 +224,7 @@ export default function ComparePage() {
               className="flex min-w-[220px] items-start justify-between gap-3 rounded-xl border border-emerald-100 bg-white px-4 py-3"
             >
               <div>
-                <p className="text-sm font-semibold text-slate-900">{product.product_name}</p>
+                <p className="text-sm font-semibold text-slate-900">{formatProductName(product.product_name)}</p>
                 <p className="mt-1 text-xs text-slate-400">
                   {product.brand_name || "브랜드 정보 없음"}
                 </p>
@@ -232,7 +232,7 @@ export default function ComparePage() {
               <button
                 onClick={() => removeProduct(product.id)}
                 className="rounded-full p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                aria-label={`${product.product_name} 제거`}
+                aria-label={`${formatProductName(product.product_name)} 제거`}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -254,7 +254,7 @@ export default function ComparePage() {
                 </option>
                 {availableProducts.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {product.product_name} ({product.brand_name || "브랜드 없음"})
+                    {formatProductName(product.product_name)} ({product.brand_name || "브랜드 없음"})
                   </option>
                 ))}
               </select>
@@ -352,7 +352,7 @@ export default function ComparePage() {
                   comparison.uniqueByProduct.map((entry) => (
                     <ComparisonSection
                       key={entry.product.id}
-                      title={entry.product.product_name}
+                      title={formatProductName(entry.product.product_name)}
                       description={entry.product.brand_name || "브랜드 정보 없음"}
                       rows={entry.rows}
                       selectedProducts={selectedProducts}
@@ -426,7 +426,7 @@ function ComparisonSection({
                     focusProductId === product.id ? "bg-blue-50/70" : "",
                   )}
                 >
-                  <div className="font-semibold text-slate-900">{product.product_name}</div>
+                  <div className="font-semibold text-slate-900">{formatProductName(product.product_name)}</div>
                   <div className="mt-1 text-xs text-slate-400">
                     {product.brand_name || "브랜드 정보 없음"}
                   </div>
@@ -710,17 +710,4 @@ function normalizeUnit(unit: string | null): { factor: number; compareKey: strin
   }
 
   return null;
-}
-
-function getIngredientRoleLabel(role: string | null | undefined): string {
-  switch (role) {
-    case "active":
-      return "주성분";
-    case "supporting":
-      return "보조성분";
-    case "capsule":
-      return "캡슐/코팅";
-    default:
-      return role || "구분 없음";
-  }
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatProductName } from "@/lib/utils";
 import { 
   Factory,
   FileBadge2,
@@ -56,7 +57,7 @@ export const EnhancedProductCard = ({ product }: ProductCardProps) => {
           {/* 중단: 제품명 */}
           <div className="mb-4">
             <h3 className="text-base font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
-              {product.product_name}
+              {formatProductName(product.product_name)}
             </h3>
           </div>
           
