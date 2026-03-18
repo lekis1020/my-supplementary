@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
+import {
+  COMPARE_MAX_PRODUCTS,
+  COMPARE_STORAGE_KEY,
+  normalizeCompareIds,
+  parseCompareIds,
+} from "@/lib/compare";
 import { AlertTriangle, Plus, Scale, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -78,7 +84,26 @@ const CFU_UNIT_FACTORS: Array<{ pattern: RegExp; factor: number }> = [
 
 export default function ComparePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>(() => {
+    if (typeof window === "undefined") return [];
+
+    const queryIds = parseCompareIds(new URLSearchParams(window.location.search).get("ids"));
+    let storedIds: number[] = [];
+
+    try {
+      const rawValue = window.localStorage.getItem(COMPARE_STORAGE_KEY);
+      if (rawValue) {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) {
+          storedIds = normalizeCompareIds(parsed.map((value) => Number(value)));
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(COMPARE_STORAGE_KEY);
+    }
+
+    return normalizeCompareIds([...queryIds, ...storedIds]);
+  });
   const [productIngredients, setProductIngredients] = useState<Record<number, ProductIngredient[]>>(
     {},
   );
@@ -106,12 +131,24 @@ export default function ComparePage() {
     loadProducts();
   }, []);
 
+  const validProductIds = useMemo(() => new Set(allProducts.map((product) => product.id)), [allProducts]);
+  const effectiveSelectedIds = useMemo(
+    () => selectedIds.filter((id) => validProductIds.has(id)),
+    [selectedIds, validProductIds],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(effectiveSelectedIds));
+  }, [effectiveSelectedIds]);
+
   useEffect(() => {
     async function loadIngredients() {
       const supabase = getSupabase();
       const newIngredients: Record<number, ProductIngredient[]> = {};
 
-      for (const id of selectedIds) {
+      for (const id of effectiveSelectedIds) {
         if (productIngredients[id]) {
           newIngredients[id] = productIngredients[id];
           continue;
@@ -128,13 +165,13 @@ export default function ComparePage() {
       setProductIngredients(newIngredients);
     }
 
-    if (selectedIds.length > 0) {
+    if (effectiveSelectedIds.length > 0) {
       loadIngredients();
     }
-  }, [selectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveSelectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addProduct = (id: number) => {
-    if (selectedIds.length >= 4 || selectedIds.includes(id)) return;
+    if (selectedIds.length >= COMPARE_MAX_PRODUCTS || selectedIds.includes(id)) return;
     setSelectedIds([...selectedIds, id]);
   };
 
@@ -142,16 +179,16 @@ export default function ComparePage() {
     setSelectedIds(selectedIds.filter((sid) => sid !== id));
   };
 
-  const selectedProducts = selectedIds
+  const selectedProducts = effectiveSelectedIds
     .map((id) => allProducts.find((product) => product.id === id))
     .filter(Boolean) as Product[];
-  const availableProducts = allProducts.filter((product) => !selectedIds.includes(product.id));
+  const availableProducts = allProducts.filter((product) => !effectiveSelectedIds.includes(product.id));
 
   const comparison = useMemo(() => {
     const allIngredientIds = new Set<number>();
     const ingredientMap = new Map<number, { name: string; href: string }>();
 
-    for (const productId of selectedIds) {
+    for (const productId of effectiveSelectedIds) {
       for (const ingredient of productIngredients[productId] ?? []) {
         if (!ingredient.ingredients) continue;
         allIngredientIds.add(ingredient.ingredient_id);
@@ -166,14 +203,16 @@ export default function ComparePage() {
     }
 
     const rows = Array.from(allIngredientIds)
-      .map((ingredientId) => buildComparisonRow(ingredientId, selectedIds, productIngredients, ingredientMap))
+      .map((ingredientId) =>
+        buildComparisonRow(ingredientId, effectiveSelectedIds, productIngredients, ingredientMap),
+      )
       .filter(Boolean) as IngredientComparisonRow[];
 
     rows.sort((left, right) => left.ingredientName.localeCompare(right.ingredientName, "ko"));
 
-    const commonRows = rows.filter((row) => row.productCount === selectedIds.length);
+    const commonRows = rows.filter((row) => row.productCount === effectiveSelectedIds.length);
     const overlapRows = rows.filter(
-      (row) => row.productCount >= 2 && row.productCount < selectedIds.length,
+      (row) => row.productCount >= 2 && row.productCount < effectiveSelectedIds.length,
     );
     const uniqueRows = rows.filter((row) => row.productCount === 1);
     const duplicateRows = rows.filter((row) => row.duplicate);
@@ -193,7 +232,7 @@ export default function ComparePage() {
       duplicateRows,
       uniqueByProduct,
     };
-  }, [productIngredients, selectedIds, selectedProducts]);
+  }, [effectiveSelectedIds, productIngredients, selectedProducts]);
 
   if (loading) {
     return (
@@ -239,7 +278,7 @@ export default function ComparePage() {
             </div>
           ))}
 
-          {selectedIds.length < 4 && (
+          {effectiveSelectedIds.length < COMPARE_MAX_PRODUCTS && (
             <div className="min-w-[260px] flex-1">
               <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 제품 추가
@@ -250,7 +289,7 @@ export default function ComparePage() {
                 onChange={(event) => addProduct(Number(event.target.value))}
               >
                 <option value="" disabled>
-                  + 제품 추가 ({4 - selectedIds.length}개 남음)
+                  + 제품 추가 ({COMPARE_MAX_PRODUCTS - effectiveSelectedIds.length}개 남음)
                 </option>
                 {availableProducts.map((product) => (
                   <option key={product.id} value={product.id}>
@@ -263,7 +302,7 @@ export default function ComparePage() {
         </div>
       </Card>
 
-      {selectedIds.length >= 2 && (
+      {effectiveSelectedIds.length >= 2 && (
         <>
           <div className="mt-8 grid gap-4 md:grid-cols-4">
             <SummaryCard
@@ -368,10 +407,10 @@ export default function ComparePage() {
         </>
       )}
 
-      {selectedIds.length < 2 && (
+      {effectiveSelectedIds.length < 2 && (
         <div className="py-20 text-center text-gray-400">
           <Plus className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-          <p>비교할 제품을 2개 이상 선택하세요 (최대 4개)</p>
+          <p>비교할 제품을 2개 이상 선택하세요 (최대 {COMPARE_MAX_PRODUCTS}개)</p>
         </div>
       )}
     </div>

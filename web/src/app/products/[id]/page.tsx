@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CompareActions } from "@/components/product/compare-actions";
 import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
 import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
 import { ArrowLeft, Clock, FileText, Tag } from "lucide-react";
@@ -131,6 +132,9 @@ export default async function ProductDetailPage({ params }: Props) {
                 : "Dietary Supplement"}
             </Badge>
           )}
+        </div>
+        <div className="mt-6">
+          <CompareActions productId={product.id} />
         </div>
       </div>
 
