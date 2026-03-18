@@ -265,9 +265,12 @@ export function BenefitHexagon({
                   x="128"
                   y="120"
                   textAnchor="middle"
-                  className="fill-slate-900 text-[10px] font-black tracking-tight"
+                  className={cn(
+                    "text-[10px] font-black tracking-tight",
+                    activeItems.length > 0 ? "fill-slate-900" : "fill-emerald-600"
+                  )}
                 >
-                  BENEFITS
+                  {activeItems.length > 0 ? "BENEFITS" : "PREPARING"}
                 </text>
                 <text
                   x="128"
@@ -275,7 +278,7 @@ export function BenefitHexagon({
                   textAnchor="middle"
                   className="fill-slate-400 text-[8px]"
                 >
-                  강도 비교 아님
+                  {activeItems.length > 0 ? "강도 비교 아님" : "데이터 분석 중"}
                 </text>
               </svg>
 
@@ -292,7 +295,7 @@ export function BenefitHexagon({
                     className={cn(
                       "absolute flex flex-col items-center gap-1.5 transition-all duration-500",
                       layout.labelAlign,
-                      isActive ? "z-10 scale-110" : isPossible ? "scale-100" : "scale-90 opacity-80",
+                      isActive ? "z-10 scale-110" : isPossible ? "scale-100" : "scale-90 opacity-40",
                     )}
                     style={{
                       top: `${layout.labelY}%`,
@@ -306,7 +309,7 @@ export function BenefitHexagon({
                           ? `${meta.tintClass} ${meta.colorClass} border-current ring-4 ring-white`
                           : isPossible
                             ? "border-slate-200 bg-white text-slate-600"
-                            : "border-slate-100 bg-white text-slate-400",
+                            : "border-slate-100 bg-slate-50 text-slate-300",
                       )}
                     >
                       <Icon className="h-5 w-5" />
@@ -318,7 +321,7 @@ export function BenefitHexagon({
                           ? `${meta.tintClass} ${meta.colorClass} border-current`
                           : isPossible
                             ? "border-slate-200 bg-white text-slate-600"
-                            : "border-slate-100 bg-white text-slate-500",
+                            : "border-slate-50 bg-slate-50 text-slate-400",
                       )}
                     >
                       {meta.shortLabel}
@@ -349,8 +352,12 @@ export function BenefitHexagon({
                   );
                 })
               ) : (
-                <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500">
-                  아직 정리된 효능 축 정보가 충분하지 않습니다.
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50/50 px-3 py-1 text-xs font-bold text-emerald-700">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  </span>
+                  전문가 데이터 검수 대기 중
                 </span>
               )}
             </div>
@@ -364,12 +371,13 @@ export function BenefitHexagon({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  텍스트로 표시할 수 있는 효능 정보가 아직 충분하지 않습니다.
+                <p className="mt-2 text-xs leading-6 font-medium text-slate-500">
+                  이 제품의 성분-기능성 매핑 데이터가 수집 및 검수 과정에 있습니다. 완료 시 텍스트 요약이 자동으로 생성됩니다.
                 </p>
               )}
             </div>
           </div>
+
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

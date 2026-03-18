@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
 import { cn, getIngredientHref } from "@/lib/utils";
-import { ArrowLeft, FileText, Tag } from "lucide-react";
+import { ArrowLeft, Clock, FileText, Tag } from "lucide-react";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -120,8 +120,14 @@ export default async function ProductDetailPage({ params }: Props) {
             </CardHeader>
             <CardContent className="p-0">
               {productIngredients.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-sm text-slate-400">원료 정보가 아직 등록되지 않았습니다.</p>
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+                    <Clock className="h-6 w-6 animate-pulse" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900">원료 조성 분석 준비 중</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    라벨 이미지로부터 성분을 추출하고 전문가 검수를 진행하고 있습니다.
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -176,15 +182,15 @@ export default async function ProductDetailPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          {label && (
-            <Card className="overflow-hidden border-slate-200 shadow-sm">
-              <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-                <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
-                  <FileText className="h-5 w-5 text-blue-500" />
-                  제품 상세 정보
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
+          <Card className="overflow-hidden border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+              <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+                <FileText className="h-5 w-5 text-blue-500" />
+                제품 상세 정보
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {label ? (
                 <div className="space-y-4 text-sm">
                   {label.serving_size_text && (
                     <InfoRow label="1회 섭취량" value={label.serving_size_text} />
@@ -209,10 +215,21 @@ export default async function ProductDetailPage({ params }: Props) {
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+                    <FileText className="h-5 w-5 opacity-50" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900">라벨 상세 정보 수집 중</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    이 제품의 최신 라벨 스냅샷을 확인하고 있습니다.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
+
 
         <div className="lg:sticky lg:top-8">
           <BenefitHexagon
