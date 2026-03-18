@@ -43,6 +43,23 @@ function buildPageHref(page: number, ingredientId?: number | null) {
   return query ? `/products?${query}` : "/products";
 }
 
+function getPaginationPages(currentPage: number, totalPages: number, visibleCount = 5) {
+  if (totalPages <= visibleCount) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const half = Math.floor(visibleCount / 2);
+  let start = Math.max(1, currentPage - half);
+  let end = start + visibleCount - 1;
+
+  if (end > totalPages) {
+    end = totalPages;
+    start = end - visibleCount + 1;
+  }
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const currentPage = parsePage(resolvedSearchParams?.page);
@@ -112,13 +129,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const usProducts = normalizedProducts.filter((p) => p.country_code === "US");
   const pageStart = totalCount === 0 ? 0 : rangeFrom + 1;
   const pageEnd = totalCount === 0 ? 0 : Math.min(rangeFrom + normalizedProducts.length, totalCount);
-  const pageLinks = Array.from(
-    new Set(
-      [1, currentPage - 1, currentPage, currentPage + 1, totalPages].filter(
-        (page) => page >= 1 && page <= totalPages,
-      ),
-    ),
-  );
+  const pageLinks = getPaginationPages(currentPage, totalPages);
   const filteredIngredientName = filteredIngredient?.canonical_name_ko ?? null;
 
   return (

@@ -28,6 +28,79 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+interface RelatedIngredientRow {
+  id: number;
+  canonical_name_ko: string;
+  canonical_name_en: string | null;
+  scientific_name: string | null;
+}
+
+interface ClaimMetaRow {
+  claim_name_ko?: string | null;
+  claim_scope?: string | null;
+}
+
+interface IngredientClaimRow {
+  id: number;
+  ingredient_id: number;
+  evidence_grade: string | null;
+  evidence_summary: string | null;
+  allowed_expression: string | null;
+  claims: ClaimMetaRow | ClaimMetaRow[] | null;
+}
+
+interface EvidenceOutcomeRow {
+  id: number;
+  effect_direction: string | null;
+  effect_size_text: string | null;
+  p_value_text: string | null;
+  confidence_interval_text: string | null;
+  conclusion_summary: string | null;
+  claims?: {
+    claim_code?: string | null;
+    claim_name_ko?: string | null;
+  } | null;
+}
+
+interface EvidenceStudyRow {
+  id: number;
+  ingredient_id: number;
+  title: string;
+  authors: string | null;
+  journal_name: string | null;
+  publication_year: number | null;
+  pmid: string | null;
+  external_url: string | null;
+  study_design: string | null;
+  population_text: string | null;
+  sample_size: number | null;
+  duration_text: string | null;
+  evidence_outcomes?: EvidenceOutcomeRow[] | null;
+}
+
+function getClaimMeta(input: ClaimMetaRow | ClaimMetaRow[] | null | undefined) {
+  return Array.isArray(input) ? input[0] ?? null : input ?? null;
+}
+
+function getStudyPriority(design: string | null): number {
+  switch (design) {
+    case "meta_analysis":
+      return 5;
+    case "systematic_review":
+      return 4;
+    case "guideline":
+      return 4;
+    case "rct":
+      return 3;
+    case "cohort":
+      return 2;
+    case "case_control":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
@@ -120,8 +193,57 @@ export default async function IngredientDetailPage({ params }: Props) {
   const productLinks = productsRes.data ?? [];
   const productCount = productsRes.count ?? productLinks.length;
   const category = getIngredientCategory(ingredient.ingredient_type);
-  const benefitProfile = buildBenefitProfile(ingredientClaims);
-  const benefitClaimDetails = buildBenefitClaimDetails(ingredientClaims);
+  const relatedIngredients = category === "probiotics"
+    ? (
+        (
+          await supabase
+            .from("ingredients")
+            .select("id, canonical_name_ko, canonical_name_en, scientific_name")
+            .eq("parent_ingredient_id", ingredient.id)
+            .eq("is_published", true)
+            .order("canonical_name_ko")
+        ).data ?? []
+      )
+    : [];
+  const relatedIngredientIds = [ingredient.id, ...relatedIngredients.map((item) => item.id)];
+  const relatedIngredientNameMap = new Map<number, string>([
+    [ingredient.id, ingredient.canonical_name_ko],
+    ...relatedIngredients.map((item) => [item.id, item.canonical_name_ko] as const),
+  ]);
+
+  const [relatedClaimsRes, relatedEvidenceRes] = relatedIngredientIds.length > 1
+    ? await Promise.all([
+        supabase
+          .from("ingredient_claims")
+          .select("id, ingredient_id, evidence_grade, evidence_summary, allowed_expression, claims(claim_name_ko, claim_scope)")
+          .in("ingredient_id", relatedIngredientIds),
+        supabase
+          .from("evidence_studies")
+          .select("id, ingredient_id, title, authors, journal_name, publication_year, pmid, external_url, study_design, population_text, sample_size, duration_text, evidence_outcomes(id, effect_direction, effect_size_text, p_value_text, confidence_interval_text, conclusion_summary, claims(claim_code, claim_name_ko))")
+          .in("ingredient_id", relatedIngredientIds)
+          .eq("included_in_summary", true),
+      ])
+    : [null, null];
+
+  const mergedIngredientClaims = (
+    relatedClaimsRes?.data?.length ? relatedClaimsRes.data : ingredientClaims
+  ) as IngredientClaimRow[];
+  const mergedEvidenceStudies = (
+    relatedEvidenceRes?.data?.length ? relatedEvidenceRes.data : evidenceStudies
+  ) as EvidenceStudyRow[];
+  const prioritizedEvidenceStudies = [...mergedEvidenceStudies].sort((left, right) => {
+    const studyPriorityDiff = getStudyPriority(right.study_design) - getStudyPriority(left.study_design);
+    if (studyPriorityDiff !== 0) {
+      return studyPriorityDiff;
+    }
+
+    return (right.publication_year ?? 0) - (left.publication_year ?? 0);
+  });
+  const highlightedEvidenceStudies = prioritizedEvidenceStudies.filter(
+    (study) => getStudyPriority(study.study_design) >= 3,
+  );
+  const benefitProfile = buildBenefitProfile(mergedIngredientClaims);
+  const benefitClaimDetails = buildBenefitClaimDetails(mergedIngredientClaims);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -182,7 +304,7 @@ export default async function IngredientDetailPage({ params }: Props) {
         />
 
         {/* 기능성/효능 */}
-        {ingredientClaims.length > 0 && (
+        {mergedIngredientClaims.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>
@@ -191,19 +313,36 @@ export default async function IngredientDetailPage({ params }: Props) {
                   기능성 · 효능
                 </span>
               </CardTitle>
+              {relatedIngredients.length > 0 && (
+                <p className="mt-1 text-sm text-gray-500">
+                  프로바이오틱스는 균주별 연구가 많아, 이 페이지에는 하위 균주 근거까지 함께 반영했습니다.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {ingredientClaims.map((ic: any) => (
+                {mergedIngredientClaims.map((ic) => {
+                  const claimMeta = getClaimMeta(ic.claims);
+                  const sourceIngredientName = relatedIngredientNameMap.get(ic.ingredient_id);
+                  const isRelatedStrainClaim = ic.ingredient_id !== ingredient.id && Boolean(sourceIngredientName);
+
+                  return (
                   <div key={ic.id} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-medium text-gray-900">
-                          {ic.claims?.claim_name_ko}
+                          {claimMeta?.claim_name_ko}
                         </p>
-                        <Badge className="mt-1 bg-blue-50 text-blue-700">
-                          {getClaimScopeLabel(ic.claims?.claim_scope ?? "")}
-                        </Badge>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <Badge className="bg-blue-50 text-blue-700">
+                            {getClaimScopeLabel(claimMeta?.claim_scope ?? "")}
+                          </Badge>
+                          {isRelatedStrainClaim && (
+                            <Badge className="bg-violet-50 text-violet-700">
+                              균주 근거: {sourceIngredientName}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       {ic.evidence_grade && (
                         <Badge className={getEvidenceGradeColor(ic.evidence_grade)}>
@@ -220,14 +359,15 @@ export default async function IngredientDetailPage({ params }: Props) {
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         )}
 
         {/* 연구 근거 */}
-        {evidenceStudies.length > 0 && (
+        {prioritizedEvidenceStudies.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>
@@ -237,12 +377,29 @@ export default async function IngredientDetailPage({ params }: Props) {
                 </span>
               </CardTitle>
               <p className="mt-1 text-sm text-gray-500">
-                PubMed 등록 학술 연구 {evidenceStudies.length}건
+                PubMed 등록 학술 연구 {prioritizedEvidenceStudies.length}건
               </p>
+              {highlightedEvidenceStudies.length > 0 && (
+                <p className="mt-1 text-sm text-gray-500">
+                  메타분석, 체계적 문헌고찰, RCT 중심으로 우선 정렬했습니다.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
+              {highlightedEvidenceStudies.length > 0 && (
+                <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-purple-100 bg-purple-50/60 p-3">
+                  <Badge className="bg-purple-100 text-purple-800">
+                    고근거 연구 {highlightedEvidenceStudies.length}건
+                  </Badge>
+                  {relatedIngredients.length > 0 && (
+                    <span className="text-xs text-purple-800">
+                      하위 균주 연구를 포함합니다.
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="space-y-4">
-                {evidenceStudies.map((study: any) => {
+                {prioritizedEvidenceStudies.map((study) => {
                   const outcome = study.evidence_outcomes?.[0];
                   const pubmedUrl =
                     study.external_url ||
@@ -254,6 +411,8 @@ export default async function IngredientDetailPage({ params }: Props) {
                     ?.trim();
                   const hasMultipleAuthors =
                     study.authors?.includes(",");
+                  const sourceIngredientName = relatedIngredientNameMap.get(study.ingredient_id);
+                  const isRelatedStrainStudy = study.ingredient_id !== ingredient.id && Boolean(sourceIngredientName);
 
                   return (
                     <div
@@ -269,6 +428,11 @@ export default async function IngredientDetailPage({ params }: Props) {
                             )}
                           >
                             {getStudyDesignLabel(study.study_design)}
+                          </Badge>
+                        )}
+                        {isRelatedStrainStudy && (
+                          <Badge className="bg-violet-50 text-violet-700">
+                            균주 {sourceIngredientName}
                           </Badge>
                         )}
                         {study.publication_year && (

@@ -59,6 +59,23 @@ function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
   return queryString ? `/search?${queryString}` : "/search";
 }
 
+function getPaginationPages(currentPage: number, totalPages: number, visibleCount = 5) {
+  if (totalPages <= visibleCount) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const half = Math.floor(visibleCount / 2);
+  let start = Math.max(1, currentPage - half);
+  let end = start + visibleCount - 1;
+
+  if (end > totalPages) {
+    end = totalPages;
+    start = end - visibleCount + 1;
+  }
+
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const query = getSearchParam(resolvedSearchParams?.q).trim();
@@ -190,13 +207,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       product.supportingMatches.length === 0,
   );
 
-  const pageLinks = Array.from(
-    new Set(
-      [1, safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, totalPages].filter(
-        (page) => page >= 1 && page <= totalPages,
-      ),
-    ),
-  );
+  const pageLinks = getPaginationPages(safeCurrentPage, totalPages);
 
   return (
     <div className="min-h-screen bg-white">
