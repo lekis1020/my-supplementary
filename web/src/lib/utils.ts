@@ -48,6 +48,44 @@ export function getIngredientRoleLabel(role: string | null | undefined): string 
   }
 }
 
+export function hasClearlyIdentifiedProbioticStrain(
+  input:
+    | string
+    | null
+    | undefined
+    | {
+        canonicalNameKo?: string | null;
+        canonicalNameEn?: string | null;
+        rawLabelName?: string | null;
+      },
+): boolean {
+  const text =
+    typeof input === "string"
+      ? input
+      : [input?.canonicalNameKo, input?.canonicalNameEn, input?.rawLabelName]
+          .filter(Boolean)
+          .join(" ");
+
+  const normalized = text.toLowerCase().trim();
+  if (!normalized) {
+    return false;
+  }
+
+  const latinSpeciesPattern =
+    /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+/i;
+  const strainCodePattern = /\b[A-Z]{1,6}[- ]?\d{1,5}[A-Z0-9-]*\b/;
+  const koreanSpeciesPattern =
+    /(플란타럼|람노서스|카세이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)/;
+  const recognitionPattern = /제20\d{2}-\d+/;
+
+  return (
+    latinSpeciesPattern.test(text) ||
+    strainCodePattern.test(text) ||
+    koreanSpeciesPattern.test(text) ||
+    recognitionPattern.test(text)
+  );
+}
+
 /** 근거 등급 배지 색상 */
 export function getEvidenceGradeColor(grade: string | null): string {
   switch (grade) {

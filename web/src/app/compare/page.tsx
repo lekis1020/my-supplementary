@@ -18,7 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 interface Product {
   id: number;
   product_name: string;
-  brand_name: string | null;
+  manufacturer_name: string | null;
   country_code: string | null;
 }
 
@@ -84,6 +84,20 @@ const CFU_UNIT_FACTORS: Array<{ pattern: RegExp; factor: number }> = [
 
 export default function ComparePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
+  const [productsLoadError, setProductsLoadError] = useState<string | null>(null);
+  const currentHost =
+    typeof window === "undefined" ? null : window.location.hostname;
+  const configuredSupabaseHost = (() => {
+    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!rawUrl) return null;
+
+    try {
+      return new URL(rawUrl).host;
+    } catch {
+      return rawUrl;
+    }
+  })();
   const [selectedIds, setSelectedIds] = useState<number[]>(() => {
     if (typeof window === "undefined") return [];
 
@@ -120,12 +134,23 @@ export default function ComparePage() {
   useEffect(() => {
     async function loadProducts() {
       const supabase = getSupabase();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("products")
-        .select("id, product_name, brand_name, country_code")
+        .select("id, product_name, manufacturer_name, country_code")
         .eq("is_published", true)
         .order("product_name");
+
+      if (error) {
+        setProductsLoadError(error.message);
+        setAllProducts([]);
+        setProductsLoaded(false);
+        setLoading(false);
+        return;
+      }
+
+      setProductsLoadError(null);
       setAllProducts(data ?? []);
+      setProductsLoaded(true);
       setLoading(false);
     }
     loadProducts();
@@ -139,9 +164,11 @@ export default function ComparePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!productsLoaded) return;
+    if (selectedIds.length > 0 && effectiveSelectedIds.length === 0) return;
 
     window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(effectiveSelectedIds));
-  }, [effectiveSelectedIds]);
+  }, [effectiveSelectedIds, productsLoaded, selectedIds]);
 
   useEffect(() => {
     async function loadIngredients() {
@@ -265,7 +292,7 @@ export default function ComparePage() {
               <div>
                 <p className="text-sm font-semibold text-slate-900">{formatProductName(product.product_name)}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  {product.brand_name || "브랜드 정보 없음"}
+                  {product.manufacturer_name || "제조사 정보 없음"}
                 </p>
               </div>
               <button
@@ -293,7 +320,7 @@ export default function ComparePage() {
                 </option>
                 {availableProducts.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {formatProductName(product.product_name)} ({product.brand_name || "브랜드 없음"})
+                    {formatProductName(product.product_name)} ({product.manufacturer_name || "제조사 정보 없음"})
                   </option>
                 ))}
               </select>
@@ -301,6 +328,33 @@ export default function ComparePage() {
           )}
         </div>
       </Card>
+
+      {(productsLoadError || (selectedIds.length > 0 && productsLoaded && effectiveSelectedIds.length === 0)) && (
+        <Card className="mt-6 border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="space-y-2">
+              <p className="font-semibold text-amber-900">비교 대상 제품을 불러오지 못했습니다</p>
+              <p className="text-sm leading-6 text-amber-800">
+                {productsLoadError
+                  ? `비교 페이지에서 products 목록 조회가 실패했습니다: ${productsLoadError}`
+                  : "비교 페이지가 현재 보고 있는 제품 목록에 선택한 제품 ID가 없습니다. 제품 상세와 비교 페이지가 서로 다른 데이터베이스를 보고 있을 가능성이 큽니다."}
+              </p>
+              {selectedIds.length > 0 && (
+                <p className="text-xs text-amber-700">
+                  선택된 제품 ID: {selectedIds.join(", ")}
+                </p>
+              )}
+              <div className="space-y-1 text-xs text-amber-700">
+                {currentHost && <p>현재 페이지 호스트: {currentHost}</p>}
+                {configuredSupabaseHost && (
+                  <p>비교 페이지 Supabase 호스트: {configuredSupabaseHost}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {effectiveSelectedIds.length >= 2 && (
         <>
@@ -392,7 +446,7 @@ export default function ComparePage() {
                     <ComparisonSection
                       key={entry.product.id}
                       title={formatProductName(entry.product.product_name)}
-                      description={entry.product.brand_name || "브랜드 정보 없음"}
+                      description={entry.product.manufacturer_name || "제조사 정보 없음"}
                       rows={entry.rows}
                       selectedProducts={selectedProducts}
                       focusProductId={entry.product.id}
@@ -467,7 +521,7 @@ function ComparisonSection({
                 >
                   <div className="font-semibold text-slate-900">{formatProductName(product.product_name)}</div>
                   <div className="mt-1 text-xs text-slate-400">
-                    {product.brand_name || "브랜드 정보 없음"}
+                    {product.manufacturer_name || "제조사 정보 없음"}
                   </div>
                 </div>
               ))}

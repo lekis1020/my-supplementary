@@ -6,7 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompareActions } from "@/components/product/compare-actions";
 import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
-import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
+import {
+  cn,
+  formatProductName,
+  getIngredientHref,
+  getIngredientRoleLabel,
+  hasClearlyIdentifiedProbioticStrain,
+} from "@/lib/utils";
 import { ArrowLeft, Clock, FileText, Tag } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -99,6 +105,19 @@ export default async function ProductDetailPage({ params }: Props) {
   const benefitProfile = buildBenefitProfile(productClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(productClaims);
   const displayProductName = formatProductName(product.product_name);
+  const hasUnclearActiveProbiotic = productIngredients.some((pi) => {
+    const ingredient = Array.isArray(pi.ingredients) ? pi.ingredients[0] : pi.ingredients;
+
+    return (
+      pi.ingredient_role === "active" &&
+      ingredient?.ingredient_type === "probiotic" &&
+      !hasClearlyIdentifiedProbioticStrain({
+        canonicalNameKo: ingredient.canonical_name_ko,
+        canonicalNameEn: ingredient.canonical_name_en,
+        rawLabelName: pi.raw_label_name,
+      })
+    );
+  });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
@@ -148,14 +167,16 @@ export default async function ProductDetailPage({ params }: Props) {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {productIngredients.length === 0 ? (
+              {productIngredients.length === 0 || hasUnclearActiveProbiotic ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
                     <Clock className="h-6 w-6 animate-pulse" />
                   </div>
                   <p className="text-sm font-bold text-slate-900">원료 조성 분석 준비 중</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    라벨 이미지로부터 성분을 추출하고 전문가 검수를 진행하고 있습니다.
+                    {hasUnclearActiveProbiotic
+                      ? "프로바이오틱스 주성분의 균주명이 명확히 확인되지 않아 라벨 원문과 원료 매핑을 다시 검수하고 있습니다."
+                      : "라벨 이미지로부터 성분을 추출하고 전문가 검수를 진행하고 있습니다."}
                   </p>
                 </div>
               ) : (

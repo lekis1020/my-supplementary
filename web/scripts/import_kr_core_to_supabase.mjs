@@ -227,7 +227,7 @@ function mapProductRow(row) {
     barcode: null,
     marketplace_category: null,
     product_image_url: null,
-    is_published: args.publish,
+    is_published: args.publish && row.isPublished !== false,
   };
 }
 

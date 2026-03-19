@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS staging_products_kr (
     product_type VARCHAR(100),
     approval_or_report_no VARCHAR(255),
     status VARCHAR(50) DEFAULT 'active',
+    product_name_source VARCHAR(100),
+    product_name_resolution VARCHAR(100),
+    is_ingredient_like_product BOOLEAN NOT NULL DEFAULT FALSE,
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
 
     source_datasets JSONB NOT NULL DEFAULT '[]'::jsonb,
     functionality_items JSONB NOT NULL DEFAULT '[]'::jsonb,

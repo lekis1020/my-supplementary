@@ -210,6 +210,7 @@ function createProductRecord(reportNo) {
   return {
     reportNo,
     productName: null,
+    productNameCandidates: {},
     manufacturerName: null,
     distributorName: null,
     countryCode: "KR",
@@ -231,6 +232,17 @@ function createProductRecord(reportNo) {
     lastUpdatedAt: null,
     registrationDate: null,
   };
+}
+
+function setSourceProductName(target, sourceKey, value) {
+  const text = cleanInlineText(value);
+  if (!text) {
+    return;
+  }
+
+  if (!target.productNameCandidates[sourceKey]) {
+    target.productNameCandidates[sourceKey] = text;
+  }
 }
 
 function mergeScalar(target, key, value) {
@@ -333,6 +345,7 @@ await readJsonl("foodsafety-i0030.jsonl", (row) => {
     lastUpdatedAt: cleanInlineText(row.LAST_UPDT_DTM),
   };
 
+  setSourceProductName(product, "foodsafety-i0030", row.PRDLST_NM);
   mergeScalar(product, "productName", cleanInlineText(row.PRDLST_NM));
   mergeScalar(product, "manufacturerName", cleanInlineText(row.BSSH_NM));
   mergeScalar(product, "rawPrimaryMaterialName", cleanInlineText(row.RAWMTRL_NM));
@@ -401,6 +414,7 @@ await readJsonl("foodsafety-c003.jsonl", (row) => {
     lastUpdatedAt: cleanInlineText(row.LAST_UPDT_DTM),
   };
 
+  setSourceProductName(product, "foodsafety-c003", row.PRDLST_NM);
   mergeScalar(product, "productName", cleanInlineText(row.PRDLST_NM));
   mergeScalar(product, "manufacturerName", cleanInlineText(row.BSSH_NM));
   mergeScalar(product, "rawPrimaryMaterialName", cleanInlineText(row.RAWMTRL_NM));
@@ -446,6 +460,7 @@ await readJsonl("data-go-15056760.jsonl", (row) => {
     registrationDate: cleanInlineText(row.REGIST_DT),
   };
 
+  setSourceProductName(product, "data-go-15056760", row.PRDUCT);
   mergeScalar(product, "productName", cleanInlineText(row.PRDUCT));
   mergeScalar(product, "manufacturerName", cleanInlineText(row.ENTRPS));
   mergeScalar(product, "registrationDate", cleanInlineText(row.REGIST_DT));
