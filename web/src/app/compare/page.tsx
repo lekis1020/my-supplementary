@@ -26,8 +26,10 @@ interface ProductIngredient {
   id: number;
   product_id: number;
   ingredient_id: number;
-  amount_per_serving: string | null;
+  amount_per_serving: string | number | null;
   amount_unit: string | null;
+  daily_amount: string | number | null;
+  daily_amount_unit: string | null;
   ingredient_role?: string | null;
   raw_label_name: string | null;
   ingredients: {
@@ -623,7 +625,7 @@ function AmountCell({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-slate-900">
-            {amount?.displayText || "표기 없음"}
+            {amount?.displayText ?? "함량 정보 없음"}
           </div>
           <div className="mt-1 text-[11px] text-slate-400">
             {getIngredientRoleLabel(cell.ingredient.ingredient_role)}
@@ -709,9 +711,7 @@ function buildComparisonRow(
     return {
       productId,
       ingredient,
-      amount: ingredient
-        ? normalizeAmount(ingredient.amount_per_serving, ingredient.amount_unit)
-        : null,
+      amount: ingredient ? resolveIngredientAmount(ingredient) : null,
     };
   });
 
@@ -742,9 +742,10 @@ function buildComparisonRow(
   };
 }
 
-function normalizeAmount(amountPerServing: string | null, amountUnit: string | null): NormalizedAmount {
+function normalizeAmount(amountPerServing: string | number | null, amountUnit: string | null): NormalizedAmount {
+  const amountText = amountPerServing == null ? null : String(amountPerServing);
   const displayText = [amountPerServing, amountUnit].filter(Boolean).join(" ").trim() || "표기 없음";
-  const numericValue = parseNumericValue(amountPerServing);
+  const numericValue = parseNumericValue(amountText);
   const normalizedUnit = normalizeUnit(amountUnit);
 
   if (numericValue === null || !normalizedUnit) {
@@ -770,6 +771,23 @@ function parseNumericValue(value: string | null): number | null {
   if (!cleaned) return null;
   const parsed = Number(cleaned[0]);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveIngredientAmount(ingredient: ProductIngredient): NormalizedAmount {
+  if (ingredient.amount_per_serving != null || ingredient.amount_unit) {
+    return normalizeAmount(ingredient.amount_per_serving, ingredient.amount_unit);
+  }
+
+  if (ingredient.daily_amount != null || ingredient.daily_amount_unit) {
+    return normalizeAmount(ingredient.daily_amount, ingredient.daily_amount_unit);
+  }
+
+  return {
+    displayText: "함량 정보 없음",
+    normalizedValue: null,
+    compareKey: null,
+    compareLabel: null,
+  };
 }
 
 function normalizeUnit(unit: string | null): { factor: number; compareKey: string; label: string } | null {
