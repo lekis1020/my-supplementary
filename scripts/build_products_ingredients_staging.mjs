@@ -217,6 +217,35 @@ function normalizeNameToken(value) {
   return text.toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
 }
 
+function probioticTokenVariants(value) {
+  const normalized = normalizeNameToken(value);
+  if (!normalized) {
+    return [];
+  }
+
+  const stripped = normalized
+    .replace(/프로바이오틱스|프로바이오틱|유산균/g, "")
+    .replace(/probiotics|probiotic/g, "");
+
+  return [...new Set([normalized, stripped].filter((token) => token && token.length >= 4))];
+}
+
+function isSimilarToken(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  if (left === right) {
+    return true;
+  }
+
+  if (left.length < 6 || right.length < 6) {
+    return false;
+  }
+
+  return left.includes(right) || right.includes(left);
+}
+
 function getOrderedProductNameCandidates(row) {
   const candidates = row.productNameCandidates ?? {};
   const preferredKeys = ["data-go-15056760", "foodsafety-c003", "foodsafety-i0030"];
@@ -231,9 +260,7 @@ function getOrderedProductNameCandidates(row) {
 
 function resolveProbioticProductPresentation(row, stats) {
   const canonicalNames = [...(stats?.canonicalNames ?? new Set())].map((name) => cleanInlineText(name)).filter(Boolean);
-  const normalizedCanonicalNames = canonicalNames
-    .map((name) => normalizeNameToken(name))
-    .filter(Boolean);
+  const canonicalTokens = canonicalNames.flatMap((name) => probioticTokenVariants(name));
   const rawMaterialNames = [
     row.rawPrimaryMaterialName,
     row.rawIndividualMaterialName,
@@ -241,11 +268,8 @@ function resolveProbioticProductPresentation(row, stats) {
     .flatMap((value) => splitOutsideParens(value))
     .map((name) => cleanInlineText(name))
     .filter(Boolean);
-  const normalizedRawMaterialNames = rawMaterialNames
-    .map((name) => normalizeNameToken(name))
-    .filter(Boolean);
+  const rawMaterialTokens = rawMaterialNames.flatMap((name) => probioticTokenVariants(name));
   const currentProductName = cleanInlineText(row.productName);
-  const normalizedCurrentProductName = normalizeNameToken(currentProductName);
 
   const isSingleActiveProbiotic =
     (stats?.activeIngredientRows ?? 0) <= 1 &&
@@ -264,14 +288,15 @@ function resolveProbioticProductPresentation(row, stats) {
   }
 
   const ingredientLikeName = (name) => {
-    const normalized = normalizeNameToken(name);
-    if (!normalized) {
+    const tokens = probioticTokenVariants(name);
+    if (tokens.length === 0) {
       return false;
     }
 
-    return (
-      normalizedCanonicalNames.includes(normalized) ||
-      normalizedRawMaterialNames.includes(normalized)
+    return tokens.some((token) =>
+      [...canonicalTokens, ...rawMaterialTokens].some((baseToken) =>
+        isSimilarToken(token, baseToken),
+      ),
     );
   };
 

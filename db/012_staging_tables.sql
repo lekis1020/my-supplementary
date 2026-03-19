@@ -139,6 +139,11 @@ CREATE TABLE IF NOT EXISTS staging_product_ingredients_kr (
     canonical_name_ko VARCHAR(255) NOT NULL,
     canonical_slug VARCHAR(255),
     raw_label_name TEXT NOT NULL,
+    amount_per_serving NUMERIC(12,4),
+    amount_unit VARCHAR(50),
+    daily_amount NUMERIC(12,4),
+    daily_amount_unit VARCHAR(50),
+    amount_source VARCHAR(100),
 
     source_datasets JSONB NOT NULL DEFAULT '[]'::jsonb,
     source_kinds JSONB NOT NULL DEFAULT '[]'::jsonb,
