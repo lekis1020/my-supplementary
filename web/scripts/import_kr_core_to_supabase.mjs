@@ -6,6 +6,7 @@ import process from "node:process";
 import readline from "node:readline";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { trackRefresh } from "./lib/track-refresh.mjs";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
@@ -605,6 +606,15 @@ async function main() {
   };
 
   console.log(JSON.stringify({ projectRef, counts }, null, 2));
+
+  await Promise.all([
+    selected.has("ingredients") &&
+      trackRefresh(supabase, { entityType: "ingredient", recordsProcessed: counts.ingredients }),
+    selected.has("products") &&
+      trackRefresh(supabase, { entityType: "product", recordsProcessed: counts.products }),
+    selected.has("product_ingredients") &&
+      trackRefresh(supabase, { entityType: "product_ingredient", recordsProcessed: counts.product_ingredients }),
+  ]);
 }
 
 main().catch((error) => {
