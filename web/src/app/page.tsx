@@ -55,7 +55,7 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/compare"
+                href="/products#compare-tool"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-colors hover:border-emerald-200 hover:text-emerald-700"
               >
                 비교 도구 열기
@@ -100,7 +100,7 @@ export default function Home() {
               <p className="text-sm font-semibold text-emerald-900">추천 진입 경로</p>
               <p className="mt-1 text-sm leading-6 text-emerald-800">
                 특정 원료를 먼저 확인하려면 <strong>원료 사전</strong>, 복용 중인 제품 조합을
-                나란히 보고 싶다면 <strong>비교 도구</strong>가 가장 빠릅니다.
+                나란히 보고 싶다면 <strong>제품 데이터베이스 상단 비교 도구</strong>가 가장 빠릅니다.
               </p>
             </div>
           </div>
@@ -126,8 +126,8 @@ export default function Home() {
           />
           <FeatureCard
             icon={<Package className="h-8 w-8 text-blue-600" />}
-            title="제품 비교"
-            description="제품 조성, 라벨 정보, 포함 원료를 보고 어떤 제품이 무엇을 중심으로 설계됐는지 확인합니다."
+            title="제품 데이터베이스"
+            description="제품 조성, 라벨 정보, 포함 원료를 보고 어떤 제품이 무엇을 중심으로 설계됐는지 확인합니다. 상단에서 비교 도구도 바로 사용할 수 있습니다."
             href="/products"
           />
           <FeatureCard

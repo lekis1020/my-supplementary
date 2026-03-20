@@ -23,8 +23,8 @@ export function buildCompareHref(ids: number[]): string {
   const normalizedIds = normalizeCompareIds(ids);
 
   if (normalizedIds.length === 0) {
-    return "/compare";
+    return "/products#compare-tool";
   }
 
-  return `/compare?ids=${normalizedIds.join(",")}`;
+  return `/products?compare=${normalizedIds.join(",")}#compare-tool`;
 }

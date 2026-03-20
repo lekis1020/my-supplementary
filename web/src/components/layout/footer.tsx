@@ -19,7 +19,7 @@ export function Footer() {
                 원료 사전
               </Link>
               <Link href="/products" className="hover:text-gray-700">
-                제품 비교
+                제품 데이터베이스
               </Link>
             </div>
             <div className="flex flex-col gap-2">

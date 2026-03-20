@@ -2,13 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EnhancedProductCard } from "@/components/product/product-card";
+import { CompareWorkbench } from "@/components/product/compare-workbench";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 24;
 
 export const metadata: Metadata = {
-  title: "제품 목록 | bochoong.com",
+  title: "제품 데이터베이스 | bochoong.com",
   description: "인기 영양제·건강기능식품의 성분과 가성비를 한눈에 비교하세요.",
 };
 
@@ -139,7 +140,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <div className="inline-block px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-bold mb-4">
             Product Database
           </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">영양제 제품 목록</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">영양제 제품 데이터베이스</h1>
           <p className="mt-3 text-slate-500 text-lg max-w-2xl leading-relaxed">
             {filteredIngredientName
               ? `${filteredIngredientName}을 포함한 제품 ${totalCount.toLocaleString()}개 중 ${pageStart.toLocaleString()}-${pageEnd.toLocaleString()}번째 항목을 보고 있습니다.`
@@ -168,8 +169,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </div>
 
       <div className="mx-auto max-w-6xl px-6">
+        <CompareWorkbench embedded />
+
         {normalizedProducts.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-500">
+          <div className="mt-10 rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-500">
             {filteredIngredientName
               ? `${filteredIngredientName}을 포함한 공개 제품이 아직 없습니다.`
               : "표시할 제품이 없습니다."}
@@ -178,7 +181,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
         {/* 한국 제품 섹션 */}
         {krProducts.length > 0 && (
-          <section className="mb-16">
+          <section className="mb-16 mt-10">
             <div className="flex items-center gap-2 mb-6">
               <span className="text-2xl">🇰🇷</span>
               <h2 className="text-xl font-bold text-slate-800">국내 건강기능식품</h2>
@@ -194,7 +197,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
         {/* 미국 제품 섹션 */}
         {usProducts.length > 0 && (
-          <section>
+          <section className={krProducts.length === 0 ? "mt-10" : ""}>
             <div className="flex items-center gap-2 mb-6">
               <span className="text-2xl">🇺🇸</span>
               <h2 className="text-xl font-bold text-slate-800">해외 보충제 (US)</h2>

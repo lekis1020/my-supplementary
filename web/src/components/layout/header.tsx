@@ -8,8 +8,7 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/ingredients", label: "원료 사전" },
-  { href: "/products", label: "제품 비교" },
-  { href: "/compare", label: "비교 도구" },
+  { href: "/products", label: "제품 데이터베이스" },
 ];
 
 export function Header() {

@@ -50,7 +50,7 @@ export function CompareActions({ productId }: CompareActionsProps) {
   const helperText = isSelected
     ? "비교 바구니에 담긴 제품입니다."
     : storedIds.length >= COMPARE_MAX_PRODUCTS
-      ? `최대 ${COMPARE_MAX_PRODUCTS}개까지 담을 수 있습니다. 비교 페이지에서 교체해 주세요.`
+      ? `최대 ${COMPARE_MAX_PRODUCTS}개까지 담을 수 있습니다. 제품 데이터베이스 상단 비교 도구에서 교체해 주세요.`
       : "다른 제품 페이지를 둘러보며 비교 후보를 모을 수 있습니다.";
 
   return (

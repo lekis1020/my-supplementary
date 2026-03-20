@@ -126,7 +126,7 @@ export default async function ProductDetailPage({ params }: Props) {
         className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-600"
       >
         <ArrowLeft className="h-4 w-4" />
-        제품 목록
+        제품 데이터베이스
       </Link>
 
       <div className="mb-8">

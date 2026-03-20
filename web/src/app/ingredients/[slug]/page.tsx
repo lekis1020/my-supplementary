@@ -28,13 +28,6 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-interface RelatedIngredientRow {
-  id: number;
-  canonical_name_ko: string;
-  canonical_name_en: string | null;
-  scientific_name: string | null;
-}
-
 interface ClaimMetaRow {
   claim_name_ko?: string | null;
   claim_scope?: string | null;
@@ -43,6 +36,7 @@ interface ClaimMetaRow {
 interface IngredientClaimRow {
   id: number;
   ingredient_id: number;
+  claim_id: number | null;
   evidence_grade: string | null;
   evidence_summary: string | null;
   allowed_expression: string | null;
@@ -78,8 +72,94 @@ interface EvidenceStudyRow {
   evidence_outcomes?: EvidenceOutcomeRow[] | null;
 }
 
+interface SafetyItemRow {
+  id: number;
+  title: string;
+  description: string | null;
+  severity_level: string | null;
+  applies_to_population: string | null;
+  management_advice: string | null;
+}
+
+interface DrugInteractionRow {
+  id: number;
+  drug_name: string;
+  clinical_effect: string | null;
+  recommendation: string | null;
+  severity_level: string | null;
+}
+
+interface DosageGuidelineRow {
+  id: number;
+  population_group: string | null;
+  dose_min: string | number | null;
+  dose_max: string | number | null;
+  dose_unit: string | null;
+  frequency_text: string | null;
+  recommendation_type: string | null;
+  notes: string | null;
+}
+
+interface ProductLinkRow {
+  id: number;
+  amount_per_serving: string | number | null;
+  amount_unit: string | null;
+  products:
+    | {
+        id: number;
+        product_name: string | null;
+        brand_name: string | null;
+      }
+    | {
+        id: number;
+        product_name: string | null;
+        brand_name: string | null;
+      }[]
+    | null;
+}
+
+interface SourceMetaRow {
+  source_name: string;
+  organization_name: string | null;
+  source_url: string | null;
+}
+
+interface SourceLinkRow {
+  id: number;
+  entity_type: string;
+  entity_id: number;
+  source_reference: string | null;
+  source_excerpt: string | null;
+  retrieved_at: string | null;
+  sources?: SourceMetaRow | SourceMetaRow[] | null;
+}
+
 function getClaimMeta(input: ClaimMetaRow | ClaimMetaRow[] | null | undefined) {
   return Array.isArray(input) ? input[0] ?? null : input ?? null;
+}
+
+function getSourceMeta(input: SourceMetaRow | SourceMetaRow[] | null | undefined) {
+  return Array.isArray(input) ? input[0] ?? null : input ?? null;
+}
+
+function dedupeSourceLinks(rows: SourceLinkRow[]) {
+  const map = new Map<string, SourceLinkRow>();
+
+  for (const row of rows) {
+    const source = getSourceMeta(row.sources);
+    const key = [
+      row.entity_type,
+      row.entity_id,
+      source?.source_name ?? "",
+      row.source_reference ?? "",
+    ].join("|");
+
+    if (!map.has(key)) {
+      map.set(key, row);
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 function getStudyPriority(design: string | null): number {
@@ -186,11 +266,11 @@ export default async function IngredientDetailPage({ params }: Props) {
   ]);
 
   const ingredientClaims = claimsRes.data ?? [];
-  const safetyItems = safetyRes.data ?? [];
-  const drugInteractions = drugRes.data ?? [];
-  const dosageGuidelines = dosageRes.data ?? [];
+  const safetyItems = (safetyRes.data ?? []) as SafetyItemRow[];
+  const drugInteractions = (drugRes.data ?? []) as DrugInteractionRow[];
+  const dosageGuidelines = (dosageRes.data ?? []) as DosageGuidelineRow[];
   const evidenceStudies = evidenceRes.data ?? [];
-  const productLinks = productsRes.data ?? [];
+  const productLinks = (productsRes.data ?? []) as ProductLinkRow[];
   const productCount = productsRes.count ?? productLinks.length;
   const category = getIngredientCategory(ingredient.ingredient_type);
   const relatedIngredients = category === "probiotics"
@@ -215,7 +295,7 @@ export default async function IngredientDetailPage({ params }: Props) {
     ? await Promise.all([
         supabase
           .from("ingredient_claims")
-          .select("id, ingredient_id, evidence_grade, evidence_summary, allowed_expression, claims(claim_name_ko, claim_scope)")
+          .select("id, ingredient_id, claim_id, evidence_grade, evidence_summary, allowed_expression, claims(claim_name_ko, claim_scope)")
           .in("ingredient_id", relatedIngredientIds),
         supabase
           .from("evidence_studies")
@@ -242,6 +322,62 @@ export default async function IngredientDetailPage({ params }: Props) {
   const highlightedEvidenceStudies = prioritizedEvidenceStudies.filter(
     (study) => getStudyPriority(study.study_design) >= 3,
   );
+  const claimIds = Array.from(
+    new Set(
+      mergedIngredientClaims
+        .map((claim) => claim.claim_id)
+        .filter((value): value is number => Number.isInteger(value)),
+    ),
+  );
+  const evidenceStudyIds = prioritizedEvidenceStudies.map((study) => study.id);
+  const { data: ingredientSourceLinksRaw } = await supabase
+    .from("source_links")
+    .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
+    .eq("entity_type", "ingredient")
+    .in("entity_id", relatedIngredientIds)
+    .order("retrieved_at", { ascending: false });
+
+  let claimSourceLinksRaw: SourceLinkRow[] = [];
+  if (claimIds.length > 0) {
+    const { data } = await supabase
+      .from("source_links")
+      .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
+      .eq("entity_type", "claim")
+      .in("entity_id", claimIds)
+      .order("retrieved_at", { ascending: false });
+    claimSourceLinksRaw = (data ?? []) as SourceLinkRow[];
+  }
+
+  let evidenceSourceLinksRaw: SourceLinkRow[] = [];
+  if (evidenceStudyIds.length > 0) {
+    const { data } = await supabase
+      .from("source_links")
+      .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
+      .eq("entity_type", "evidence_study")
+      .in("entity_id", evidenceStudyIds)
+      .order("retrieved_at", { ascending: false });
+    evidenceSourceLinksRaw = (data ?? []) as SourceLinkRow[];
+  }
+
+  const ingredientSourceLinks = dedupeSourceLinks((ingredientSourceLinksRaw ?? []) as SourceLinkRow[]);
+  const claimSourceLinks = dedupeSourceLinks(claimSourceLinksRaw);
+  const evidenceSourceLinks = dedupeSourceLinks(evidenceSourceLinksRaw);
+  const claimNamesWithEvidence = new Set(
+    prioritizedEvidenceStudies.flatMap((study) =>
+      (study.evidence_outcomes ?? [])
+        .map((outcome) => outcome.claims?.claim_name_ko)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const claimsMissingDirectEvidence = Array.from(
+    new Set(
+      mergedIngredientClaims
+        .map((claim) => getClaimMeta(claim.claims)?.claim_name_ko)
+        .filter((value): value is string => Boolean(value))
+        .filter((claimName) => !claimNamesWithEvidence.has(claimName)),
+    ),
+  );
+  const hasEvidenceGap = prioritizedEvidenceStudies.length === 0 || claimsMissingDirectEvidence.length > 0;
   const benefitProfile = buildBenefitProfile(mergedIngredientClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(mergedIngredientClaims);
 
@@ -544,6 +680,79 @@ export default async function IngredientDetailPage({ params }: Props) {
           </Card>
         )}
 
+        {prioritizedEvidenceStudies.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-purple-600" />
+                  연구 근거
+                </span>
+              </CardTitle>
+              <p className="mt-1 text-sm text-gray-500">
+                현재 이 원료에 대해 페이지에 노출 가능한 요약 논문이 충분히 준비되지 않았습니다.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-xl border border-dashed border-purple-200 bg-purple-50/50 p-4">
+                <p className="text-sm text-purple-900">
+                  근거 업데이트가 진행 중입니다. 아래 <strong>근거 출처 · 업데이트 현황</strong> 섹션에서
+                  현재 연결된 출처를 먼저 확인할 수 있습니다.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {(ingredientSourceLinks.length > 0 ||
+          claimSourceLinks.length > 0 ||
+          evidenceSourceLinks.length > 0 ||
+          hasEvidenceGap) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5 text-indigo-600" />
+                  근거 출처 · 업데이트 현황
+                </span>
+              </CardTitle>
+              <p className="mt-1 text-sm text-gray-500">
+                원료·기능성·논문 출처를 한 곳에서 확인할 수 있습니다.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {hasEvidenceGap && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-900">
+                    일부 효능 항목은 근거 문헌 업데이트가 필요합니다.
+                  </p>
+                  {claimsMissingDirectEvidence.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {claimsMissingDirectEvidence.slice(0, 8).map((claimName) => (
+                        <span
+                          key={claimName}
+                          className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-800"
+                        >
+                          {claimName}
+                        </span>
+                      ))}
+                      {claimsMissingDirectEvidence.length > 8 && (
+                        <span className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-800">
+                          외 {claimsMissingDirectEvidence.length - 8}개
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <SourceLinkBlock title="원료/규제 출처" links={ingredientSourceLinks} />
+              <SourceLinkBlock title="기능성 클레임 출처" links={claimSourceLinks} />
+              <SourceLinkBlock title="연구 논문 출처" links={evidenceSourceLinks} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* 안전성 */}
         {safetyItems.length > 0 && (
           <Card>
@@ -557,7 +766,7 @@ export default async function IngredientDetailPage({ params }: Props) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {safetyItems.map((si: any) => (
+                {safetyItems.map((si) => (
                   <div key={si.id} className="rounded-lg border border-gray-100 p-4">
                     <div className="flex items-start justify-between">
                       <p className="font-medium text-gray-900">{si.title}</p>
@@ -598,7 +807,7 @@ export default async function IngredientDetailPage({ params }: Props) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {drugInteractions.map((di: any) => (
+                {drugInteractions.map((di) => (
                   <div key={di.id} className="rounded-lg border border-gray-100 p-4">
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-gray-900">{di.drug_name}</p>
@@ -645,7 +854,7 @@ export default async function IngredientDetailPage({ params }: Props) {
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
-                    {dosageGuidelines.map((dg: any) => (
+                    {dosageGuidelines.map((dg) => (
                       <tr key={dg.id} className="border-b border-gray-50">
                         <td className="py-2 pr-4 font-medium">{dg.population_group}</td>
                         <td className="py-2 pr-4">
@@ -680,19 +889,22 @@ export default async function IngredientDetailPage({ params }: Props) {
             <CardContent>
               <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                 <p className="text-sm leading-6 text-gray-600">
-                  개별 제품을 이 페이지에서 길게 펼치기보다, 제품 목록에서 이 원료를 기준으로
+                  개별 제품을 이 페이지에서 길게 펼치기보다, 제품 데이터베이스에서 이 원료를 기준으로
                   탐색하는 편이 더 효율적입니다.
                 </p>
                 {productLinks.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {productLinks.map((pl: any) => (
+                    {productLinks.map((pl) => {
+                      const product = Array.isArray(pl.products) ? pl.products[0] : pl.products;
+                      return (
                       <span
                         key={pl.id}
                         className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600"
                       >
-                        {pl.products?.product_name}
+                        {product?.product_name}
                       </span>
-                    ))}
+                      );
+                    })}
                     {productCount > productLinks.length && (
                       <span className="inline-flex rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs font-medium text-gray-500">
                         외 {(productCount - productLinks.length).toLocaleString()}개
@@ -704,7 +916,7 @@ export default async function IngredientDetailPage({ params }: Props) {
                   href={`/products?ingredientId=${ingredient.id}`}
                   className="mt-5 inline-flex items-center rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
                 >
-                  제품 목록에서 보기
+                  제품 데이터베이스에서 보기
                 </Link>
               </div>
             </CardContent>
@@ -724,5 +936,64 @@ export default async function IngredientDetailPage({ params }: Props) {
         </p>
       </div>
     </div>
+  );
+}
+
+function SourceLinkBlock({ title, links }: { title: string; links: SourceLinkRow[] }) {
+  return (
+    <section>
+      <p className="mb-2 text-sm font-semibold text-slate-800">{title}</p>
+
+      {links.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          연결된 출처가 아직 없습니다.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {links.slice(0, 8).map((link) => {
+            const source = getSourceMeta(link.sources);
+            const href = link.source_reference || source?.source_url || null;
+            const retrievedDate = link.retrieved_at
+              ? new Date(link.retrieved_at).toLocaleDateString("ko-KR")
+              : null;
+
+            return (
+              <div key={`${link.id}-${link.entity_type}-${link.entity_id}`} className="rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {source?.source_name ?? "출처"}
+                  </span>
+                  {source?.organization_name && (
+                    <span className="text-xs text-slate-400">· {source.organization_name}</span>
+                  )}
+                  {retrievedDate && (
+                    <span className="text-xs text-slate-400">· 수집일 {retrievedDate}</span>
+                  )}
+                </div>
+
+                {href && (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
+                  >
+                    출처 링크 보기
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+
+                {link.source_excerpt && (
+                  <p className="mt-1 text-xs text-slate-500">{link.source_excerpt}</p>
+                )}
+              </div>
+            );
+          })}
+          {links.length > 8 && (
+            <p className="text-xs text-slate-400">외 {links.length - 8}건의 출처가 더 있습니다.</p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
