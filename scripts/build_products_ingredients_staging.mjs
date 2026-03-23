@@ -208,6 +208,86 @@ function inferIngredientType(name) {
   return "other";
 }
 
+function isClearlyProbioticStrainName(name) {
+  const text = cleanInlineText(name) ?? "";
+  if (!text) {
+    return false;
+  }
+
+  const latinSpeciesPattern =
+    /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+/i;
+  const abbreviatedGenusPattern = /\b[LBSE]\.\s*[a-z][a-z-]+/;
+  const strainCodePattern = /\b[A-Z]{1,6}[- ]?\d{1,5}[A-Z0-9-]*\b/;
+  const koreanSpeciesPattern =
+    /(플란타룸|람노서스|카제이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)/;
+
+  return (
+    latinSpeciesPattern.test(text) ||
+    abbreviatedGenusPattern.test(text) ||
+    strainCodePattern.test(text) ||
+    koreanSpeciesPattern.test(text)
+  );
+}
+
+function inferParentIngredientSlug(name, ingredientType, slug) {
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return null;
+  }
+
+  const text = cleanInlineText(name) ?? "";
+  if (!text) {
+    return null;
+  }
+
+  if (text === "프로바이오틱스") {
+    return null;
+  }
+
+  if (isClearlyProbioticStrainName(text)) {
+    return "probiotics";
+  }
+
+  if ((text.includes("프로바이오틱스") || text.includes("유산균")) && /[A-Za-z]/.test(text)) {
+    return "probiotics";
+  }
+
+  return null;
+}
+
+function normalizeCanonicalProbioticName(name, ingredientType, slug) {
+  const text = cleanInlineText(name);
+  if (!text) {
+    return null;
+  }
+
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return text;
+  }
+
+  if (text === "프로바이오틱스" || text === "유산균") {
+    return text;
+  }
+
+  const isLikelyStrain =
+    isClearlyProbioticStrainName(text) ||
+    ((text.includes("프로바이오틱스") || text.includes("유산균")) &&
+      /[A-Za-z]/.test(text));
+
+  if (!isLikelyStrain) {
+    return text;
+  }
+
+  const normalized = text
+    .replace(/\s*의\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*(프로바이오틱스|프로바이오틱|유산균)$/i, "")
+    .replace(/\s*probiotics?$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || text;
+}
+
 function normalizeNameToken(value) {
   const text = cleanInlineText(value);
   if (!text) {
@@ -350,7 +430,12 @@ const ingredientStats = new Map();
 
 await readJsonl(requiredFiles.productIngredientsStaging, (row) => {
   const reportNo = cleanInlineText(row.reportNo);
-  const ingredientName = cleanInlineText(row.canonicalNameKo);
+  const rawIngredientName = cleanInlineText(row.canonicalNameKo);
+  const ingredientName = normalizeCanonicalProbioticName(
+    rawIngredientName,
+    inferIngredientType(rawIngredientName),
+    row.canonicalSlug ?? null,
+  );
   if (!reportNo || !ingredientName) {
     return;
   }
@@ -464,27 +549,63 @@ productRows.sort((a, b) => a.reportNo.localeCompare(b.reportNo, "ko"));
 
 const ingredientRows = [];
 await readJsonl(requiredFiles.ingredientProfiles, (row) => {
-  const key = normalizeKey(row.canonicalNameKo);
-  if (!key) {
+  const rawCanonicalNameKo = cleanInlineText(row.canonicalNameKo);
+  if (!rawCanonicalNameKo) {
     return;
   }
 
-  const seedMeta = seedIngredients.get(key) ?? null;
-  const catalogMeta = catalogByName.get(key) ?? null;
-  const stats = ingredientStats.get(key) ?? null;
+  const rawKey = normalizeKey(rawCanonicalNameKo);
+  if (!rawKey) {
+    return;
+  }
+
+  let seedMeta = seedIngredients.get(rawKey) ?? null;
+  let catalogMeta = catalogByName.get(rawKey) ?? null;
+  const ingredientType = seedMeta?.ingredientType ?? inferIngredientType(rawCanonicalNameKo);
+  let ingredientSlug = seedMeta?.slug ?? catalogMeta?.slug ?? null;
+  const canonicalNameKo =
+    normalizeCanonicalProbioticName(rawCanonicalNameKo, ingredientType, ingredientSlug) ??
+    rawCanonicalNameKo;
+  const normalizedKey = normalizeKey(canonicalNameKo);
+
+  if (!seedMeta && normalizedKey) {
+    seedMeta = seedIngredients.get(normalizedKey) ?? null;
+  }
+  if (!catalogMeta && normalizedKey) {
+    catalogMeta = catalogByName.get(normalizedKey) ?? null;
+  }
+  if (!ingredientSlug) {
+    ingredientSlug = seedMeta?.slug ?? catalogMeta?.slug ?? null;
+  }
+
+  const stats =
+    (normalizedKey ? ingredientStats.get(normalizedKey) : null) ??
+    ingredientStats.get(rawKey) ??
+    null;
+  const aliases = new Set(
+    (row.aliases ?? []).map((value) => cleanInlineText(value)).filter(Boolean),
+  );
+  if (canonicalNameKo !== rawCanonicalNameKo) {
+    aliases.add(rawCanonicalNameKo);
+  }
 
   ingredientRows.push({
-    canonicalNameKo: cleanInlineText(row.canonicalNameKo),
+    ingredientType,
+    parentIngredientSlug: inferParentIngredientSlug(
+      canonicalNameKo,
+      ingredientType,
+      ingredientSlug,
+    ),
+    canonicalNameKo,
     canonicalNameEn: seedMeta?.canonicalNameEn ?? null,
     displayName: seedMeta?.displayName ?? cleanInlineText(row.displayName),
     scientificName: seedMeta?.scientificName ?? null,
-    slug: seedMeta?.slug ?? catalogMeta?.slug ?? null,
-    ingredientType: seedMeta?.ingredientType ?? inferIngredientType(row.canonicalNameKo),
+    slug: ingredientSlug,
     originType: seedMeta?.originType ?? null,
     formDescription: seedMeta?.formDescription ?? null,
     standardizationInfo: seedMeta?.standardizationInfo ?? null,
     description: seedMeta?.description ?? null,
-    aliases: (row.aliases ?? []).slice().sort(),
+    aliases: [...aliases].sort((a, b) => a.localeCompare(b, "ko")),
     sourceDatasets: (row.sourceDatasets ?? []).slice().sort(),
     functionalityItems: (row.functionalityItems ?? []).slice().sort(),
     warningTexts: (row.warningTexts ?? []).slice().sort(),

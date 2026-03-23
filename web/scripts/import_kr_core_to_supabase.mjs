@@ -6,6 +6,7 @@ import process from "node:process";
 import readline from "node:readline";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { trackRefresh } from "./lib/track-refresh.mjs";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
@@ -196,14 +197,123 @@ function chunk(array, size) {
   return output;
 }
 
-function mapIngredientRow(row) {
+function isClearlyProbioticStrainName(name) {
+  const text = String(name ?? "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return false;
+  }
+
+  const latinSpeciesPattern =
+    /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+/i;
+  const abbreviatedGenusPattern = /\b[LBSE]\.\s*[a-z][a-z-]+/;
+  const strainCodePattern = /\b[A-Z]{1,6}[- ]?\d{1,5}[A-Z0-9-]*\b/;
+  const koreanSpeciesPattern =
+    /(플란타룸|람노서스|카제이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)/;
+
+  return (
+    latinSpeciesPattern.test(text) ||
+    abbreviatedGenusPattern.test(text) ||
+    strainCodePattern.test(text) ||
+    koreanSpeciesPattern.test(text)
+  );
+}
+
+function normalizeCanonicalProbioticName(name, ingredientType, slug) {
+  const text = String(name ?? "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return null;
+  }
+
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return text;
+  }
+
+  if (text === "프로바이오틱스" || text === "유산균") {
+    return text;
+  }
+
+  const isLikelyStrain =
+    isClearlyProbioticStrainName(text) ||
+    ((text.includes("프로바이오틱스") || text.includes("유산균")) &&
+      /[A-Za-z]/.test(text));
+
+  if (!isLikelyStrain) {
+    return text;
+  }
+
+  const normalized = text
+    .replace(/\s*의\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*(프로바이오틱스|프로바이오틱|유산균)$/i, "")
+    .replace(/\s*probiotics?$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || text;
+}
+
+function ingredientNameLookupKeys(name) {
+  const text = String(name ?? "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return [];
+  }
+
+  const normalized = normalizeCanonicalProbioticName(text, "probiotic", null);
+  return [...new Set([text, normalized].filter(Boolean))];
+}
+
+function inferParentIngredientSlug(row) {
+  const explicit = row.parentIngredientSlug ?? null;
+  if (explicit) {
+    return explicit;
+  }
+
+  const ingredientType = row.ingredientType ?? null;
+  const slug = row.slug ?? null;
+  const canonicalNameKo = row.canonicalNameKo ?? null;
+
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return null;
+  }
+
+  const text = String(canonicalNameKo ?? "").replace(/\s+/g, " ").trim();
+  if (!text || text === "프로바이오틱스") {
+    return null;
+  }
+
+  if (isClearlyProbioticStrainName(text)) {
+    return "probiotics";
+  }
+
+  if ((text.includes("프로바이오틱스") || text.includes("유산균")) && /[A-Za-z]/.test(text)) {
+    return "probiotics";
+  }
+
+  return null;
+}
+
+function mapIngredientRow(row, parentIdBySlug = new Map()) {
+  const canonicalNameKo =
+    normalizeCanonicalProbioticName(
+      row.canonicalNameKo,
+      row.ingredientType ?? "other",
+      row.slug ?? null,
+    ) ?? row.canonicalNameKo;
+  const displayName =
+    row.displayName && row.displayName === row.canonicalNameKo
+      ? canonicalNameKo
+      : row.displayName;
+  const parentSlug = inferParentIngredientSlug(row);
+  const parentIngredientId = parentSlug ? parentIdBySlug.get(parentSlug) ?? null : null;
+
   return {
-    canonical_name_ko: row.canonicalNameKo,
+    canonical_name_ko: canonicalNameKo,
     canonical_name_en: row.canonicalNameEn,
-    display_name: row.displayName,
+    display_name: displayName,
     scientific_name: row.scientificName,
     slug: row.slug,
     ingredient_type: row.ingredientType ?? "other",
+    parent_ingredient_id: parentIngredientId,
     description: row.description,
     origin_type: row.originType,
     form_description: row.formDescription,
@@ -246,6 +356,112 @@ function mapProductIngredientRow(row, productId, ingredientId) {
   };
 }
 
+function ingredientRolePriority(role) {
+  if (role === "active") return 3;
+  if (role === "supporting") return 2;
+  if (role === "capsule") return 1;
+  return 0;
+}
+
+function isBetterIngredientRow(candidate, current) {
+  const roleDiff =
+    ingredientRolePriority(candidate.proposedIngredientRole) -
+    ingredientRolePriority(current.proposedIngredientRole);
+  if (roleDiff !== 0) {
+    return roleDiff > 0;
+  }
+
+  const servingDiff =
+    Number(candidate.amountPerServing != null) -
+    Number(current.amountPerServing != null);
+  if (servingDiff !== 0) {
+    return servingDiff > 0;
+  }
+
+  const dailyDiff =
+    Number(candidate.dailyAmount != null) -
+    Number(current.dailyAmount != null);
+  if (dailyDiff !== 0) {
+    return dailyDiff > 0;
+  }
+
+  const confidenceDiff =
+    (typeof candidate.maxConfidence === "number" ? candidate.maxConfidence : -1) -
+    (typeof current.maxConfidence === "number" ? current.maxConfidence : -1);
+  if (confidenceDiff !== 0) {
+    return confidenceDiff > 0;
+  }
+
+  const rawLabelLengthDiff =
+    (candidate.rawLabelName ?? "").length - (current.rawLabelName ?? "").length;
+  if (rawLabelLengthDiff !== 0) {
+    return rawLabelLengthDiff > 0;
+  }
+
+  const candidateOrderHint = Number.isFinite(candidate.minOrderHint)
+    ? candidate.minOrderHint
+    : Number.MAX_SAFE_INTEGER;
+  const currentOrderHint = Number.isFinite(current.minOrderHint)
+    ? current.minOrderHint
+    : Number.MAX_SAFE_INTEGER;
+  if (candidateOrderHint !== currentOrderHint) {
+    return candidateOrderHint < currentOrderHint;
+  }
+
+  return (candidate.rawLabelName ?? "").localeCompare(current.rawLabelName ?? "", "ko") < 0;
+}
+
+function resolveIngredientIdFromRow(row, ingredientMap) {
+  if (row.canonicalSlug) {
+    const fromSlug = ingredientMap.get(`slug:${row.canonicalSlug}`);
+    if (fromSlug) {
+      return fromSlug;
+    }
+  }
+
+  for (const key of ingredientNameLookupKeys(row.canonicalNameKo)) {
+    const fromName = ingredientMap.get(`name:${key}`);
+    if (fromName) {
+      return fromName;
+    }
+  }
+
+  return null;
+}
+
+function dedupeProductIngredientRows(rows, productMap, ingredientMap) {
+  const bestByPair = new Map();
+  let unresolved = 0;
+
+  for (const row of rows) {
+    const productId = productMap.get(row.reportNo);
+    const ingredientId = resolveIngredientIdFromRow(row, ingredientMap);
+
+    if (!productId || !ingredientId) {
+      unresolved += 1;
+      continue;
+    }
+
+    const pairKey = `${productId}:${ingredientId}`;
+    const current = bestByPair.get(pairKey);
+    if (!current || isBetterIngredientRow(row, current.row)) {
+      bestByPair.set(pairKey, { row, productId, ingredientId });
+    }
+  }
+
+  return {
+    payloadRows: [...bestByPair.values()].map(({ row, productId, ingredientId }) =>
+      mapProductIngredientRow(
+        row,
+        productId,
+        ingredientId,
+      ),
+    ),
+    unresolved,
+    deduped: rows.length - unresolved - bestByPair.size,
+  };
+}
+
 async function readAllRows(filePath) {
   const rows = [];
   for await (const row of readJsonl(filePath)) {
@@ -277,6 +493,14 @@ async function fetchExistingIngredientNames(supabase, batchSize) {
     for (const row of data) {
       if (row.canonical_name_ko) {
         names.add(row.canonical_name_ko);
+        const normalized = normalizeCanonicalProbioticName(
+          row.canonical_name_ko,
+          "probiotic",
+          null,
+        );
+        if (normalized) {
+          names.add(normalized);
+        }
       }
     }
 
@@ -310,7 +534,17 @@ async function deleteAllProductIngredients(supabase) {
 
 async function upsertIngredients(supabase, rows, batchSize) {
   const mergedRows = [...rows];
-  const existing = new Set(rows.map((row) => row.canonicalNameKo));
+  const existing = new Set(
+    rows
+      .map((row) =>
+        normalizeCanonicalProbioticName(
+          row.canonicalNameKo,
+          row.ingredientType ?? "other",
+          row.slug ?? null,
+        ) ?? row.canonicalNameKo,
+      )
+      .filter(Boolean),
+  );
 
   for (const supplemental of supplementalIngredients) {
     if (!existing.has(supplemental.canonicalNameKo)) {
@@ -319,14 +553,28 @@ async function upsertIngredients(supabase, rows, batchSize) {
   }
 
   const existingNames = await fetchExistingIngredientNames(supabase, batchSize);
+  const existingIngredientMap = await fetchIngredientMap(supabase);
+  const parentIdBySlug = new Map(
+    [...existingIngredientMap.entries()]
+      .filter(([key]) => key.startsWith("slug:"))
+      .map(([key, value]) => [key.slice(5), value]),
+  );
   const slugRows = mergedRows.filter((row) => row.slug);
   const nameOnlyRows = mergedRows.filter(
-    (row) => !row.slug && !existingNames.has(row.canonicalNameKo),
+    (row) =>
+      !row.slug &&
+      !existingNames.has(
+        normalizeCanonicalProbioticName(
+          row.canonicalNameKo,
+          row.ingredientType ?? "other",
+          row.slug ?? null,
+        ) ?? row.canonicalNameKo,
+      ),
   );
   let processed = 0;
 
   for (const batch of chunk(slugRows, batchSize)) {
-    const payload = batch.map(mapIngredientRow);
+    const payload = batch.map((row) => mapIngredientRow(row, parentIdBySlug));
     const { error } = await supabase
       .from("ingredients")
       .upsert(payload, { onConflict: "slug", ignoreDuplicates: false });
@@ -340,7 +588,7 @@ async function upsertIngredients(supabase, rows, batchSize) {
   }
 
   for (const batch of chunk(nameOnlyRows, batchSize)) {
-    const payload = batch.map(mapIngredientRow);
+    const payload = batch.map((row) => mapIngredientRow(row, parentIdBySlug));
     const { error } = await supabase.from("ingredients").insert(payload);
 
     if (error) {
@@ -357,7 +605,7 @@ async function fetchIngredientMap(supabase) {
 
   const { data, error } = await supabase
     .from("ingredients")
-    .select("id, slug, canonical_name_ko")
+    .select("id, slug, canonical_name_ko, ingredient_type")
     .order("id", { ascending: true });
 
   if (error) {
@@ -370,6 +618,14 @@ async function fetchIngredientMap(supabase) {
     }
     if (row.canonical_name_ko) {
       ingredientMap.set(`name:${row.canonical_name_ko}`, row.id);
+      const normalized = normalizeCanonicalProbioticName(
+        row.canonical_name_ko,
+        row.ingredient_type ?? "other",
+        row.slug ?? null,
+      );
+      if (normalized) {
+        ingredientMap.set(`name:${normalized}`, row.id);
+      }
     }
   }
 
@@ -444,42 +700,30 @@ async function insertProductIngredients(
   ingredientMap,
   batchSize,
 ) {
+  const deduped = dedupeProductIngredientRows(rows, productMap, ingredientMap);
   let processed = 0;
   let inserted = 0;
-  let skipped = 0;
 
-  for (const batch of chunk(rows, batchSize)) {
-    const payload = [];
-
-    for (const row of batch) {
-      const productId = productMap.get(row.reportNo);
-      const ingredientId =
-        ingredientMap.get(`slug:${row.canonicalSlug}`) ??
-        ingredientMap.get(`name:${row.canonicalNameKo}`);
-
-      if (!productId || !ingredientId) {
-        skipped += 1;
-        continue;
-      }
-
-      payload.push(mapProductIngredientRow(row, productId, ingredientId));
-    }
-
-    if (payload.length > 0) {
-      const { error } = await supabase.from("product_ingredients").insert(payload);
+  for (const batch of chunk(deduped.payloadRows, batchSize)) {
+    if (batch.length > 0) {
+      const { error } = await supabase.from("product_ingredients").insert(batch);
       if (error) {
         throw error;
       }
-      inserted += payload.length;
+      inserted += batch.length;
     }
 
     processed += batch.length;
     console.log(
-      `product_ingredients processed ${processed}/${rows.length} inserted=${inserted} skipped=${skipped}`,
+      `product_ingredients processed ${processed}/${deduped.payloadRows.length} inserted=${inserted} unresolved=${deduped.unresolved} deduped=${deduped.deduped}`,
     );
   }
 
-  return { inserted, skipped };
+  return {
+    inserted,
+    skipped: deduped.unresolved,
+    deduped: deduped.deduped,
+  };
 }
 
 async function countRows(supabase, tableName) {
@@ -595,7 +839,9 @@ async function main() {
       ingredientMap,
       args.batchSize,
     );
-    console.log(`product_ingredients inserted=${result.inserted} skipped=${result.skipped}`);
+    console.log(
+      `product_ingredients inserted=${result.inserted} skipped=${result.skipped} deduped=${result.deduped}`,
+    );
   }
 
   const counts = {
@@ -605,6 +851,15 @@ async function main() {
   };
 
   console.log(JSON.stringify({ projectRef, counts }, null, 2));
+
+  await Promise.all([
+    selected.has("ingredients") &&
+      trackRefresh(supabase, { entityType: "ingredient", recordsProcessed: counts.ingredients }),
+    selected.has("products") &&
+      trackRefresh(supabase, { entityType: "product", recordsProcessed: counts.products }),
+    selected.has("product_ingredients") &&
+      trackRefresh(supabase, { entityType: "product_ingredient", recordsProcessed: counts.product_ingredients }),
+  ]);
 }
 
 main().catch((error) => {

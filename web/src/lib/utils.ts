@@ -35,6 +35,33 @@ export function formatProductName(name: string | null | undefined): string {
     .trim();
 }
 
+export function normalizeProbioticStrainNameForDisplay(
+  name: string | null | undefined,
+): string {
+  if (!name) {
+    return "원료명 없음";
+  }
+
+  const trimmed = name.replace(/\s+/g, " ").trim();
+  if (!trimmed) {
+    return "원료명 없음";
+  }
+
+  if (!hasClearlyIdentifiedProbioticStrain(trimmed)) {
+    return trimmed;
+  }
+
+  const normalized = trimmed
+    .replace(/\s*의\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*프로바이오틱스$/i, "")
+    .replace(/\s*probiotics?$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || trimmed;
+}
+
 export function getIngredientRoleLabel(role: string | null | undefined): string {
   switch (role) {
     case "active":

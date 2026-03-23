@@ -108,6 +108,12 @@ const CFU_UNIT_FACTORS: Array<{ pattern: RegExp; factor: number }> = [
   { pattern: /cfu/i, factor: 1 },
 ];
 
+const PRODUCTS_BATCH_SIZE = 1000;
+
+function sortProductsByName(left: Product, right: Product) {
+  return left.product_name.localeCompare(right.product_name, "ko");
+}
+
 export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -164,22 +170,38 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     async function loadProducts() {
       const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, product_name, manufacturer_name, country_code")
-        .eq("is_published", true)
-        .order("product_name");
+      const mergedProducts: Product[] = [];
 
-      if (error) {
-        setProductsLoadError(error.message);
-        setAllProducts([]);
-        setProductsLoaded(false);
-        setLoading(false);
-        return;
+      for (let offset = 0; ; offset += PRODUCTS_BATCH_SIZE) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, product_name, manufacturer_name, country_code")
+          .eq("is_published", true)
+          .order("id")
+          .range(offset, offset + PRODUCTS_BATCH_SIZE - 1);
+
+        if (error) {
+          setProductsLoadError(error.message);
+          setAllProducts([]);
+          setProductsLoaded(false);
+          setLoading(false);
+          return;
+        }
+
+        const rows = (data as Product[] | null) ?? [];
+        if (rows.length === 0) {
+          break;
+        }
+
+        mergedProducts.push(...rows);
+
+        if (rows.length < PRODUCTS_BATCH_SIZE) {
+          break;
+        }
       }
 
       setProductsLoadError(null);
-      setAllProducts(data ?? []);
+      setAllProducts(mergedProducts.sort(sortProductsByName));
       setProductsLoaded(true);
       setLoading(false);
     }
@@ -187,10 +209,45 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
   }, []);
 
   const validProductIds = useMemo(() => new Set(allProducts.map((product) => product.id)), [allProducts]);
+  const missingSelectedIds = useMemo(
+    () => selectedIds.filter((id) => !validProductIds.has(id)),
+    [selectedIds, validProductIds],
+  );
   const effectiveSelectedIds = useMemo(
     () => selectedIds.filter((id) => validProductIds.has(id)),
     [selectedIds, validProductIds],
   );
+
+  useEffect(() => {
+    async function loadMissingSelectedProducts() {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, product_name, manufacturer_name, country_code")
+        .eq("is_published", true)
+        .in("id", missingSelectedIds);
+
+      if (error || !data || data.length === 0) {
+        return;
+      }
+
+      setAllProducts((previous) => {
+        const ids = new Set(previous.map((product) => product.id));
+        const appended = [...previous];
+
+        for (const product of data as Product[]) {
+          if (!ids.has(product.id)) {
+            appended.push(product);
+          }
+        }
+
+        return appended.sort(sortProductsByName);
+      });
+    }
+
+    if (!productsLoaded || missingSelectedIds.length === 0) return;
+    loadMissingSelectedProducts();
+  }, [missingSelectedIds, productsLoaded]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -390,6 +447,11 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
               {selectedIds.length > 0 && (
                 <p className="text-xs text-amber-700">
                   선택된 제품 ID: {selectedIds.join(", ")}
+                </p>
+              )}
+              {missingSelectedIds.length > 0 && (
+                <p className="text-xs text-amber-700">
+                  현재 비교 도구에서 확인되지 않은 ID: {missingSelectedIds.join(", ")}
                 </p>
               )}
               <div className="space-y-1 text-xs text-amber-700">

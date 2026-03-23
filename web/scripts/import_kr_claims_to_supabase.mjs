@@ -7,6 +7,7 @@ import readline from "node:readline";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { trackRefresh } from "./lib/track-refresh.mjs";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
@@ -695,6 +696,11 @@ async function main() {
       2,
     ),
   );
+
+  await Promise.all([
+    trackRefresh(supabase, { entityType: "claim", recordsProcessed: claimRows.length }),
+    trackRefresh(supabase, { entityType: "ingredient_claim", recordsProcessed: mergedIngredientClaims.length }),
+  ]);
 }
 
 main().catch((error) => {

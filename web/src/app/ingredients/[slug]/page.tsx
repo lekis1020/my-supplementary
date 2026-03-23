@@ -16,6 +16,8 @@ import {
   getStudyDesignColor,
   getEffectDirectionLabel,
   getEffectDirectionBadgeColor,
+  hasClearlyIdentifiedProbioticStrain,
+  normalizeProbioticStrainNameForDisplay,
 } from "@/lib/utils";
 import {
   ArrowLeft, AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
@@ -273,23 +275,79 @@ export default async function IngredientDetailPage({ params }: Props) {
   const productLinks = (productsRes.data ?? []) as ProductLinkRow[];
   const productCount = productsRes.count ?? productLinks.length;
   const category = getIngredientCategory(ingredient.ingredient_type);
-  const relatedIngredients = category === "probiotics"
+  const displayIngredientName = normalizeProbioticStrainNameForDisplay(ingredient.canonical_name_ko);
+  const isProbiotic = category === "probiotics";
+  const isLikelyProbioticStrain =
+    isProbiotic &&
+    hasClearlyIdentifiedProbioticStrain({
+      canonicalNameKo: ingredient.canonical_name_ko,
+      canonicalNameEn: ingredient.canonical_name_en,
+    });
+
+  let probioticFamilyRoot:
+    | {
+        id: number;
+        canonical_name_ko: string;
+      }
+    | null = null;
+
+  if (isProbiotic) {
+    if (ingredient.parent_ingredient_id) {
+      const { data } = await supabase
+        .from("ingredients")
+        .select("id, canonical_name_ko")
+        .eq("id", ingredient.parent_ingredient_id)
+        .eq("is_published", true)
+        .maybeSingle();
+      probioticFamilyRoot = data ?? null;
+    } else if (ingredient.slug === "probiotics") {
+      probioticFamilyRoot = {
+        id: ingredient.id,
+        canonical_name_ko: ingredient.canonical_name_ko,
+      };
+    } else if (isLikelyProbioticStrain) {
+      const { data } = await supabase
+        .from("ingredients")
+        .select("id, canonical_name_ko")
+        .eq("slug", "probiotics")
+        .eq("is_published", true)
+        .maybeSingle();
+      probioticFamilyRoot =
+        data && data.id !== ingredient.id ? data : null;
+    }
+  }
+
+  const probioticFamilyRootId =
+    probioticFamilyRoot?.id ??
+    (isProbiotic && ingredient.slug === "probiotics" ? ingredient.id : null);
+
+  const relatedIngredients = probioticFamilyRootId
     ? (
         (
           await supabase
             .from("ingredients")
             .select("id, canonical_name_ko, canonical_name_en, scientific_name")
-            .eq("parent_ingredient_id", ingredient.id)
+            .eq("parent_ingredient_id", probioticFamilyRootId)
             .eq("is_published", true)
             .order("canonical_name_ko")
         ).data ?? []
       )
     : [];
-  const relatedIngredientIds = [ingredient.id, ...relatedIngredients.map((item) => item.id)];
+
+  const relatedIngredientIds = Array.from(
+    new Set([
+      ingredient.id,
+      ...(probioticFamilyRootId ? [probioticFamilyRootId] : []),
+      ...relatedIngredients.map((item) => item.id),
+    ]),
+  );
   const relatedIngredientNameMap = new Map<number, string>([
     [ingredient.id, ingredient.canonical_name_ko],
+    ...(probioticFamilyRoot ? [[probioticFamilyRoot.id, probioticFamilyRoot.canonical_name_ko] as const] : []),
     ...relatedIngredients.map((item) => [item.id, item.canonical_name_ko] as const),
   ]);
+  const isFamilyRootPage = probioticFamilyRootId === ingredient.id;
+  const includeFamilyEvidence = relatedIngredientIds.length > 1;
 
   const [relatedClaimsRes, relatedEvidenceRes] = relatedIngredientIds.length > 1
     ? await Promise.all([
@@ -397,19 +455,24 @@ export default async function IngredientDetailPage({ params }: Props) {
           {getIngredientCategoryLabel(category)}
         </Link>
         <span>/</span>
-        <span className="font-medium text-gray-700">{ingredient.canonical_name_ko}</span>
+        <span className="font-medium text-gray-700">{displayIngredientName}</span>
       </div>
 
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold text-gray-900">
-            {ingredient.canonical_name_ko}
+            {displayIngredientName}
           </h1>
           <Badge className="bg-gray-100 text-gray-600">
             {getIngredientTypeLabel(ingredient.ingredient_type)}
           </Badge>
         </div>
+        {displayIngredientName !== ingredient.canonical_name_ko && (
+          <p className="mt-1 text-sm text-gray-400">
+            원료 표기: {ingredient.canonical_name_ko}
+          </p>
+        )}
         {ingredient.canonical_name_en && (
           <p className="mt-1 text-lg text-gray-400">{ingredient.canonical_name_en}</p>
         )}
@@ -449,9 +512,11 @@ export default async function IngredientDetailPage({ params }: Props) {
                   기능성 · 효능
                 </span>
               </CardTitle>
-              {relatedIngredients.length > 0 && (
+              {includeFamilyEvidence && (
                 <p className="mt-1 text-sm text-gray-500">
-                  프로바이오틱스는 균주별 연구가 많아, 이 페이지에는 하위 균주 근거까지 함께 반영했습니다.
+                  {isFamilyRootPage
+                    ? "프로바이오틱스는 균주별 연구가 많아, 이 페이지에는 하위 균주 근거까지 함께 반영했습니다."
+                    : "개별 균주 근거가 부족한 경우를 보완하기 위해 상위 프로바이오틱스 및 연관 균주 근거를 함께 반영했습니다."}
                 </p>
               )}
             </CardHeader>
@@ -475,7 +540,7 @@ export default async function IngredientDetailPage({ params }: Props) {
                           </Badge>
                           {isRelatedStrainClaim && (
                             <Badge className="bg-violet-50 text-violet-700">
-                              균주 근거: {sourceIngredientName}
+                              연관 근거: {sourceIngredientName}
                             </Badge>
                           )}
                         </div>
@@ -527,9 +592,11 @@ export default async function IngredientDetailPage({ params }: Props) {
                   <Badge className="bg-purple-100 text-purple-800">
                     고근거 연구 {highlightedEvidenceStudies.length}건
                   </Badge>
-                  {relatedIngredients.length > 0 && (
+                  {includeFamilyEvidence && (
                     <span className="text-xs text-purple-800">
-                      하위 균주 연구를 포함합니다.
+                      {isFamilyRootPage
+                        ? "하위 균주 연구를 포함합니다."
+                        : "상위/연관 균주 연구를 포함합니다."}
                     </span>
                   )}
                 </div>
@@ -568,7 +635,7 @@ export default async function IngredientDetailPage({ params }: Props) {
                         )}
                         {isRelatedStrainStudy && (
                           <Badge className="bg-violet-50 text-violet-700">
-                            균주 {sourceIngredientName}
+                            연관 원료 {sourceIngredientName}
                           </Badge>
                         )}
                         {study.publication_year && (

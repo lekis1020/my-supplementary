@@ -6,6 +6,7 @@ import process from "node:process";
 import readline from "node:readline";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { trackRefresh } from "./lib/track-refresh.mjs";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
@@ -369,6 +370,8 @@ async function main() {
       2,
     ),
   );
+
+  await trackRefresh(supabase, { entityType: "dosage_guideline", recordsProcessed: dedupedRows.length });
 }
 
 main().catch((error) => {
