@@ -725,6 +725,25 @@ async function checkIntegrity(sql) {
     status: dupeIngredients.cnt === 0 ? "pass" : "fail",
   });
 
+  const [probioticSuffixOnStrains] = await sql`
+    SELECT count(*)::int AS cnt
+    FROM ingredients i
+    WHERE i.ingredient_type = 'probiotic'
+      AND COALESCE(i.slug, '') <> 'probiotics'
+      AND i.canonical_name_ko ~* '(프로바이오틱스|프로바이오틱|유산균|probiotics?)'
+      AND (
+        i.canonical_name_ko ~* '(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+'
+        OR i.canonical_name_ko ~* '\m[LBSE]\.\s*[a-z][a-z-]+'
+        OR i.canonical_name_ko ~* '\m[A-Z]{1,6}[- ]?[0-9]{1,5}[A-Z0-9-]*\M'
+        OR i.canonical_name_ko ~ '(플란타룸|플란타럼|람노서스|카제이|카세이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)'
+      )
+  `;
+  results.push({
+    name: "probiotic strain names avoid generic suffix",
+    count: probioticSuffixOnStrains.cnt,
+    status: probioticSuffixOnStrains.cnt === 0 ? "pass" : "warn",
+  });
+
   const [dupeProductIngredients] = await sql`
     SELECT count(*)::int AS cnt FROM (
       SELECT product_id, ingredient_id

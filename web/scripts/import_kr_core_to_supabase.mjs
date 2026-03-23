@@ -218,6 +218,50 @@ function isClearlyProbioticStrainName(name) {
   );
 }
 
+function normalizeCanonicalProbioticName(name, ingredientType, slug) {
+  const text = String(name ?? "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return null;
+  }
+
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return text;
+  }
+
+  if (text === "프로바이오틱스" || text === "유산균") {
+    return text;
+  }
+
+  const isLikelyStrain =
+    isClearlyProbioticStrainName(text) ||
+    ((text.includes("프로바이오틱스") || text.includes("유산균")) &&
+      /[A-Za-z]/.test(text));
+
+  if (!isLikelyStrain) {
+    return text;
+  }
+
+  const normalized = text
+    .replace(/\s*의\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*프로바이오틱스\s*복합물$/i, "")
+    .replace(/\s*(프로바이오틱스|프로바이오틱|유산균)$/i, "")
+    .replace(/\s*probiotics?$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || text;
+}
+
+function ingredientNameLookupKeys(name) {
+  const text = String(name ?? "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return [];
+  }
+
+  const normalized = normalizeCanonicalProbioticName(text, "probiotic", null);
+  return [...new Set([text, normalized].filter(Boolean))];
+}
+
 function inferParentIngredientSlug(row) {
   const explicit = row.parentIngredientSlug ?? null;
   if (explicit) {
@@ -249,13 +293,23 @@ function inferParentIngredientSlug(row) {
 }
 
 function mapIngredientRow(row, parentIdBySlug = new Map()) {
+  const canonicalNameKo =
+    normalizeCanonicalProbioticName(
+      row.canonicalNameKo,
+      row.ingredientType ?? "other",
+      row.slug ?? null,
+    ) ?? row.canonicalNameKo;
+  const displayName =
+    row.displayName && row.displayName === row.canonicalNameKo
+      ? canonicalNameKo
+      : row.displayName;
   const parentSlug = inferParentIngredientSlug(row);
   const parentIngredientId = parentSlug ? parentIdBySlug.get(parentSlug) ?? null : null;
 
   return {
-    canonical_name_ko: row.canonicalNameKo,
+    canonical_name_ko: canonicalNameKo,
     canonical_name_en: row.canonicalNameEn,
-    display_name: row.displayName,
+    display_name: displayName,
     scientific_name: row.scientificName,
     slug: row.slug,
     ingredient_type: row.ingredientType ?? "other",
@@ -357,15 +411,31 @@ function isBetterIngredientRow(candidate, current) {
   return (candidate.rawLabelName ?? "").localeCompare(current.rawLabelName ?? "", "ko") < 0;
 }
 
+function resolveIngredientIdFromRow(row, ingredientMap) {
+  if (row.canonicalSlug) {
+    const fromSlug = ingredientMap.get(`slug:${row.canonicalSlug}`);
+    if (fromSlug) {
+      return fromSlug;
+    }
+  }
+
+  for (const key of ingredientNameLookupKeys(row.canonicalNameKo)) {
+    const fromName = ingredientMap.get(`name:${key}`);
+    if (fromName) {
+      return fromName;
+    }
+  }
+
+  return null;
+}
+
 function dedupeProductIngredientRows(rows, productMap, ingredientMap) {
   const bestByPair = new Map();
   let unresolved = 0;
 
   for (const row of rows) {
     const productId = productMap.get(row.reportNo);
-    const ingredientId =
-      ingredientMap.get(`slug:${row.canonicalSlug}`) ??
-      ingredientMap.get(`name:${row.canonicalNameKo}`);
+    const ingredientId = resolveIngredientIdFromRow(row, ingredientMap);
 
     if (!productId || !ingredientId) {
       unresolved += 1;
@@ -374,18 +444,17 @@ function dedupeProductIngredientRows(rows, productMap, ingredientMap) {
 
     const pairKey = `${productId}:${ingredientId}`;
     const current = bestByPair.get(pairKey);
-    if (!current || isBetterIngredientRow(row, current)) {
-      bestByPair.set(pairKey, row);
+    if (!current || isBetterIngredientRow(row, current.row)) {
+      bestByPair.set(pairKey, { row, productId, ingredientId });
     }
   }
 
   return {
-    payloadRows: [...bestByPair.values()].map((row) =>
+    payloadRows: [...bestByPair.values()].map(({ row, productId, ingredientId }) =>
       mapProductIngredientRow(
         row,
-        productMap.get(row.reportNo),
-        ingredientMap.get(`slug:${row.canonicalSlug}`) ??
-          ingredientMap.get(`name:${row.canonicalNameKo}`),
+        productId,
+        ingredientId,
       ),
     ),
     unresolved,
@@ -424,6 +493,14 @@ async function fetchExistingIngredientNames(supabase, batchSize) {
     for (const row of data) {
       if (row.canonical_name_ko) {
         names.add(row.canonical_name_ko);
+        const normalized = normalizeCanonicalProbioticName(
+          row.canonical_name_ko,
+          "probiotic",
+          null,
+        );
+        if (normalized) {
+          names.add(normalized);
+        }
       }
     }
 
@@ -457,7 +534,17 @@ async function deleteAllProductIngredients(supabase) {
 
 async function upsertIngredients(supabase, rows, batchSize) {
   const mergedRows = [...rows];
-  const existing = new Set(rows.map((row) => row.canonicalNameKo));
+  const existing = new Set(
+    rows
+      .map((row) =>
+        normalizeCanonicalProbioticName(
+          row.canonicalNameKo,
+          row.ingredientType ?? "other",
+          row.slug ?? null,
+        ) ?? row.canonicalNameKo,
+      )
+      .filter(Boolean),
+  );
 
   for (const supplemental of supplementalIngredients) {
     if (!existing.has(supplemental.canonicalNameKo)) {
@@ -474,7 +561,15 @@ async function upsertIngredients(supabase, rows, batchSize) {
   );
   const slugRows = mergedRows.filter((row) => row.slug);
   const nameOnlyRows = mergedRows.filter(
-    (row) => !row.slug && !existingNames.has(row.canonicalNameKo),
+    (row) =>
+      !row.slug &&
+      !existingNames.has(
+        normalizeCanonicalProbioticName(
+          row.canonicalNameKo,
+          row.ingredientType ?? "other",
+          row.slug ?? null,
+        ) ?? row.canonicalNameKo,
+      ),
   );
   let processed = 0;
 
@@ -510,7 +605,7 @@ async function fetchIngredientMap(supabase) {
 
   const { data, error } = await supabase
     .from("ingredients")
-    .select("id, slug, canonical_name_ko")
+    .select("id, slug, canonical_name_ko, ingredient_type")
     .order("id", { ascending: true });
 
   if (error) {
@@ -523,6 +618,14 @@ async function fetchIngredientMap(supabase) {
     }
     if (row.canonical_name_ko) {
       ingredientMap.set(`name:${row.canonical_name_ko}`, row.id);
+      const normalized = normalizeCanonicalProbioticName(
+        row.canonical_name_ko,
+        row.ingredient_type ?? "other",
+        row.slug ?? null,
+      );
+      if (normalized) {
+        ingredientMap.set(`name:${normalized}`, row.id);
+      }
     }
   }
 
