@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 24;
+const PAGINATION_VISIBLE_COUNT = 10;
 
 export const metadata: Metadata = {
   title: "제품 데이터베이스 | bochoong.com",
@@ -44,7 +45,11 @@ function buildPageHref(page: number, ingredientId?: number | null) {
   return query ? `/products?${query}` : "/products";
 }
 
-function getPaginationPages(currentPage: number, totalPages: number, visibleCount = 5) {
+function getPaginationPages(
+  currentPage: number,
+  totalPages: number,
+  visibleCount = PAGINATION_VISIBLE_COUNT,
+) {
   if (totalPages <= visibleCount) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
