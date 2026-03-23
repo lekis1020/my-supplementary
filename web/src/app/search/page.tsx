@@ -8,6 +8,8 @@ import {
   getIngredientHref,
   getIngredientRoleLabel,
   getIngredientTypeLabel,
+  hasClearlyIdentifiedProbioticStrain,
+  normalizeProbioticStrainNameForDisplay,
 } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,8 @@ interface IngredientSearchResult {
   badge: string;
 }
 
+type IngredientMatchKind = "direct" | "probiotic-strain-category";
+
 interface ProductSearchResult {
   id: number;
   title: string;
@@ -35,6 +39,25 @@ interface ProductSearchResult {
   activeMatches: string[];
   supportingMatches: string[];
 }
+
+interface IngredientRow {
+  id: number;
+  canonical_name_ko: string;
+  canonical_name_en: string | null;
+  display_name: string | null;
+  slug: string | null;
+  ingredient_type: string;
+}
+
+const PROBIOTIC_QUERY_KEYWORDS = [
+  "프로바이오틱스",
+  "프로바이오틱",
+  "유산균",
+  "probiotic",
+  "probiotics",
+  "lactic acid bacteria",
+  "lab",
+] as const;
 
 function getSearchParam(
   value: string | string[] | undefined,
@@ -76,35 +99,192 @@ function getPaginationPages(currentPage: number, totalPages: number, visibleCoun
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
+function normalizeSearchToken(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.toLowerCase().replace(/\s+/g, "").trim();
+}
+
+function isGenericProbioticQuery(queryToken: string): boolean {
+  if (!queryToken) return false;
+  return PROBIOTIC_QUERY_KEYWORDS.some(
+    (keyword) => normalizeSearchToken(keyword) === queryToken,
+  );
+}
+
+function includesProbioticKeyword(value: string | null | undefined): boolean {
+  const token = normalizeSearchToken(value);
+  if (!token) return false;
+
+  return PROBIOTIC_QUERY_KEYWORDS.some((keyword) =>
+    token.includes(normalizeSearchToken(keyword)),
+  );
+}
+
+function getIngredientMatchKind(
+  ingredient: IngredientRow,
+  queryToken: string,
+): IngredientMatchKind {
+  if (!isGenericProbioticQuery(queryToken)) {
+    return "direct";
+  }
+
+  const isStrain = hasClearlyIdentifiedProbioticStrain({
+    canonicalNameKo: ingredient.canonical_name_ko,
+    canonicalNameEn: ingredient.canonical_name_en,
+    rawLabelName: ingredient.display_name,
+  });
+
+  if (!isStrain) {
+    return "direct";
+  }
+
+  if (
+    includesProbioticKeyword(ingredient.canonical_name_ko) ||
+    includesProbioticKeyword(ingredient.canonical_name_en) ||
+    includesProbioticKeyword(ingredient.display_name)
+  ) {
+    return "probiotic-strain-category";
+  }
+
+  return "direct";
+}
+
+function buildIngredientSearchResult(
+  ingredient: IngredientRow,
+): IngredientSearchResult {
+  const normalizedTitle = normalizeProbioticStrainNameForDisplay(
+    ingredient.canonical_name_ko,
+  );
+  const subtitleParts: string[] = [];
+  const isClearlyStrain = hasClearlyIdentifiedProbioticStrain({
+    canonicalNameKo: ingredient.canonical_name_ko,
+    canonicalNameEn: ingredient.canonical_name_en,
+    rawLabelName: ingredient.display_name,
+  });
+
+  if (
+    normalizedTitle !== ingredient.canonical_name_ko &&
+    ingredient.canonical_name_ko &&
+    !isClearlyStrain
+  ) {
+    subtitleParts.push(ingredient.canonical_name_ko);
+  }
+
+  if (ingredient.canonical_name_en) {
+    subtitleParts.push(ingredient.canonical_name_en);
+  }
+
+  return {
+    id: ingredient.id,
+    title: normalizedTitle,
+    subtitle: subtitleParts.length > 0 ? subtitleParts.join(" · ") : null,
+    href: getIngredientHref({ id: ingredient.id, slug: ingredient.slug }),
+    badge: getIngredientTypeLabel(ingredient.ingredient_type),
+  };
+}
+
+function getIngredientMatchScore(ingredient: IngredientRow, queryToken: string): number {
+  const fields = [
+    ingredient.canonical_name_ko,
+    ingredient.display_name,
+    ingredient.canonical_name_en,
+  ];
+  let score = 0;
+
+  for (const field of fields) {
+    const token = normalizeSearchToken(field);
+    if (!token) continue;
+
+    if (token === queryToken) {
+      score = Math.max(score, 120);
+      continue;
+    }
+
+    if (token.startsWith(queryToken)) {
+      score = Math.max(score, 100);
+      continue;
+    }
+
+    if (token.includes(queryToken)) {
+      score = Math.max(score, 80);
+      continue;
+    }
+
+    if (queryToken.includes(token)) {
+      score = Math.max(score, 70);
+    }
+  }
+
+  if (queryToken === "프로바이오틱스" || queryToken === "유산균") {
+    if (ingredient.slug === "probiotics" || normalizeSearchToken(ingredient.canonical_name_ko) === "프로바이오틱스") {
+      score += 40;
+    }
+
+    if (hasClearlyIdentifiedProbioticStrain(ingredient.canonical_name_ko)) {
+      score -= 5;
+    }
+  }
+
+  return score;
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const query = getSearchParam(resolvedSearchParams?.q).trim();
   const includeSupporting = getSearchParam(resolvedSearchParams?.includeSupporting) === "true";
   const currentPage = parsePage(resolvedSearchParams?.page);
 
-  let ingredientResults: IngredientSearchResult[] = [];
+  let directIngredientResults: IngredientSearchResult[] = [];
+  let probioticStrainIngredientResults: IngredientSearchResult[] = [];
   let productResults: ProductSearchResult[] = [];
 
   if (query) {
     const supabase = await createClient();
+    const queryToken = normalizeSearchToken(query);
 
     const { data: ingredients } = await supabase
       .from("ingredients")
-      .select("id, canonical_name_ko, canonical_name_en, slug, ingredient_type")
+      .select("id, canonical_name_ko, canonical_name_en, display_name, slug, ingredient_type")
       .eq("is_published", true)
-      .or(`canonical_name_ko.ilike.%${query}%,canonical_name_en.ilike.%${query}%`)
+      .or(`canonical_name_ko.ilike.%${query}%,canonical_name_en.ilike.%${query}%,display_name.ilike.%${query}%`)
       .order("canonical_name_ko")
-      .limit(8);
+      .limit(100);
 
-    ingredientResults = (ingredients ?? []).map((ingredient) => ({
-      id: ingredient.id,
-      title: ingredient.canonical_name_ko,
-      subtitle: ingredient.canonical_name_en,
-      href: getIngredientHref({ id: ingredient.id, slug: ingredient.slug }),
-      badge: getIngredientTypeLabel(ingredient.ingredient_type),
-    }));
+    const rankedIngredients = ((ingredients ?? []) as IngredientRow[])
+      .map((ingredient) => ({
+        ingredient,
+        score: getIngredientMatchScore(ingredient, queryToken),
+        matchKind: getIngredientMatchKind(ingredient, queryToken),
+      }))
+      .sort((left, right) => {
+        if (left.score !== right.score) {
+          return right.score - left.score;
+        }
 
-    const ingredientIds = (ingredients ?? []).map((ingredient) => ingredient.id);
+        const leftTitle = left.ingredient.canonical_name_ko ?? "";
+        const rightTitle = right.ingredient.canonical_name_ko ?? "";
+        if (leftTitle.length !== rightTitle.length) {
+          return leftTitle.length - rightTitle.length;
+        }
+
+        return leftTitle.localeCompare(rightTitle, "ko");
+      });
+
+    const rankedWithScore = rankedIngredients.filter(({ score }) => score > 0);
+
+    directIngredientResults = rankedWithScore
+      .filter(({ matchKind }) => matchKind === "direct")
+      .slice(0, 8)
+      .map(({ ingredient }) => buildIngredientSearchResult(ingredient));
+
+    probioticStrainIngredientResults = rankedWithScore
+      .filter(({ matchKind }) => matchKind === "probiotic-strain-category")
+      .slice(0, 8)
+      .map(({ ingredient }) => buildIngredientSearchResult(ingredient));
+
+    const ingredientIds = rankedWithScore
+      .slice(0, 20)
+      .map(({ ingredient }) => ingredient.id);
 
     const { data: directProducts } = await supabase
       .from("products")
@@ -157,9 +337,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           row.ingredient_role === "active"
             ? existing.activeMatches
             : existing.supportingMatches;
+        const ingredientName = normalizeProbioticStrainNameForDisplay(ingredient.canonical_name_ko);
 
-        if (!matchBucket.includes(ingredient.canonical_name_ko)) {
-          matchBucket.push(ingredient.canonical_name_ko);
+        if (!matchBucket.includes(ingredientName)) {
+          matchBucket.push(ingredientName);
         }
 
         productMap.set(product.id, existing);
@@ -292,41 +473,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
         {query && (
           <div className="space-y-10">
-            {ingredientResults.length > 0 && (
-              <section>
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900">원료 일치</h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      검색어와 직접 일치하는 원료입니다.
-                    </p>
-                  </div>
-                  <Badge className="bg-emerald-50 text-emerald-700">
-                    {ingredientResults.length}개
-                  </Badge>
-                </div>
+            <IngredientResultSection
+              title="원료 직접 일치"
+              description="검색어 자체와 직접 일치하는 원료입니다."
+              results={directIngredientResults}
+              countToneClassName="bg-emerald-50 text-emerald-700"
+            />
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  {ingredientResults.map((result) => (
-                    <Link
-                      key={result.id}
-                      href={result.href}
-                      className="rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-emerald-200 hover:bg-emerald-50/40"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-semibold text-slate-900">{result.title}</p>
-                          {result.subtitle && (
-                            <p className="mt-1 text-sm text-slate-500">{result.subtitle}</p>
-                          )}
-                        </div>
-                        <Badge className="bg-emerald-50 text-emerald-700">{result.badge}</Badge>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
+            <IngredientResultSection
+              title="프로바이오틱스 균주 일치"
+              description="검색어가 프로바이오틱스 계열(유산균)일 때, 균주명에 포함된 일반 키워드 일치를 별도로 분류한 결과입니다."
+              results={probioticStrainIngredientResults}
+              countToneClassName="bg-violet-50 text-violet-700"
+            />
 
             <section>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
@@ -402,6 +561,52 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         )}
       </section>
     </div>
+  );
+}
+
+function IngredientResultSection({
+  title,
+  description,
+  results,
+  countToneClassName,
+}: {
+  title: string;
+  description: string;
+  results: IngredientSearchResult[];
+  countToneClassName: string;
+}) {
+  if (results.length === 0) return null;
+
+  return (
+    <section>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+        <Badge className={countToneClassName}>{results.length}개</Badge>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {results.map((result) => (
+          <Link
+            key={result.id}
+            href={result.href}
+            className="rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-emerald-200 hover:bg-emerald-50/40"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-semibold text-slate-900">{result.title}</p>
+                {result.subtitle && (
+                  <p className="mt-1 text-sm text-slate-500">{result.subtitle}</p>
+                )}
+              </div>
+              <Badge className="bg-emerald-50 text-emerald-700">{result.badge}</Badge>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
