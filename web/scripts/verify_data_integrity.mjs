@@ -725,6 +725,20 @@ async function checkIntegrity(sql) {
     status: dupeIngredients.cnt === 0 ? "pass" : "fail",
   });
 
+  const [dupeProductIngredients] = await sql`
+    SELECT count(*)::int AS cnt FROM (
+      SELECT product_id, ingredient_id
+      FROM product_ingredients
+      GROUP BY product_id, ingredient_id
+      HAVING count(*) > 1
+    ) d
+  `;
+  results.push({
+    name: "no duplicate product_ingredients (product_id, ingredient_id)",
+    count: dupeProductIngredients.cnt,
+    status: dupeProductIngredients.cnt === 0 ? "pass" : "fail",
+  });
+
   return results;
 }
 

@@ -208,6 +208,52 @@ function inferIngredientType(name) {
   return "other";
 }
 
+function isClearlyProbioticStrainName(name) {
+  const text = cleanInlineText(name) ?? "";
+  if (!text) {
+    return false;
+  }
+
+  const latinSpeciesPattern =
+    /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+/i;
+  const abbreviatedGenusPattern = /\b[LBSE]\.\s*[a-z][a-z-]+/;
+  const strainCodePattern = /\b[A-Z]{1,6}[- ]?\d{1,5}[A-Z0-9-]*\b/;
+  const koreanSpeciesPattern =
+    /(플란타룸|람노서스|카제이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)/;
+
+  return (
+    latinSpeciesPattern.test(text) ||
+    abbreviatedGenusPattern.test(text) ||
+    strainCodePattern.test(text) ||
+    koreanSpeciesPattern.test(text)
+  );
+}
+
+function inferParentIngredientSlug(name, ingredientType, slug) {
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return null;
+  }
+
+  const text = cleanInlineText(name) ?? "";
+  if (!text) {
+    return null;
+  }
+
+  if (text === "프로바이오틱스") {
+    return null;
+  }
+
+  if (isClearlyProbioticStrainName(text)) {
+    return "probiotics";
+  }
+
+  if ((text.includes("프로바이오틱스") || text.includes("유산균")) && /[A-Za-z]/.test(text)) {
+    return "probiotics";
+  }
+
+  return null;
+}
+
 function normalizeNameToken(value) {
   const text = cleanInlineText(value);
   if (!text) {
@@ -472,14 +518,21 @@ await readJsonl(requiredFiles.ingredientProfiles, (row) => {
   const seedMeta = seedIngredients.get(key) ?? null;
   const catalogMeta = catalogByName.get(key) ?? null;
   const stats = ingredientStats.get(key) ?? null;
+  const ingredientType = seedMeta?.ingredientType ?? inferIngredientType(row.canonicalNameKo);
+  const ingredientSlug = seedMeta?.slug ?? catalogMeta?.slug ?? null;
 
   ingredientRows.push({
+    ingredientType,
+    parentIngredientSlug: inferParentIngredientSlug(
+      row.canonicalNameKo,
+      ingredientType,
+      ingredientSlug,
+    ),
     canonicalNameKo: cleanInlineText(row.canonicalNameKo),
     canonicalNameEn: seedMeta?.canonicalNameEn ?? null,
     displayName: seedMeta?.displayName ?? cleanInlineText(row.displayName),
     scientificName: seedMeta?.scientificName ?? null,
-    slug: seedMeta?.slug ?? catalogMeta?.slug ?? null,
-    ingredientType: seedMeta?.ingredientType ?? inferIngredientType(row.canonicalNameKo),
+    slug: ingredientSlug,
     originType: seedMeta?.originType ?? null,
     formDescription: seedMeta?.formDescription ?? null,
     standardizationInfo: seedMeta?.standardizationInfo ?? null,

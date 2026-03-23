@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   numeric,
+  uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -71,6 +72,10 @@ export const productIngredients = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [
+    uniqueIndex("idx_product_ingredients_product_ingredient_unique").on(
+      t.productId,
+      t.ingredientId,
+    ),
     index("idx_product_ingredients_product_id").on(t.productId),
     index("idx_product_ingredients_ingredient_id").on(t.ingredientId),
   ]

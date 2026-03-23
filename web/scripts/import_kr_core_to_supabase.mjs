@@ -197,7 +197,61 @@ function chunk(array, size) {
   return output;
 }
 
-function mapIngredientRow(row) {
+function isClearlyProbioticStrainName(name) {
+  const text = String(name ?? "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return false;
+  }
+
+  const latinSpeciesPattern =
+    /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+/i;
+  const abbreviatedGenusPattern = /\b[LBSE]\.\s*[a-z][a-z-]+/;
+  const strainCodePattern = /\b[A-Z]{1,6}[- ]?\d{1,5}[A-Z0-9-]*\b/;
+  const koreanSpeciesPattern =
+    /(플란타룸|람노서스|카제이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)/;
+
+  return (
+    latinSpeciesPattern.test(text) ||
+    abbreviatedGenusPattern.test(text) ||
+    strainCodePattern.test(text) ||
+    koreanSpeciesPattern.test(text)
+  );
+}
+
+function inferParentIngredientSlug(row) {
+  const explicit = row.parentIngredientSlug ?? null;
+  if (explicit) {
+    return explicit;
+  }
+
+  const ingredientType = row.ingredientType ?? null;
+  const slug = row.slug ?? null;
+  const canonicalNameKo = row.canonicalNameKo ?? null;
+
+  if (slug === "probiotics" || ingredientType !== "probiotic") {
+    return null;
+  }
+
+  const text = String(canonicalNameKo ?? "").replace(/\s+/g, " ").trim();
+  if (!text || text === "프로바이오틱스") {
+    return null;
+  }
+
+  if (isClearlyProbioticStrainName(text)) {
+    return "probiotics";
+  }
+
+  if ((text.includes("프로바이오틱스") || text.includes("유산균")) && /[A-Za-z]/.test(text)) {
+    return "probiotics";
+  }
+
+  return null;
+}
+
+function mapIngredientRow(row, parentIdBySlug = new Map()) {
+  const parentSlug = inferParentIngredientSlug(row);
+  const parentIngredientId = parentSlug ? parentIdBySlug.get(parentSlug) ?? null : null;
+
   return {
     canonical_name_ko: row.canonicalNameKo,
     canonical_name_en: row.canonicalNameEn,
@@ -205,6 +259,7 @@ function mapIngredientRow(row) {
     scientific_name: row.scientificName,
     slug: row.slug,
     ingredient_type: row.ingredientType ?? "other",
+    parent_ingredient_id: parentIngredientId,
     description: row.description,
     origin_type: row.originType,
     form_description: row.formDescription,
@@ -244,6 +299,97 @@ function mapProductIngredientRow(row, productId, ingredientId) {
     raw_label_name: row.rawLabelName,
     is_standardized: false,
     standardization_text: null,
+  };
+}
+
+function ingredientRolePriority(role) {
+  if (role === "active") return 3;
+  if (role === "supporting") return 2;
+  if (role === "capsule") return 1;
+  return 0;
+}
+
+function isBetterIngredientRow(candidate, current) {
+  const roleDiff =
+    ingredientRolePriority(candidate.proposedIngredientRole) -
+    ingredientRolePriority(current.proposedIngredientRole);
+  if (roleDiff !== 0) {
+    return roleDiff > 0;
+  }
+
+  const servingDiff =
+    Number(candidate.amountPerServing != null) -
+    Number(current.amountPerServing != null);
+  if (servingDiff !== 0) {
+    return servingDiff > 0;
+  }
+
+  const dailyDiff =
+    Number(candidate.dailyAmount != null) -
+    Number(current.dailyAmount != null);
+  if (dailyDiff !== 0) {
+    return dailyDiff > 0;
+  }
+
+  const confidenceDiff =
+    (typeof candidate.maxConfidence === "number" ? candidate.maxConfidence : -1) -
+    (typeof current.maxConfidence === "number" ? current.maxConfidence : -1);
+  if (confidenceDiff !== 0) {
+    return confidenceDiff > 0;
+  }
+
+  const rawLabelLengthDiff =
+    (candidate.rawLabelName ?? "").length - (current.rawLabelName ?? "").length;
+  if (rawLabelLengthDiff !== 0) {
+    return rawLabelLengthDiff > 0;
+  }
+
+  const candidateOrderHint = Number.isFinite(candidate.minOrderHint)
+    ? candidate.minOrderHint
+    : Number.MAX_SAFE_INTEGER;
+  const currentOrderHint = Number.isFinite(current.minOrderHint)
+    ? current.minOrderHint
+    : Number.MAX_SAFE_INTEGER;
+  if (candidateOrderHint !== currentOrderHint) {
+    return candidateOrderHint < currentOrderHint;
+  }
+
+  return (candidate.rawLabelName ?? "").localeCompare(current.rawLabelName ?? "", "ko") < 0;
+}
+
+function dedupeProductIngredientRows(rows, productMap, ingredientMap) {
+  const bestByPair = new Map();
+  let unresolved = 0;
+
+  for (const row of rows) {
+    const productId = productMap.get(row.reportNo);
+    const ingredientId =
+      ingredientMap.get(`slug:${row.canonicalSlug}`) ??
+      ingredientMap.get(`name:${row.canonicalNameKo}`);
+
+    if (!productId || !ingredientId) {
+      unresolved += 1;
+      continue;
+    }
+
+    const pairKey = `${productId}:${ingredientId}`;
+    const current = bestByPair.get(pairKey);
+    if (!current || isBetterIngredientRow(row, current)) {
+      bestByPair.set(pairKey, row);
+    }
+  }
+
+  return {
+    payloadRows: [...bestByPair.values()].map((row) =>
+      mapProductIngredientRow(
+        row,
+        productMap.get(row.reportNo),
+        ingredientMap.get(`slug:${row.canonicalSlug}`) ??
+          ingredientMap.get(`name:${row.canonicalNameKo}`),
+      ),
+    ),
+    unresolved,
+    deduped: rows.length - unresolved - bestByPair.size,
   };
 }
 
@@ -320,6 +466,12 @@ async function upsertIngredients(supabase, rows, batchSize) {
   }
 
   const existingNames = await fetchExistingIngredientNames(supabase, batchSize);
+  const existingIngredientMap = await fetchIngredientMap(supabase);
+  const parentIdBySlug = new Map(
+    [...existingIngredientMap.entries()]
+      .filter(([key]) => key.startsWith("slug:"))
+      .map(([key, value]) => [key.slice(5), value]),
+  );
   const slugRows = mergedRows.filter((row) => row.slug);
   const nameOnlyRows = mergedRows.filter(
     (row) => !row.slug && !existingNames.has(row.canonicalNameKo),
@@ -327,7 +479,7 @@ async function upsertIngredients(supabase, rows, batchSize) {
   let processed = 0;
 
   for (const batch of chunk(slugRows, batchSize)) {
-    const payload = batch.map(mapIngredientRow);
+    const payload = batch.map((row) => mapIngredientRow(row, parentIdBySlug));
     const { error } = await supabase
       .from("ingredients")
       .upsert(payload, { onConflict: "slug", ignoreDuplicates: false });
@@ -341,7 +493,7 @@ async function upsertIngredients(supabase, rows, batchSize) {
   }
 
   for (const batch of chunk(nameOnlyRows, batchSize)) {
-    const payload = batch.map(mapIngredientRow);
+    const payload = batch.map((row) => mapIngredientRow(row, parentIdBySlug));
     const { error } = await supabase.from("ingredients").insert(payload);
 
     if (error) {
@@ -445,42 +597,30 @@ async function insertProductIngredients(
   ingredientMap,
   batchSize,
 ) {
+  const deduped = dedupeProductIngredientRows(rows, productMap, ingredientMap);
   let processed = 0;
   let inserted = 0;
-  let skipped = 0;
 
-  for (const batch of chunk(rows, batchSize)) {
-    const payload = [];
-
-    for (const row of batch) {
-      const productId = productMap.get(row.reportNo);
-      const ingredientId =
-        ingredientMap.get(`slug:${row.canonicalSlug}`) ??
-        ingredientMap.get(`name:${row.canonicalNameKo}`);
-
-      if (!productId || !ingredientId) {
-        skipped += 1;
-        continue;
-      }
-
-      payload.push(mapProductIngredientRow(row, productId, ingredientId));
-    }
-
-    if (payload.length > 0) {
-      const { error } = await supabase.from("product_ingredients").insert(payload);
+  for (const batch of chunk(deduped.payloadRows, batchSize)) {
+    if (batch.length > 0) {
+      const { error } = await supabase.from("product_ingredients").insert(batch);
       if (error) {
         throw error;
       }
-      inserted += payload.length;
+      inserted += batch.length;
     }
 
     processed += batch.length;
     console.log(
-      `product_ingredients processed ${processed}/${rows.length} inserted=${inserted} skipped=${skipped}`,
+      `product_ingredients processed ${processed}/${deduped.payloadRows.length} inserted=${inserted} unresolved=${deduped.unresolved} deduped=${deduped.deduped}`,
     );
   }
 
-  return { inserted, skipped };
+  return {
+    inserted,
+    skipped: deduped.unresolved,
+    deduped: deduped.deduped,
+  };
 }
 
 async function countRows(supabase, tableName) {
@@ -596,7 +736,9 @@ async function main() {
       ingredientMap,
       args.batchSize,
     );
-    console.log(`product_ingredients inserted=${result.inserted} skipped=${result.skipped}`);
+    console.log(
+      `product_ingredients inserted=${result.inserted} skipped=${result.skipped} deduped=${result.deduped}`,
+    );
   }
 
   const counts = {
