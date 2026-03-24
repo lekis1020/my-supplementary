@@ -52,10 +52,17 @@ export function normalizeProbioticStrainNameForDisplay(
   }
 
   const normalized = trimmed
+    .replace(/\((?:\s*고시형(?:\s*원료)?\s*)\)/gi, "")
+    .replace(/\b고시형(?:\s*원료)?\b/gi, "")
+    .replace(
+      /\b(Lactobacillus|Lacticaseibacillus|Lactiplantibacillus|Limosilactobacillus|Bifidobacterium|Bacillus|Streptococcus|Enterococcus)([a-z]{3,})\b/g,
+      "$1 $2",
+    )
     .replace(/\s*의\s*프로바이오틱스\s*복합물$/i, "")
     .replace(/\s*프로바이오틱스\s*복합물$/i, "")
     .replace(/\s*프로바이오틱스$/i, "")
     .replace(/\s*probiotics?$/i, "")
+    .replace(/[()]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -100,6 +107,8 @@ export function hasClearlyIdentifiedProbioticStrain(
 
   const latinSpeciesPattern =
     /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)\s+[a-z][a-z-]+/i;
+  const compactLatinSpeciesPattern =
+    /(lactobacillus|lacticaseibacillus|lactiplantibacillus|limosilactobacillus|bifidobacterium|bacillus|saccharomyces|streptococcus|enterococcus)[a-z]{4,}/i;
   const strainCodePattern = /\b[A-Z]{1,6}[- ]?\d{1,5}[A-Z0-9-]*\b/;
   const koreanSpeciesPattern =
     /(플란타럼|람노서스|카세이|파라카세이|애시도필루스|가세리|로이테리|살리바리우스|헬베티쿠스|락티스|비피덤|브레베|롱검|인판티스|코아귤란스)/;
@@ -107,6 +116,7 @@ export function hasClearlyIdentifiedProbioticStrain(
 
   return (
     latinSpeciesPattern.test(text) ||
+    compactLatinSpeciesPattern.test(text) ||
     strainCodePattern.test(text) ||
     koreanSpeciesPattern.test(text) ||
     recognitionPattern.test(text)

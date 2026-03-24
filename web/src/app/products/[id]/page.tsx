@@ -12,6 +12,7 @@ import {
   getIngredientHref,
   getIngredientRoleLabel,
   hasClearlyIdentifiedProbioticStrain,
+  normalizeProbioticStrainNameForDisplay,
 } from "@/lib/utils";
 import { ArrowLeft, Clock, FileText, Tag } from "lucide-react";
 import type { Metadata } from "next";
@@ -37,6 +38,51 @@ interface ProductIngredientRow {
   amount_unit: string | null;
   raw_label_name: string | null;
   ingredients: ProductIngredientRelation | ProductIngredientRelation[] | null;
+}
+
+interface ProductIngredientMeta {
+  row: ProductIngredientRow;
+  ingredient: ProductIngredientRelation | null;
+  isProbiotic: boolean;
+  isSpecificProbiotic: boolean;
+  displayName: string;
+}
+
+function ingredientRolePriority(role: string | null): number {
+  switch (role) {
+    case "active":
+      return 3;
+    case "supporting":
+      return 2;
+    case "capsule":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function shouldReplaceIngredientMeta(current: ProductIngredientMeta, candidate: ProductIngredientMeta): boolean {
+  const roleDiff =
+    ingredientRolePriority(candidate.row.ingredient_role) -
+    ingredientRolePriority(current.row.ingredient_role);
+  if (roleDiff !== 0) {
+    return roleDiff > 0;
+  }
+
+  const amountDiff =
+    Number(candidate.row.amount_per_serving != null) -
+    Number(current.row.amount_per_serving != null);
+  if (amountDiff !== 0) {
+    return amountDiff > 0;
+  }
+
+  const rawLabelLengthDiff =
+    (candidate.row.raw_label_name ?? "").length - (current.row.raw_label_name ?? "").length;
+  if (rawLabelLengthDiff !== 0) {
+    return rawLabelLengthDiff > 0;
+  }
+
+  return candidate.row.id > current.row.id;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -85,11 +131,51 @@ export default async function ProductDetailPage({ params }: Props) {
   ]);
 
   const productIngredients: ProductIngredientRow[] = ingredientsRes.data ?? [];
+  const ingredientMetas: ProductIngredientMeta[] = productIngredients.map((row) => {
+    const ingredient = Array.isArray(row.ingredients) ? row.ingredients[0] : row.ingredients;
+    const isProbiotic = ingredient?.ingredient_type === "probiotic";
+    const isSpecificProbiotic =
+      isProbiotic &&
+      hasClearlyIdentifiedProbioticStrain({
+        canonicalNameKo: ingredient?.canonical_name_ko,
+        canonicalNameEn: ingredient?.canonical_name_en,
+        rawLabelName: row.raw_label_name,
+      });
+    const displayName =
+      isSpecificProbiotic
+        ? normalizeProbioticStrainNameForDisplay(row.raw_label_name ?? ingredient?.canonical_name_ko)
+        : ingredient?.canonical_name_ko ?? "원료명 확인 중";
+
+    return {
+      row,
+      ingredient: ingredient ?? null,
+      isProbiotic,
+      isSpecificProbiotic,
+      displayName,
+    };
+  });
+
+  const dedupedIngredientMetas = Array.from(
+    ingredientMetas.reduce<Map<number, ProductIngredientMeta>>((map, meta) => {
+      const key = meta.ingredient?.id ?? meta.row.id;
+      const current = map.get(key);
+      if (!current || shouldReplaceIngredientMeta(current, meta)) {
+        map.set(key, meta);
+      }
+      return map;
+    }, new Map()),
+  ).map(([, meta]) => meta);
+
+  const hasSpecificProbiotic = dedupedIngredientMetas.some((meta) => meta.isSpecificProbiotic);
+  const displayIngredientMetas = hasSpecificProbiotic
+    ? dedupedIngredientMetas.filter((meta) => !(meta.isProbiotic && !meta.isSpecificProbiotic))
+    : dedupedIngredientMetas;
+  const visibleIngredientCount = displayIngredientMetas.length;
+
   const label = labelsRes.data?.[0] ?? null;
-  const ingredientIds = productIngredients
+  const ingredientIds = dedupedIngredientMetas
     .map((pi) => {
-      const ingredient = Array.isArray(pi.ingredients) ? pi.ingredients[0] : pi.ingredients;
-      return ingredient?.id;
+      return pi.ingredient?.id;
     })
     .filter((value: number | null | undefined): value is number => Number.isInteger(value));
   const productClaims = ingredientIds.length > 0
@@ -105,19 +191,12 @@ export default async function ProductDetailPage({ params }: Props) {
   const benefitProfile = buildBenefitProfile(productClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(productClaims);
   const displayProductName = formatProductName(product.product_name);
-  const hasUnclearActiveProbiotic = productIngredients.some((pi) => {
-    const ingredient = Array.isArray(pi.ingredients) ? pi.ingredients[0] : pi.ingredients;
-
-    return (
-      pi.ingredient_role === "active" &&
-      ingredient?.ingredient_type === "probiotic" &&
-      !hasClearlyIdentifiedProbioticStrain({
-        canonicalNameKo: ingredient.canonical_name_ko,
-        canonicalNameEn: ingredient.canonical_name_en,
-        rawLabelName: pi.raw_label_name,
-      })
-    );
-  });
+  const activeProbioticMetas = dedupedIngredientMetas.filter(
+    (meta) => meta.row.ingredient_role === "active" && meta.isProbiotic,
+  );
+  const hasSpecificActiveProbiotic = activeProbioticMetas.some((meta) => meta.isSpecificProbiotic);
+  const hasUnclearActiveProbiotic =
+    activeProbioticMetas.length > 0 && !hasSpecificActiveProbiotic;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
@@ -163,11 +242,11 @@ export default async function ProductDetailPage({ params }: Props) {
             <CardHeader className="border-b border-slate-100 bg-slate-50/50">
               <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
                 <Tag className="h-5 w-5 text-emerald-500" />
-                원료 조성 ({productIngredients.length}종)
+                원료 조성 ({visibleIngredientCount}종)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {productIngredients.length === 0 || hasUnclearActiveProbiotic ? (
+              {visibleIngredientCount === 0 || hasUnclearActiveProbiotic ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
                     <Clock className="h-6 w-6 animate-pulse" />
@@ -190,8 +269,8 @@ export default async function ProductDetailPage({ params }: Props) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 text-slate-700">
-                      {productIngredients.map((pi) => {
-                        const ingredient = Array.isArray(pi.ingredients) ? pi.ingredients[0] : pi.ingredients;
+                      {displayIngredientMetas.map((meta) => {
+                        const { row: pi, ingredient } = meta;
 
                         const ingredientHref = getIngredientHref({
                           id: ingredient?.id ?? pi.id,
@@ -205,7 +284,7 @@ export default async function ProductDetailPage({ params }: Props) {
                               href={ingredientHref}
                               className="flex flex-col font-black text-emerald-600 hover:underline"
                             >
-                              <span>{ingredient?.canonical_name_ko ?? "원료명 확인 중"}</span>
+                              <span>{meta.displayName}</span>
                               {pi.raw_label_name && (
                                 <span className="mt-0.5 text-[10px] font-medium text-slate-400">
                                   {pi.raw_label_name}

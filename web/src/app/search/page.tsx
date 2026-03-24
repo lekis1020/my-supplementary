@@ -15,6 +15,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
+const PAGINATION_VISIBLE_COUNT = 10;
 
 interface SearchPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -82,7 +83,11 @@ function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
   return queryString ? `/search?${queryString}` : "/search";
 }
 
-function getPaginationPages(currentPage: number, totalPages: number, visibleCount = 5) {
+function getPaginationPages(
+  currentPage: number,
+  totalPages: number,
+  visibleCount = PAGINATION_VISIBLE_COUNT,
+) {
   if (totalPages <= visibleCount) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
