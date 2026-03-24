@@ -48,6 +48,43 @@ interface ProductIngredientMeta {
   displayName: string;
 }
 
+function ingredientRolePriority(role: string | null): number {
+  switch (role) {
+    case "active":
+      return 3;
+    case "supporting":
+      return 2;
+    case "capsule":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function shouldReplaceIngredientMeta(current: ProductIngredientMeta, candidate: ProductIngredientMeta): boolean {
+  const roleDiff =
+    ingredientRolePriority(candidate.row.ingredient_role) -
+    ingredientRolePriority(current.row.ingredient_role);
+  if (roleDiff !== 0) {
+    return roleDiff > 0;
+  }
+
+  const amountDiff =
+    Number(candidate.row.amount_per_serving != null) -
+    Number(current.row.amount_per_serving != null);
+  if (amountDiff !== 0) {
+    return amountDiff > 0;
+  }
+
+  const rawLabelLengthDiff =
+    (candidate.row.raw_label_name ?? "").length - (current.row.raw_label_name ?? "").length;
+  if (rawLabelLengthDiff !== 0) {
+    return rawLabelLengthDiff > 0;
+  }
+
+  return candidate.row.id > current.row.id;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = await createClient();
@@ -118,14 +155,25 @@ export default async function ProductDetailPage({ params }: Props) {
     };
   });
 
-  const hasSpecificProbiotic = ingredientMetas.some((meta) => meta.isSpecificProbiotic);
+  const dedupedIngredientMetas = Array.from(
+    ingredientMetas.reduce<Map<number, ProductIngredientMeta>>((map, meta) => {
+      const key = meta.ingredient?.id ?? meta.row.id;
+      const current = map.get(key);
+      if (!current || shouldReplaceIngredientMeta(current, meta)) {
+        map.set(key, meta);
+      }
+      return map;
+    }, new Map()),
+  ).map(([, meta]) => meta);
+
+  const hasSpecificProbiotic = dedupedIngredientMetas.some((meta) => meta.isSpecificProbiotic);
   const displayIngredientMetas = hasSpecificProbiotic
-    ? ingredientMetas.filter((meta) => !(meta.isProbiotic && !meta.isSpecificProbiotic))
-    : ingredientMetas;
+    ? dedupedIngredientMetas.filter((meta) => !(meta.isProbiotic && !meta.isSpecificProbiotic))
+    : dedupedIngredientMetas;
   const visibleIngredientCount = displayIngredientMetas.length;
 
   const label = labelsRes.data?.[0] ?? null;
-  const ingredientIds = ingredientMetas
+  const ingredientIds = dedupedIngredientMetas
     .map((pi) => {
       return pi.ingredient?.id;
     })
@@ -143,7 +191,7 @@ export default async function ProductDetailPage({ params }: Props) {
   const benefitProfile = buildBenefitProfile(productClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(productClaims);
   const displayProductName = formatProductName(product.product_name);
-  const activeProbioticMetas = ingredientMetas.filter(
+  const activeProbioticMetas = dedupedIngredientMetas.filter(
     (meta) => meta.row.ingredient_role === "active" && meta.isProbiotic,
   );
   const hasSpecificActiveProbiotic = activeProbioticMetas.some((meta) => meta.isSpecificProbiotic);
