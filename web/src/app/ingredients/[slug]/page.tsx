@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
+import { getVitaminSideEffectInfosForIngredient } from "@/lib/vitamin-side-effects";
 import {
   getIngredientCategory,
   getIngredientCategoryLabel,
@@ -275,6 +276,14 @@ export default async function IngredientDetailPage({ params }: Props) {
   const productLinks = (productsRes.data ?? []) as ProductLinkRow[];
   const productCount = productsRes.count ?? productLinks.length;
   const category = getIngredientCategory(ingredient.ingredient_type);
+  const vitaminSideEffectInfos =
+    category === "vitamins"
+      ? getVitaminSideEffectInfosForIngredient({
+          canonicalNameKo: ingredient.canonical_name_ko,
+          canonicalNameEn: ingredient.canonical_name_en,
+          scientificName: ingredient.scientific_name,
+        })
+      : [];
   const displayIngredientName = normalizeProbioticStrainNameForDisplay(ingredient.canonical_name_ko);
   const isProbiotic = category === "probiotics";
   const isLikelyProbioticStrain =
@@ -821,7 +830,7 @@ export default async function IngredientDetailPage({ params }: Props) {
         )}
 
         {/* 안전성 */}
-        {safetyItems.length > 0 && (
+        {(safetyItems.length > 0 || vitaminSideEffectInfos.length > 0) && (
           <Card>
             <CardHeader>
               <CardTitle>
@@ -854,6 +863,22 @@ export default async function IngredientDetailPage({ params }: Props) {
                         관리: {si.management_advice}
                       </p>
                     )}
+                  </div>
+                ))}
+
+                {vitaminSideEffectInfos.map((info) => (
+                  <div key={info.subgroup} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <p className="font-medium text-amber-900">{info.subgroup} 부작용 참고</p>
+                    <p className="mt-2 text-sm text-amber-900">{info.summary}</p>
+                    <p className="mt-1 text-xs text-amber-700">주의: {info.caution}</p>
+                    <a
+                      href={info.referenceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-block text-xs font-medium text-amber-800 underline decoration-amber-400 underline-offset-2"
+                    >
+                      NIH ODS 근거 보기
+                    </a>
                   </div>
                 ))}
               </div>

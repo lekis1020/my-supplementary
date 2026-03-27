@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { IngredientCard } from "@/components/ingredient/ingredient-card";
+import { getVitaminSideEffectInfoBySubgroup } from "@/lib/vitamin-side-effects";
 import {
   getIngredientCategories,
   getIngredientCategoryDescription,
@@ -123,27 +124,47 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
       </div>
 
       <div className="space-y-10">
-        {grouped.map(([groupName, items]) => (
-          <section key={groupName}>
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">{groupName}</h2>
-                <p className="mt-1 text-sm text-slate-400">{items.length.toLocaleString()}개 원료</p>
+        {grouped.map(([groupName, items]) => {
+          const sideEffectInfo =
+            category === "vitamins" ? getVitaminSideEffectInfoBySubgroup(groupName) : null;
+
+          return (
+            <section key={groupName}>
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">{groupName}</h2>
+                  <p className="mt-1 text-sm text-slate-400">{items.length.toLocaleString()}개 원료</p>
+                  {sideEffectInfo && (
+                    <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <p className="font-semibold">부작용 요약</p>
+                      <p className="mt-1">{sideEffectInfo.summary}</p>
+                      <p className="mt-1 text-amber-700">주의: {sideEffectInfo.caution}</p>
+                      <a
+                        href={sideEffectInfo.referenceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block font-medium underline decoration-amber-400 underline-offset-2"
+                      >
+                        참고문헌(ODS)
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((ingredient) => (
-                <IngredientCard
-                  key={ingredient.id}
-                  ingredient={ingredient}
-                  subgroupLabel={
-                    category === "probiotics" || category === "vitamins" ? groupName : null
-                  }
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map((ingredient) => (
+                  <IngredientCard
+                    key={ingredient.id}
+                    ingredient={ingredient}
+                    subgroupLabel={
+                      category === "probiotics" || category === "vitamins" ? groupName : null
+                    }
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
