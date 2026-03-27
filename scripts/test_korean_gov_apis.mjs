@@ -90,6 +90,11 @@ const tests = [
     kind: "foodsafety",
   },
   {
+    name: "식품안전나라 I0960 건강기능식품 기준규격 DB",
+    url: `http://openapi.foodsafetykorea.go.kr/api/${foodsafetyKey}/I0960/json/1/1`,
+    kind: "foodsafety",
+  },
+  {
     name: "공공데이터포털 건강기능식품정보 getHtfsList01",
     url: `https://apis.data.go.kr/1471000/HtfsInfoService03/getHtfsList01?ServiceKey=${encodeURIComponent(dataGoKey)}&pageNo=1&numOfRows=1&type=json`,
     kind: "data-go",
