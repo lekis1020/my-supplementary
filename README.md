@@ -153,6 +153,7 @@ npm run gov:import-safety:kr     # 안전성 경고
 | [Claim Normalization](docs/claim-normalization.md) | 기능성 분해 및 정규화 스펙 |
 | [KR API Endpoints](docs/korean-api-endpoints.md) | 한국 정부 API 매핑 |
 | [Data Collection Plan](docs/data-collection-plan.md) | 데이터 수집 전략 |
+| [Vitamin Group References](docs/vitamin-group-references.md) | 비타민군 효능/부작용 참고문헌 |
 | [Operations Policy](docs/operations-policy.md) | 운영 정책 |
 | [Review Process](docs/review-process.md) | 검수 프로세스 |
 
