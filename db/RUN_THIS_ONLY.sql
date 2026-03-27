@@ -296,11 +296,12 @@ INSERT INTO code_values (code_table_id, code, label_ko, label_en, sort_order) VA
 ((SELECT id FROM code_tables WHERE table_code='product_type'), 'dietary_supplement',     '다이어터리 서플', 'Dietary Supplement',     2),
 ((SELECT id FROM code_tables WHERE table_code='product_type'), 'general_food',           '일반식품',        'General Food',           3);
 
--- 원료 20종
+-- 원료 21종
 INSERT INTO ingredients (canonical_name_ko, canonical_name_en, display_name, scientific_name, slug, ingredient_type, description, origin_type, form_description, standardization_info, is_active, is_published) VALUES
 ('비타민 D',      'Vitamin D',       '비타민 D',      'Cholecalciferol',            'vitamin-d',       'vitamin',    '칼슘 흡수와 면역 기능에 필수적인 지용성 비타민.',    'synthetic', 'D3 (콜레칼시페롤), D2 (에르고칼시페롤)', '1mcg = 40IU',            true, true),
 ('비타민 C',      'Vitamin C',       '비타민 C',      'Ascorbic acid',              'vitamin-c',       'vitamin',    '항산화 기능, 콜라겐 합성, 면역 기능에 관여.',         'synthetic', '아스코르브산, 칼슘 아스코르베이트',      NULL,                     true, true),
 ('비타민 B12',    'Vitamin B12',     '비타민 B12',    'Cyanocobalamin',             'vitamin-b12',     'vitamin',    '적혈구 형성, 신경 기능, DNA 합성에 필수.',            'synthetic', '시아노코발라민, 메틸코발라민',           NULL,                     true, true),
+('비타민 B6',     'Vitamin B6',      '비타민 B6',     'Pyridoxine',                 'vitamin-b6',      'vitamin',    '단백질·아미노산 대사와 신경전달물질 합성에 필요한 수용성 비타민.', 'synthetic', '피리독신염산염, 피리독살-5-인산(P-5-P)', NULL,                     true, true),
 ('엽산',          'Folate',          '엽산',          'Folic acid',                 'folate',          'vitamin',    '세포 분열, DNA 합성에 필수. 임신 중 중요.',            'synthetic', '폴산(합성), 5-MTHF(활성형)',            '1mcg DFE = 0.6mcg 폴산', true, true),
 ('오메가-3',      'Omega-3',         '오메가-3',      'EPA/DHA',                    'omega-3',         'fatty_acid', 'EPA와 DHA를 포함하는 필수 지방산.',                    'natural',   '어유, 크릴오일, 미세조류 유래',          'EPA+DHA 합계 기준',      true, true),
 ('마그네슘',      'Magnesium',       '마그네슘',      'Magnesium',                  'magnesium',       'mineral',    '300종 이상의 효소 반응에 관여. 근육, 신경, 뼈 건강.', 'synthetic', '산화물, 구연산, 비스글리시네이트',       '원소 마그네슘 기준',     true, true),

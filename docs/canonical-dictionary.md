@@ -19,7 +19,7 @@
 | `herbal` | 식물성/허브 | Herbal/Botanical |
 | `other` | 기타 | Other |
 
-### 원료 20종 표준 정의
+### 원료 21종 표준 정의
 
 | # | 표준명(한) | 표준명(영) | 카테고리 | 동의어(한) | 동의어(영) | 주요 제형/염형 | 상위 원료 | 단위 |
 |---|-----------|-----------|----------|-----------|-----------|---------------|-----------|------|
@@ -37,12 +37,13 @@
 | 12 | 비오틴 | Biotin | vitamin | 비오틴, 비타민H, 비타민B7 | Vitamin B7, Vitamin H | D-비오틴 | 비타민 B군 | mcg |
 | 13 | 엽산 | Folate | vitamin | 폴산, 폴레이트, 비타민B9 | Folic Acid, Vitamin B9, Folate | 엽산(folic acid/합성), 메틸폴레이트(methylfolate/5-MTHF/활성형) | 비타민 B군 | mcg, mcg DFE |
 | 14 | 비타민 B12 | Vitamin B12 | vitamin | B12, 코발라민 | Cobalamin, Cyanocobalamin, Methylcobalamin | 시아노코발라민(cyanocobalamin), 메틸코발라민(methylcobalamin), 아데노실코발라민(adenosylcobalamin) | 비타민 B군 | mcg |
-| 15 | 글루코사민 | Glucosamine | amino_acid | 글루코사민 | Glucosamine | 글루코사민 설페이트(sulfate), 글루코사민 염산염(HCl), N-아세틸글루코사민(NAG) | - | mg |
-| 16 | MSM | MSM | other | 엠에스엠, 메틸설포닐메탄 | Methylsulfonylmethane | MSM | - | mg |
-| 17 | 가르시니아 | Garcinia Cambogia | herbal | 가르시니아 캄보지아, HCA | Garcinia, HCA | 가르시니아 캄보지아 추출물, 히드록시시트르산(HCA) | - | mg, mg HCA |
-| 18 | 콜라겐 | Collagen | other | 콜라겐, 콜라젠 | Collagen | 어류콜라겐(fish/marine), 소콜라겐(bovine), 돼지콜라겐(porcine), 가수분해콜라겐(hydrolyzed), I형/II형/III형 | - | mg, g |
-| 19 | 크레아틴 | Creatine | amino_acid | 크레아틴 | Creatine | 크레아틴 모노하이드레이트(monohydrate), HCl, 버퍼드(buffered) | - | g |
-| 20 | 멜라토닌 | Melatonin | other | 멜라토닌 | Melatonin | 일반 멜라토닌, 서방형(extended-release) | - | mg |
+| 15 | 비타민 B6 | Vitamin B6 | vitamin | B6, 비타민B6, 피리독신 | Pyridoxine, Pyridoxal-5-Phosphate, P-5-P | 피리독신염산염(pyridoxine HCl), 피리독살-5-인산(pyridoxal-5-phosphate) | 비타민 B군 | mg |
+| 16 | 글루코사민 | Glucosamine | amino_acid | 글루코사민 | Glucosamine | 글루코사민 설페이트(sulfate), 글루코사민 염산염(HCl), N-아세틸글루코사민(NAG) | - | mg |
+| 17 | MSM | MSM | other | 엠에스엠, 메틸설포닐메탄 | Methylsulfonylmethane | MSM | - | mg |
+| 18 | 가르시니아 | Garcinia Cambogia | herbal | 가르시니아 캄보지아, HCA | Garcinia, HCA | 가르시니아 캄보지아 추출물, 히드록시시트르산(HCA) | - | mg, mg HCA |
+| 19 | 콜라겐 | Collagen | other | 콜라겐, 콜라젠 | Collagen | 어류콜라겐(fish/marine), 소콜라겐(bovine), 돼지콜라겐(porcine), 가수분해콜라겐(hydrolyzed), I형/II형/III형 | - | mg, g |
+| 20 | 크레아틴 | Creatine | amino_acid | 크레아틴 | Creatine | 크레아틴 모노하이드레이트(monohydrate), HCl, 버퍼드(buffered) | - | g |
+| 21 | 멜라토닌 | Melatonin | other | 멜라토닌 | Melatonin | 일반 멜라토닌, 서방형(extended-release) | - | mg |
 
 ---
 

@@ -82,13 +82,14 @@ INSERT INTO code_values (code_table_id, code, label_ko, label_en, sort_order) VA
 ((SELECT id FROM code_tables WHERE table_code='product_type'), 'general_food',           '일반식품',         'General Food',           3);
 
 -- ============================================================================
--- 1. 원료 20종
+-- 1. 원료 21종
 -- ============================================================================
 
 INSERT INTO ingredients (canonical_name_ko, canonical_name_en, display_name, scientific_name, slug, ingredient_type, description, origin_type, form_description, standardization_info, is_active, is_published) VALUES
 ('비타민 D',      'Vitamin D',       '비타민 D',      'Cholecalciferol',            'vitamin-d',       'vitamin',    '칼슘 흡수와 면역 기능에 필수적인 지용성 비타민. 햇빛 노출로 체내 합성 가능.',                          'synthetic', 'D3 (콜레칼시페롤), D2 (에르고칼시페롤)',  '1mcg = 40IU',            true, true),
 ('비타민 C',      'Vitamin C',       '비타민 C',      'Ascorbic acid',              'vitamin-c',       'vitamin',    '항산화 기능, 콜라겐 합성, 면역 기능에 관여하는 수용성 비타민.',                                        'synthetic', '아스코르브산, 칼슘 아스코르베이트',       NULL,                     true, true),
 ('비타민 B12',    'Vitamin B12',     '비타민 B12',    'Cyanocobalamin',             'vitamin-b12',     'vitamin',    '적혈구 형성, 신경 기능, DNA 합성에 필수. 채식주의자에게 결핍 흔함.',                                   'synthetic', '시아노코발라민, 메틸코발라민',            NULL,                     true, true),
+('비타민 B6',     'Vitamin B6',      '비타민 B6',     'Pyridoxine',                 'vitamin-b6',      'vitamin',    '단백질·아미노산 대사, 신경전달물질 합성, 호모시스테인 대사에 필요한 수용성 비타민.',                    'synthetic', '피리독신염산염, 피리독살-5-인산(P-5-P)',  NULL,                     true, true),
 ('엽산',          'Folate',          '엽산',          'Folic acid',                 'folate',          'vitamin',    '세포 분열, DNA 합성에 필수. 임신 중 신경관 결손 예방에 중요.',                                         'synthetic', '폴산(합성), 5-MTHF(활성형)',             '1mcg DFE = 0.6mcg 폴산', true, true),
 ('오메가-3',      'Omega-3',         '오메가-3',      'EPA/DHA',                    'omega-3',         'fatty_acid', 'EPA와 DHA를 포함하는 필수 지방산. 심혈관, 뇌 건강에 관여.',                                            'natural',   '어유, 크릴오일, 미세조류 유래',           'EPA+DHA 합계 기준',      true, true),
 ('마그네슘',      'Magnesium',       '마그네슘',      'Magnesium',                  'magnesium',       'mineral',    '300종 이상의 효소 반응에 관여. 근육, 신경, 뼈 건강에 필수.',                                           'synthetic', '산화물, 구연산, 비스글리시네이트',        '원소 마그네슘 기준',     true, true),
@@ -177,6 +178,8 @@ INSERT INTO ingredient_claims (ingredient_id, claim_id, evidence_grade, evidence
 ((SELECT id FROM ingredients WHERE slug='calcium'), (SELECT id FROM claims WHERE claim_code='BONE_HEALTH'),        'A', '뼈 건강의 핵심 구성 성분',             true,  'KR', '뼈와 치아 형성에 필요'),
 -- 비타민 B12
 ((SELECT id FROM ingredients WHERE slug='vitamin-b12'), (SELECT id FROM claims WHERE claim_code='RBC_FORMATION'),  'A', '적혈구 성숙에 필수',                   true,  'KR', '정상적인 적혈구 형성에 필요'),
+-- 비타민 B6
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), (SELECT id FROM claims WHERE claim_code='ENERGY_METABOLISM'), 'A', '아미노산 대사 및 에너지 이용에 필요한 보조인자', true,  'KR', '에너지 이용에 필요'),
 -- 비타민 A
 ((SELECT id FROM ingredients WHERE slug='vitamin-a'), (SELECT id FROM claims WHERE claim_code='EYE_HEALTH'),       'A', '시각 기능 유지에 필수',                true,  'KR', '어두운 곳에서 시각 적응을 위해 필요'),
 -- CoQ10
@@ -215,6 +218,8 @@ INSERT INTO dosage_guidelines (ingredient_id, population_group, indication_conte
 ((SELECT id FROM ingredients WHERE slug='vitamin-d'), '65세 이상',      '일반 건강',      800,  4000, 'IU',  '1일 1회',  'oral', 'RDA',   '상한섭취량(UL) 4,000IU/일'),
 -- 비타민 C
 ((SELECT id FROM ingredients WHERE slug='vitamin-c'), '성인',           '일반 건강',      100,  2000, 'mg',  '1일 1~2회','oral', 'RDA',   '한국 RDA 100mg. UL 2,000mg'),
+-- 비타민 B6
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), '성인',          '일반 건강',      1.5,  100,  'mg',  '1일 1회',  'oral', 'RDA',   '한국 권장섭취량은 성인 기준 약 1.5mg/일'),
 -- 오메가-3
 ((SELECT id FROM ingredients WHERE slug='omega-3'), '성인',             '혈중 중성지방',  500,  2000, 'mg',  '1일 1~2회','oral', 'RDA',   'EPA+DHA 합계. 식약처 인정 500~2000mg'),
 -- 마그네슘

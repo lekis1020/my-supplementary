@@ -279,6 +279,31 @@ const apiConnectors = [
     },
   },
   {
+    key: "I0960",
+    label: "규제 기준",
+    entityType: "regulatory_standard",
+    dbConnectorName: "foodsafety-kr-i0960",
+    pageSize: 1000,
+    sleepMs: 2200,
+    buildPageUrl(page) {
+      const start = (page - 1) * this.pageSize + 1;
+      const end = start + this.pageSize - 1;
+      return `http://openapi.foodsafetykorea.go.kr/api/${foodsafetyKey}/I0960/json/${start}/${end}`;
+    },
+    normalizePage(payload) {
+      return {
+        totalCount: Number(payload.I0960?.total_count ?? 0),
+        records: payload.I0960?.row ?? [],
+      };
+    },
+    externalId(record) {
+      if (!record.PRDLST_CD || !record.PC_KOR_NM) {
+        return null;
+      }
+      return `${record.PRDLST_CD}:${record.PC_KOR_NM}`;
+    },
+  },
+  {
     key: "I0760",
     label: "원료 그룹",
     entityType: "ingredient_group",
@@ -314,7 +339,8 @@ async function layer3Counts(sql) {
       (SELECT count(*) FROM staging_ingredients_kr)::int AS staging_ingredients,
       (SELECT count(*) FROM ingredients)::int AS core_ingredients,
       (SELECT count(*) FROM staging_product_ingredients_kr)::int AS staging_pi,
-      (SELECT count(*) FROM product_ingredients)::int AS core_pi
+      (SELECT count(*) FROM product_ingredients)::int AS core_pi,
+      (SELECT count(*) FROM staging_regulatory_standards_kr)::int AS staging_regulatory_standards
   `;
   return counts;
 }
@@ -856,6 +882,11 @@ async function main() {
         { name: "products", staging: counts.staging_products, core: counts.core_products },
         { name: "ingredients", staging: counts.staging_ingredients, core: counts.core_ingredients },
         { name: "product_ingredients", staging: counts.staging_pi, core: counts.core_pi },
+        {
+          name: "regulatory_standards(staging-only)",
+          staging: counts.staging_regulatory_standards,
+          core: counts.staging_regulatory_standards,
+        },
       ];
 
       console.log("[COUNTS]");

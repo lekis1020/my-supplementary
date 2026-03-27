@@ -60,6 +60,17 @@ INSERT INTO ingredient_synonyms (ingredient_id, synonym, language_code, synonym_
 ((SELECT id FROM ingredients WHERE slug='vitamin-b12'), 'Cobalamin',         'en', 'scientific',   false),
 ((SELECT id FROM ingredients WHERE slug='vitamin-b12'), 'MeCbl',             'en', 'abbreviation', false),
 
+-- ── 비타민 B6 ─────────────────────────────────────────────────────────────
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), 'B6',                 'en', 'abbreviation', false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), '비타민B6',           'ko', 'common',       false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), '비타민 비6',         'ko', 'common',       false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), '피리독신',            'ko', 'scientific',   false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), '피리독신염산염',      'ko', 'scientific',   false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), 'Pyridoxine',         'en', 'scientific',   false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), 'Pyridoxine HCl',     'en', 'scientific',   false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), 'Pyridoxal-5-Phosphate','en','scientific',  false),
+((SELECT id FROM ingredients WHERE slug='vitamin-b6'), 'P-5-P',              'en', 'abbreviation', false),
+
 -- ── 엽산 ──────────────────────────────────────────────────────────────────
 ((SELECT id FROM ingredients WHERE slug='folate'), '폴산',              'ko', 'common',       false),
 ((SELECT id FROM ingredients WHERE slug='folate'), '폴레이트',          'ko', 'common',       false),
