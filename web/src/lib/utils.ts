@@ -69,6 +69,22 @@ export function normalizeProbioticStrainNameForDisplay(
   return normalized || trimmed;
 }
 
+export function normalizeIngredientNameForDisplay(
+  name: string | null | undefined,
+): string {
+  const normalized = normalizeProbioticStrainNameForDisplay(name);
+  if (normalized === "원료명 없음") {
+    return normalized;
+  }
+
+  const compactToken = normalized.replace(/\s+/g, "");
+  if (compactToken.includes("프로폴리스")) {
+    return "프로폴리스";
+  }
+
+  return normalized;
+}
+
 export function getIngredientRoleLabel(role: string | null | undefined): string {
   switch (role) {
     case "active":

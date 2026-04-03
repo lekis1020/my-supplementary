@@ -9,7 +9,7 @@ import {
   getIngredientRoleLabel,
   getIngredientTypeLabel,
   hasClearlyIdentifiedProbioticStrain,
-  normalizeProbioticStrainNameForDisplay,
+  normalizeIngredientNameForDisplay,
 } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -157,9 +157,7 @@ function getIngredientMatchKind(
 function buildIngredientSearchResult(
   ingredient: IngredientRow,
 ): IngredientSearchResult {
-  const normalizedTitle = normalizeProbioticStrainNameForDisplay(
-    ingredient.canonical_name_ko,
-  );
+  const normalizedTitle = normalizeIngredientNameForDisplay(ingredient.canonical_name_ko);
   const subtitleParts: string[] = [];
   const isClearlyStrain = hasClearlyIdentifiedProbioticStrain({
     canonicalNameKo: ingredient.canonical_name_ko,
@@ -279,8 +277,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     directIngredientResults = rankedWithScore
       .filter(({ matchKind }) => matchKind === "direct")
-      .slice(0, 8)
-      .map(({ ingredient }) => buildIngredientSearchResult(ingredient));
+      .map(({ ingredient }) => buildIngredientSearchResult(ingredient))
+      .filter((result, index, source) =>
+        source.findIndex((candidate) => candidate.title === result.title) === index,
+      )
+      .slice(0, 8);
 
     probioticStrainIngredientResults = rankedWithScore
       .filter(({ matchKind }) => matchKind === "probiotic-strain-category")
@@ -342,7 +343,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           row.ingredient_role === "active"
             ? existing.activeMatches
             : existing.supportingMatches;
-        const ingredientName = normalizeProbioticStrainNameForDisplay(ingredient.canonical_name_ko);
+        const ingredientName = normalizeIngredientNameForDisplay(ingredient.canonical_name_ko);
 
         if (!matchBucket.includes(ingredientName)) {
           matchBucket.push(ingredientName);
