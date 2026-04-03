@@ -286,6 +286,7 @@ export default async function IngredientDetailPage({ params }: Props) {
       : [];
   const displayIngredientName = normalizeProbioticStrainNameForDisplay(ingredient.canonical_name_ko);
   const isProbiotic = category === "probiotics";
+  const isPropolisIngredient = ingredient.canonical_name_ko.replace(/\s+/g, "").includes("프로폴리스");
   const isLikelyProbioticStrain =
     isProbiotic &&
     hasClearlyIdentifiedProbioticStrain({
@@ -338,6 +339,45 @@ export default async function IngredientDetailPage({ params }: Props) {
             .select("id, canonical_name_ko, canonical_name_en, scientific_name")
             .eq("parent_ingredient_id", probioticFamilyRootId)
             .eq("is_published", true)
+            .order("canonical_name_ko")
+        ).data ?? []
+      )
+    : [];
+
+  const propolisFamilyRootName = "프로폴리스추출물";
+  let propolisFamilyRoot:
+    | {
+        id: number;
+        canonical_name_ko: string;
+      }
+    | null = null;
+
+  if (isPropolisIngredient) {
+    if (ingredient.canonical_name_ko === propolisFamilyRootName) {
+      propolisFamilyRoot = {
+        id: ingredient.id,
+        canonical_name_ko: ingredient.canonical_name_ko,
+      };
+    } else {
+      const { data } = await supabase
+        .from("ingredients")
+        .select("id, canonical_name_ko")
+        .eq("canonical_name_ko", propolisFamilyRootName)
+        .eq("is_published", true)
+        .maybeSingle();
+      propolisFamilyRoot = data ?? null;
+    }
+  }
+
+  const propolisFamilyChildren = propolisFamilyRoot
+    ? (
+        (
+          await supabase
+            .from("ingredients")
+            .select("id, canonical_name_ko")
+            .eq("is_published", true)
+            .ilike("canonical_name_ko", "%프로폴리스%")
+            .neq("id", propolisFamilyRoot.id)
             .order("canonical_name_ko")
         ).data ?? []
       )
@@ -504,6 +544,49 @@ export default async function IngredientDetailPage({ params }: Props) {
       </div>
 
       <div className="space-y-8">
+        {propolisFamilyRoot && propolisFamilyChildren.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <Pill className="h-5 w-5 text-emerald-600" />
+                  프로폴리스추출물 하위 카테고리
+                </span>
+              </CardTitle>
+              <p className="mt-1 text-sm text-gray-500">
+                프로폴리스 관련 복합 표기를 한 곳에서 탐색할 수 있도록 연결했습니다.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 flex flex-wrap gap-2">
+                <Badge className="bg-emerald-50 text-emerald-700">상위 카테고리</Badge>
+                <Link
+                  href={`/ingredients/${propolisFamilyRoot.id}`}
+                  className="text-sm font-semibold text-emerald-700 hover:underline"
+                >
+                  {propolisFamilyRoot.canonical_name_ko}
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {propolisFamilyChildren.map((child) => (
+                  <Link
+                    key={child.id}
+                    href={`/ingredients/${child.id}`}
+                    className={[
+                      "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                      child.id === ingredient.id
+                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:text-emerald-700",
+                    ].join(" ")}
+                  >
+                    {child.canonical_name_ko}
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <BenefitHexagon
           title="효능 육각형"
           description="강도 비교가 아니라, 이 원료가 어떤 효능 축에 관련되는지를 빠르게 읽기 위한 요약입니다."
