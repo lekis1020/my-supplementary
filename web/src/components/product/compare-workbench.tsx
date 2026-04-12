@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { CompareSummary } from "@/components/product/compare-summary";
 import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
 import { extractProbioticStrains, isLikelyProbioticType } from "@/lib/probiotic-strains";
 import {
@@ -493,6 +494,8 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
               tone="slate"
             />
           </div>
+
+          <CompareSummary productIds={effectiveSelectedIds} />
 
           {probioticStrainCount > 0 && (
             <section className="mt-10">
