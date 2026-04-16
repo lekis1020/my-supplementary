@@ -63,6 +63,17 @@ const supabase = createClient(
 );
 
 // ── 타겟 로드 ──────────────────────────────────────────────────────────────
+/** 저품질 타겟 필터 — 스테이징 찌꺼기·너무 일반적인 이름 제외 */
+function isValidTarget(product) {
+  const name = (product.product_name ?? "").trim();
+  if (!name) return false;
+  if (name.length < 5) return false;                // 너무 짧은 이름
+  if (/^TEST\s*\(/i.test(name)) return false;        // "TEST(건기...)" 스테이징 더미
+  if (/^(샘플|테스트|dummy)/i.test(name)) return false;
+  if (/^\d+$/.test(name)) return false;              // 숫자만
+  return true;
+}
+
 async function loadTargets() {
   let query = supabase
     .from("products")
@@ -74,12 +85,18 @@ async function loadTargets() {
     query = query.eq("id", PRODUCT_ID);
   } else {
     // product_image_url NULL 우선
-    query = query.is("product_image_url", null).limit(LIMIT);
+    // DB 수준 필터: TEST 접두사·짧은 이름 제외
+    query = query
+      .is("product_image_url", null)
+      .not("product_name", "ilike", "TEST(%")
+      .limit(LIMIT * 2); // 후처리 필터로 빠질 것 대비 여유분
   }
 
   const { data, error } = await query;
   if (error) throw error;
-  return data ?? [];
+
+  const filtered = (data ?? []).filter(isValidTarget);
+  return PRODUCT_ID ? filtered : filtered.slice(0, LIMIT);
 }
 
 // ── Naver 매칭 후보 선정 ───────────────────────────────────────────────────
