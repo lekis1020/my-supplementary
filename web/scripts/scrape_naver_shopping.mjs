@@ -83,29 +83,52 @@ async function loadTargets() {
 }
 
 // ── Naver 매칭 후보 선정 ───────────────────────────────────────────────────
-function pickBestItem(product, items) {
-  const nameNorm = normalize(product.product_name).toLowerCase();
-  const brandNorm = normalize(product.brand_name ?? "").toLowerCase();
+/** 공백 무시 bigram 집합 (한국어 연속 제품명 대응) */
+function bigrams(s) {
+  const clean = s.replace(/\s+/g, "").toLowerCase();
+  const grams = new Set();
+  for (let i = 0; i < clean.length - 1; i++) {
+    grams.add(clean.slice(i, i + 2));
+  }
+  return grams;
+}
 
-  // 점수: 브랜드 일치 +3, 제품명 토큰 교집합 비율 +weighted
-  const nameTokens = new Set(nameNorm.split(/\s+/).filter((t) => t.length >= 2));
+/** Jaccard 유사도 (0~1) */
+function jaccard(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const g of a) if (b.has(g)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+
+function pickBestItem(product, items) {
+  const nameNorm = normalize(product.product_name);
+  const brandNorm = normalize(product.brand_name ?? product.manufacturer_name ?? "");
+  const nameGrams = bigrams(nameNorm);
 
   let best = null;
   let bestScore = -Infinity;
 
   for (const item of items) {
-    const title = normalize(item.title).toLowerCase();
-    const brand = normalize(item.brand ?? item.maker ?? "").toLowerCase();
-    const titleTokens = new Set(title.split(/\s+/).filter((t) => t.length >= 2));
+    const title = normalize(item.title);
+    const brand = normalize(item.brand ?? item.maker ?? "");
+    const titleGrams = bigrams(title);
 
-    let score = 0;
-    if (brandNorm && (brand.includes(brandNorm) || title.includes(brandNorm))) score += 3;
+    // Jaccard 유사도 (이름 bigram) — 0~1 → 0~10점
+    const jac = jaccard(nameGrams, titleGrams);
+    let score = jac * 10;
 
-    let overlap = 0;
-    for (const t of nameTokens) if (titleTokens.has(t)) overlap++;
-    score += overlap * 2;
+    // 브랜드 일치 보너스 — DB 또는 Naver 측 brand/maker에 부분 포함
+    if (brandNorm.length >= 2) {
+      const brandClean = brandNorm.replace(/\s+/g, "").toLowerCase();
+      const brandHit =
+        brand.replace(/\s+/g, "").toLowerCase().includes(brandClean) ||
+        title.replace(/\s+/g, "").toLowerCase().includes(brandClean);
+      if (brandHit) score += 3;
+    }
 
-    if (item.image) score += 1; // 이미지 존재 보너스
+    // 이미지 존재 보너스
+    if (item.image) score += 1;
 
     if (score > bestScore) {
       bestScore = score;
