@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/state-message";
 import { HighlightMatch } from "@/components/ui/highlight";
+import { SearchCombobox } from "@/components/search/search-combobox";
 import {
   formatProductName,
   getIngredientHref,
@@ -415,20 +416,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </p>
           </div>
 
-          <form action="/search" className="mt-8 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <form
+            action="/search"
+            role="search"
+            className="mt-8 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
-              <label htmlFor="search-query" className="relative block">
-                <span className="sr-only">검색어</span>
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="search-query"
-                  name="q"
-                  type="search"
-                  defaultValue={query}
-                  placeholder="원료명, 제품명, 영문명으로 검색"
-                  className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100"
-                />
-              </label>
+              <SearchCombobox initialQuery={query} />
 
               <label
                 htmlFor="include-supporting"
