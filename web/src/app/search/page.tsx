@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/state-message";
+import { HighlightMatch } from "@/components/ui/highlight";
 import {
   formatProductName,
   getIngredientHref,
@@ -485,6 +486,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               description="검색어 자체와 직접 일치하는 원료입니다."
               results={directIngredientResults}
               countToneClassName="bg-emerald-50 text-emerald-700"
+              query={query}
             />
 
             <IngredientResultSection
@@ -492,6 +494,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               description="검색어가 프로바이오틱스 계열(유산균)일 때, 균주명에 포함된 일반 키워드 일치를 별도로 분류한 결과입니다."
               results={probioticStrainIngredientResults}
               countToneClassName="bg-violet-50 text-violet-700"
+              query={query}
             />
 
             <section>
@@ -520,6 +523,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     title="주성분 일치"
                     description="검색한 원료가 주성분으로 들어 있는 제품입니다."
                     products={activeProducts}
+                    query={query}
                   />
 
                   {includeSupporting && (
@@ -527,6 +531,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       title="부원료 일치"
                       description="검색한 원료가 부원료 또는 기타 성분으로 들어 있는 제품입니다."
                       products={supportingProducts}
+                      query={query}
                     />
                   )}
 
@@ -534,6 +539,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     title="제품명/브랜드 직접 일치"
                     description="원료 일치 없이 제품명 또는 브랜드명으로 직접 찾은 결과입니다."
                     products={directOnlyProducts}
+                    query={query}
                   />
 
                   <Pagination
@@ -560,11 +566,13 @@ function IngredientResultSection({
   description,
   results,
   countToneClassName,
+  query,
 }: {
   title: string;
   description: string;
   results: IngredientSearchResult[];
   countToneClassName: string;
+  query: string;
 }) {
   if (results.length === 0) return null;
 
@@ -587,9 +595,13 @@ function IngredientResultSection({
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="font-semibold text-slate-900">{result.title}</p>
+                <p className="font-semibold text-slate-900">
+                  <HighlightMatch text={result.title} query={query} />
+                </p>
                 {result.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">{result.subtitle}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    <HighlightMatch text={result.subtitle} query={query} />
+                  </p>
                 )}
               </div>
               <Badge className="bg-emerald-50 text-emerald-700">{result.badge}</Badge>
@@ -605,10 +617,12 @@ function ProductResultSection({
   title,
   description,
   products,
+  query,
 }: {
   title: string;
   description: string;
   products: ProductSearchResult[];
+  query: string;
 }) {
   if (products.length === 0) return null;
 
@@ -631,9 +645,13 @@ function ProductResultSection({
           >
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-lg font-semibold text-slate-900">{product.title}</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  <HighlightMatch text={product.title} query={query} />
+                </p>
                 {product.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">{product.subtitle}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    <HighlightMatch text={product.subtitle} query={query} />
+                  </p>
                 )}
               </div>
 
