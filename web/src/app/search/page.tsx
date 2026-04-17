@@ -1,8 +1,9 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
+import { EmptyState } from "@/components/ui/state-message";
 import {
   formatProductName,
   getIngredientHref,
@@ -535,31 +536,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     products={directOnlyProducts}
                   />
 
-                  {totalPages > 1 && (
-                    <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-200 pt-8">
-                      <PaginationLink
-                        href={buildSearchHref(query, includeSupporting, Math.max(1, safeCurrentPage - 1))}
-                        disabled={safeCurrentPage <= 1}
-                      >
-                        이전
-                      </PaginationLink>
-                      {pageLinks.map((page) => (
-                        <PaginationLink
-                          key={page}
-                          href={buildSearchHref(query, includeSupporting, page)}
-                          active={page === safeCurrentPage}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ))}
-                      <PaginationLink
-                        href={buildSearchHref(query, includeSupporting, Math.min(totalPages, safeCurrentPage + 1))}
-                        disabled={safeCurrentPage >= totalPages}
-                      >
-                        다음
-                      </PaginationLink>
-                    </div>
-                  )}
+                  <Pagination
+                    currentPage={safeCurrentPage}
+                    totalPages={totalPages}
+                    pageLinks={pageLinks}
+                    buildHref={(page) =>
+                      buildSearchHref(query, includeSupporting, page)
+                    }
+                    className="border-t border-slate-200 pt-8"
+                  />
                 </div>
               )}
             </section>
@@ -689,45 +674,3 @@ function ProductResultSection({
   );
 }
 
-function EmptyState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-14 text-center">
-      <p className="text-lg font-semibold text-slate-900">{title}</p>
-      <p className="mt-2 text-sm text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function PaginationLink({
-  href,
-  children,
-  active = false,
-  disabled = false,
-}: {
-  href: string;
-  children: ReactNode;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  const className = [
-    "inline-flex min-w-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-semibold transition-colors",
-    active
-      ? "border-emerald-600 bg-emerald-600 text-white"
-      : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700",
-    disabled ? "pointer-events-none opacity-40" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link href={href} aria-disabled={disabled} className={className}>
-      {children}
-    </Link>
-  );
-}
