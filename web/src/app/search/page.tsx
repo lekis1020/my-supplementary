@@ -1,8 +1,11 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
+import { EmptyState } from "@/components/ui/state-message";
+import { HighlightMatch } from "@/components/ui/highlight";
+import { SearchCombobox } from "@/components/search/search-combobox";
 import {
   formatProductName,
   getIngredientHref,
@@ -413,20 +416,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </p>
           </div>
 
-          <form action="/search" className="mt-8 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <form
+            action="/search"
+            role="search"
+            className="mt-8 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
-              <label htmlFor="search-query" className="relative block">
-                <span className="sr-only">검색어</span>
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="search-query"
-                  name="q"
-                  type="search"
-                  defaultValue={query}
-                  placeholder="원료명, 제품명, 영문명으로 검색"
-                  className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100"
-                />
-              </label>
+              <SearchCombobox initialQuery={query} />
 
               <label
                 htmlFor="include-supporting"
@@ -484,6 +480,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               description="검색어 자체와 직접 일치하는 원료입니다."
               results={directIngredientResults}
               countToneClassName="bg-emerald-50 text-emerald-700"
+              query={query}
             />
 
             <IngredientResultSection
@@ -491,6 +488,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               description="검색어가 프로바이오틱스 계열(유산균)일 때, 균주명에 포함된 일반 키워드 일치를 별도로 분류한 결과입니다."
               results={probioticStrainIngredientResults}
               countToneClassName="bg-violet-50 text-violet-700"
+              query={query}
             />
 
             <section>
@@ -519,6 +517,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     title="주성분 일치"
                     description="검색한 원료가 주성분으로 들어 있는 제품입니다."
                     products={activeProducts}
+                    query={query}
                   />
 
                   {includeSupporting && (
@@ -526,6 +525,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       title="부원료 일치"
                       description="검색한 원료가 부원료 또는 기타 성분으로 들어 있는 제품입니다."
                       products={supportingProducts}
+                      query={query}
                     />
                   )}
 
@@ -533,33 +533,18 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     title="제품명/브랜드 직접 일치"
                     description="원료 일치 없이 제품명 또는 브랜드명으로 직접 찾은 결과입니다."
                     products={directOnlyProducts}
+                    query={query}
                   />
 
-                  {totalPages > 1 && (
-                    <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-200 pt-8">
-                      <PaginationLink
-                        href={buildSearchHref(query, includeSupporting, Math.max(1, safeCurrentPage - 1))}
-                        disabled={safeCurrentPage <= 1}
-                      >
-                        이전
-                      </PaginationLink>
-                      {pageLinks.map((page) => (
-                        <PaginationLink
-                          key={page}
-                          href={buildSearchHref(query, includeSupporting, page)}
-                          active={page === safeCurrentPage}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ))}
-                      <PaginationLink
-                        href={buildSearchHref(query, includeSupporting, Math.min(totalPages, safeCurrentPage + 1))}
-                        disabled={safeCurrentPage >= totalPages}
-                      >
-                        다음
-                      </PaginationLink>
-                    </div>
-                  )}
+                  <Pagination
+                    currentPage={safeCurrentPage}
+                    totalPages={totalPages}
+                    pageLinks={pageLinks}
+                    buildHref={(page) =>
+                      buildSearchHref(query, includeSupporting, page)
+                    }
+                    className="border-t border-slate-200 pt-8"
+                  />
                 </div>
               )}
             </section>
@@ -575,11 +560,13 @@ function IngredientResultSection({
   description,
   results,
   countToneClassName,
+  query,
 }: {
   title: string;
   description: string;
   results: IngredientSearchResult[];
   countToneClassName: string;
+  query: string;
 }) {
   if (results.length === 0) return null;
 
@@ -602,9 +589,13 @@ function IngredientResultSection({
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="font-semibold text-slate-900">{result.title}</p>
+                <p className="font-semibold text-slate-900">
+                  <HighlightMatch text={result.title} query={query} />
+                </p>
                 {result.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">{result.subtitle}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    <HighlightMatch text={result.subtitle} query={query} />
+                  </p>
                 )}
               </div>
               <Badge className="bg-emerald-50 text-emerald-700">{result.badge}</Badge>
@@ -620,10 +611,12 @@ function ProductResultSection({
   title,
   description,
   products,
+  query,
 }: {
   title: string;
   description: string;
   products: ProductSearchResult[];
+  query: string;
 }) {
   if (products.length === 0) return null;
 
@@ -646,9 +639,13 @@ function ProductResultSection({
           >
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-lg font-semibold text-slate-900">{product.title}</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  <HighlightMatch text={product.title} query={query} />
+                </p>
                 {product.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">{product.subtitle}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    <HighlightMatch text={product.subtitle} query={query} />
+                  </p>
                 )}
               </div>
 
@@ -689,45 +686,3 @@ function ProductResultSection({
   );
 }
 
-function EmptyState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-14 text-center">
-      <p className="text-lg font-semibold text-slate-900">{title}</p>
-      <p className="mt-2 text-sm text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function PaginationLink({
-  href,
-  children,
-  active = false,
-  disabled = false,
-}: {
-  href: string;
-  children: ReactNode;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  const className = [
-    "inline-flex min-w-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-semibold transition-colors",
-    active
-      ? "border-emerald-600 bg-emerald-600 text-white"
-      : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700",
-    disabled ? "pointer-events-none opacity-40" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link href={href} aria-disabled={disabled} className={className}>
-      {children}
-    </Link>
-  );
-}

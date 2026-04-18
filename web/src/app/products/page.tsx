@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EnhancedProductCard } from "@/components/product/product-card";
 import { CompareWorkbench } from "@/components/product/compare-workbench";
+import { Pagination } from "@/components/ui/pagination";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -220,59 +221,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <div className="text-sm text-slate-500">
             현재 페이지에 {normalizedProducts.length.toLocaleString()}개 제품이 표시됩니다.
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <PaginationLink
-              href={buildPageHref(Math.max(1, currentPage - 1), ingredientId)}
-              disabled={currentPage <= 1}
-            >
-              이전
-            </PaginationLink>
-            {pageLinks.map((page) => (
-              <PaginationLink
-                key={page}
-                href={buildPageHref(page, ingredientId)}
-                active={page === currentPage}
-              >
-                {page}
-              </PaginationLink>
-            ))}
-            <PaginationLink
-              href={buildPageHref(Math.min(totalPages, currentPage + 1), ingredientId)}
-              disabled={currentPage >= totalPages}
-            >
-              다음
-            </PaginationLink>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageLinks={pageLinks}
+            buildHref={(page) => buildPageHref(page, ingredientId)}
+          />
         </div>
       </div>
     </div>
-  );
-}
-
-function PaginationLink({
-  href,
-  children,
-  active = false,
-  disabled = false,
-}: {
-  href: string;
-  children: React.ReactNode;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  const className = [
-    "inline-flex min-w-10 items-center justify-center rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
-    active
-      ? "border-emerald-600 bg-emerald-600 text-white"
-      : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700",
-    disabled ? "pointer-events-none opacity-40" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link href={href} aria-disabled={disabled} className={className}>
-      {children}
-    </Link>
   );
 }
