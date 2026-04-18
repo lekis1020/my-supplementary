@@ -208,31 +208,43 @@ export default async function ProductDetailPage({ params }: Props) {
         제품 데이터베이스
       </Link>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{displayProductName}</h1>
-        <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500">
-          {product.brand_name && <span>브랜드: {product.brand_name}</span>}
-          {product.manufacturer_name && (
-            <>
-              <span className="text-gray-300">·</span>
-              <span>제조: {product.manufacturer_name}</span>
-            </>
-          )}
-          {product.country_code && (
-            <Badge className="bg-gray-100 text-gray-600">
-              {product.country_code === "KR" ? "🇰🇷 한국" : "🇺🇸 미국"}
-            </Badge>
-          )}
-          {product.product_type && (
-            <Badge className="bg-blue-50 text-blue-700">
-              {product.product_type === "health_functional_food"
-                ? "건강기능식품"
-                : "Dietary Supplement"}
-            </Badge>
-          )}
-        </div>
-        <div className="mt-6">
-          <CompareActions productId={product.id} />
+      <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-start">
+        {product.product_image_url && (
+          <div className="shrink-0 self-center sm:self-start">
+            <img
+              src={product.product_image_url}
+              alt={displayProductName}
+              loading="lazy"
+              className="h-40 w-40 rounded-xl border border-gray-200 object-contain bg-white p-2 shadow-sm sm:h-48 sm:w-48"
+            />
+          </div>
+        )}
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-gray-900">{displayProductName}</h1>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500">
+            {product.brand_name && <span>브랜드: {product.brand_name}</span>}
+            {product.manufacturer_name && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span>제조: {product.manufacturer_name}</span>
+              </>
+            )}
+            {product.country_code && (
+              <Badge className="bg-gray-100 text-gray-600">
+                {product.country_code === "KR" ? "🇰🇷 한국" : "🇺🇸 미국"}
+              </Badge>
+            )}
+            {product.product_type && (
+              <Badge className="bg-blue-50 text-blue-700">
+                {product.product_type === "health_functional_food"
+                  ? "건강기능식품"
+                  : "Dietary Supplement"}
+              </Badge>
+            )}
+          </div>
+          <div className="mt-6">
+            <CompareActions productId={product.id} />
+          </div>
         </div>
       </div>
 
