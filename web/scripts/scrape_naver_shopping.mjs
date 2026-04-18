@@ -63,7 +63,7 @@ const supabase = createClient(
 );
 
 // ── 타겟 로드 ──────────────────────────────────────────────────────────────
-/** 저품질 타겟 필터 — 스테이징 찌꺼기·너무 일반적인 이름 제외 */
+/** 저품질 타겟 필터 — 스테이징 찌꺼기·수출전용·너무 일반적인 이름 제외 */
 function isValidTarget(product) {
   const name = (product.product_name ?? "").trim();
   if (!name) return false;
@@ -71,7 +71,37 @@ function isValidTarget(product) {
   if (/^TEST\s*\(/i.test(name)) return false;        // "TEST(건기...)" 스테이징 더미
   if (/^(샘플|테스트|dummy)/i.test(name)) return false;
   if (/^\d+$/.test(name)) return false;              // 숫자만
+  if (/전량\s*수출\s*용/i.test(name)) return false;   // 수출 전용 — 국내 Naver 미판매
   return true;
+}
+
+/**
+ * 검색어 전처리:
+ *  - 괄호 + 내용 제거: (전량수출용), (HEFIX Vitamin, ...), 【...】
+ *  - 한자 제거: 效, 孝 등
+ *  - 연속 공백 정리
+ */
+function cleanSearchQuery(rawName) {
+  return rawName
+    .replace(/\([^)]*\)/g, "")         // (...) 괄호 전체 제거
+    .replace(/【[^】]*】/g, "")         // 【...】 전각 괄호 제거
+    .replace(/[\u4E00-\u9FFF]/g, "")   // CJK 한자 제거
+    .replace(/[,./\-·•]/g, " ")        // 구두점 → 공백
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * 검색어 단축 시퀀스 생성: "A B C D" → ["A B C D", "A B C", "A B"]
+ * 공백 기반이므로, 공백 없는 단일 토큰은 자기 자신만 반환.
+ */
+function queryVariants(query) {
+  const variants = [query];
+  const tokens = query.split(/\s+/);
+  for (let len = tokens.length - 1; len >= 2; len--) {
+    variants.push(tokens.slice(0, len).join(" "));
+  }
+  return variants;
 }
 
 async function loadTargets() {
@@ -238,12 +268,37 @@ async function recordScrapeJob({ productId, status, summary, error }) {
 
 // ── 단일 제품 처리 ─────────────────────────────────────────────────────────
 async function processProduct(product) {
-  const query = normalize(product.product_name);
-  if (!query) return { status: "skipped", reason: "empty_name" };
+  const rawName = normalize(product.product_name);
+  if (!rawName) return { status: "skipped", reason: "empty_name" };
 
-  const { items, total } = await searchNaverShopping(query, { display: 10 });
+  const cleaned = cleanSearchQuery(rawName);
+  if (!cleaned || cleaned.length < 2) return { status: "skipped", reason: "empty_after_clean" };
+
+  // 검색어 후보: 원본 정제 → 단축 variants → 제조사명 보조
+  const queries = queryVariants(cleaned);
+  const mfr = normalize(product.manufacturer_name ?? "").replace(/\([^)]*\)/g, "").trim();
+  if (mfr && mfr.length >= 2 && cleaned.length >= 4) {
+    queries.push(`${mfr} ${cleaned.split(/\s+/).slice(0, 2).join(" ")}`);
+  }
+
+  // 검색어 후보 순회 — 첫 hit에서 중단
+  let items = [];
+  let total = 0;
+  let usedQuery = "";
+  for (const q of queries) {
+    if (!q || q.length < 2) continue;
+    const res = await searchNaverShopping(q, { display: 10 });
+    if (res.items.length > 0) {
+      items = res.items;
+      total = res.total;
+      usedQuery = q;
+      break;
+    }
+    await throttle(THROTTLE_MS);
+  }
+
   if (items.length === 0) {
-    return { status: "miss", reason: "no_results", total };
+    return { status: "miss", reason: "no_results", total, queries: queries.length };
   }
 
   const { item: best, score } = pickBestItem(product, items);
