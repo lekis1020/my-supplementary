@@ -21,11 +21,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  * @param {Buffer} buffer   원본 이미지 버퍼
  * @param {object} opts
  * @param {number} [opts.minHeight=5000]  크롭 적용 최소 높이 (px)
- * @param {number} [opts.padding=100]     감지 영역 위아래 여백 (px)
+ * @param {number} [opts.paddingPct=2]    감지 영역 위아래 여백 (원본 높이 대비 %)
  * @returns {Promise<{buffer: Buffer, hash: string, width: number, height: number, cropped: boolean, method: string}>}
  */
 export async function cropNutritionLabel(buffer, opts = {}) {
-  const { minHeight = 5000, padding = 100 } = opts;
+  const { minHeight = 5000, paddingPct = 2 } = opts;
 
   const meta = await sharp(buffer).metadata();
   const { width, height } = meta;
@@ -35,19 +35,23 @@ export async function cropNutritionLabel(buffer, opts = {}) {
     return { buffer, hash, width: width ?? 0, height: height ?? 0, cropped: false, method: "skip" };
   }
 
-  // Vision 감지 시도 → 실패 시 폴백
-  const bounds = await detectNutritionBounds(buffer, width, height).catch(() => null);
+  // Vision 감지 시도 → 실패 시 1회 재시도 → 그래도 실패 시 폴백
+  let bounds = await detectNutritionBounds(buffer, width, height).catch(() => null);
+  if (!bounds || bounds.top >= bounds.bottom) {
+    bounds = await detectNutritionBounds(buffer, width, height).catch(() => null);
+  }
 
   let top, cropH;
   let method;
 
   if (bounds && bounds.top < bounds.bottom) {
+    const padding = Math.round(height * paddingPct / 100);
     top = Math.max(0, bounds.top - padding);
     cropH = Math.min(height - top, bounds.bottom - top + padding * 2);
     method = "vision";
   } else {
-    // 폴백: 하단 25%
-    const bottomRatio = 0.25;
+    // 폴백: 하단 20%
+    const bottomRatio = 0.20;
     cropH = Math.min(Math.round(height * bottomRatio), 5000);
     top = height - cropH;
     method = "fallback";
@@ -73,40 +77,146 @@ export async function cropNutritionLabel(buffer, opts = {}) {
 }
 
 /**
- * Gemini Flash Vision으로 영양정보 표 영역 좌표 감지.
+ * 크롭된 이미지에 여러 맛/제품 표가 포함되어 있으면 개별 이미지로 분할.
+ * 단일 표면 원본 배열 그대로 반환.
+ *
+ * @param {Buffer} buffer  cropNutritionLabel로 크롭된 이미지
+ * @param {number} width
+ * @param {number} height
+ * @returns {Promise<Array<{buffer: Buffer, hash: string, width: number, height: number, label: string|null}>>}
+ */
+export async function splitNutritionTables(buffer, width, height) {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    return [{ buffer, hash: createHash("sha256").update(buffer).digest("hex"), width, height, label: null }];
+  }
+
+  const resized = await sharp(buffer)
+    .resize({ height: 1024, fit: "inside" })
+    .jpeg({ quality: 75 })
+    .toBuffer();
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: process.env.SCAN_VISION_PRIMARY_MODEL || "gemini-2.5-flash",
+    generationConfig: { temperature: 0, responseMimeType: "application/json" },
+  });
+
+  const result = await model.generateContent([
+    {
+      inlineData: { mimeType: "image/jpeg", data: resized.toString("base64") },
+    },
+    {
+      text: `이 이미지에 서로 다른 맛(flavor)이나 제품 변형(variant)의 제품정보가 반복되어 있는지 확인하세요.
+
+중요 규칙:
+- 같은 제품의 "제품 상세정보" 표와 "영양정보" 표는 하나로 셉니다 (분할하지 마세요).
+- "복숭아맛", "망고맛"처럼 맛별로 제품명·원재료·영양정보가 각각 반복될 때만 여러 개로 셉니다.
+- 맛/변형 구분이 없으면 count=1 입니다.
+
+각 변형의 전체 영역(제품정보+영양정보 통합) 시작·끝 위치를 이미지 높이 대비 %(0~100)로 답하세요.
+label은 맛/변형 이름입니다 (예: "복숭아맛").
+
+JSON schema: {"count": number, "tables": [{"start_pct": number, "end_pct": number, "label": string|null}]}`,
+    },
+  ]);
+
+  const text = result.response.text().trim();
+  const json = JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim());
+
+  if (!json.tables || json.count <= 1) {
+    return [{ buffer, hash: createHash("sha256").update(buffer).digest("hex"), width, height, label: null }];
+  }
+
+  // 각 표 영역을 개별 이미지로 분할 (표 간 중간점을 경계로 사용)
+  const sorted = json.tables
+    .map((t) => ({
+      startPct: Math.max(0, Math.min(100, t.start_pct)),
+      endPct: Math.max(0, Math.min(100, t.end_pct)),
+      label: t.label || null,
+    }))
+    .sort((a, b) => a.startPct - b.startPct);
+
+  const splits = [];
+  for (let i = 0; i < sorted.length; i++) {
+    // 시작: 이전 표 끝과 현재 표 시작의 중간점 (첫 번째면 0)
+    const prevEnd = i > 0 ? sorted[i - 1].endPct : 0;
+    const splitStart = i > 0 ? (prevEnd + sorted[i].startPct) / 2 : 0;
+    // 끝: 현재 표 끝과 다음 표 시작의 중간점 (마지막이면 100)
+    const nextStart = i < sorted.length - 1 ? sorted[i + 1].startPct : 100;
+    const splitEnd = i < sorted.length - 1 ? (sorted[i].endPct + nextStart) / 2 : 100;
+
+    const top = Math.round((splitStart / 100) * height);
+    const cropH = Math.max(1, Math.round(((splitEnd - splitStart) / 100) * height));
+
+    const splitBuf = await sharp(buffer)
+      .extract({ left: 0, top, width, height: Math.min(cropH, height - top) })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    splits.push({
+      buffer: splitBuf,
+      hash: createHash("sha256").update(splitBuf).digest("hex"),
+      width,
+      height: cropH,
+      label: sorted[i].label,
+    });
+  }
+
+  return splits;
+}
+
+/**
+ * Gemini Flash Vision으로 '1일 섭취량' 표 위치를 감지.
+ *
+ * 긴 이미지(10000px+)를 통째로 리사이즈하면 텍스트가 뭉개져서 감지 실패.
+ * → 하단 50%만 잘라서 보내면 해상도 2배 향상, 감지 정확도 대폭 개선.
+ *
  * @returns {Promise<{top: number, bottom: number}>} 원본 이미지 기준 px 좌표
  */
 async function detectNutritionBounds(buffer, imgWidth, imgHeight) {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_GENERATIVE_AI_API_KEY 미설정");
 
-  // 감지용 리사이즈 (비용 절감, 768px 높이로)
-  const resized = await sharp(buffer)
-    .resize({ height: 768, fit: "inside" })
-    .jpeg({ quality: 70 })
+  // 하단 30%만 추출 — 마케팅 텍스트 노이즈를 줄이고 표 해상도를 높임
+  const cropRatio = 0.3;
+  const sectionTop = Math.round(imgHeight * (1 - cropRatio));
+  const sectionHeight = imgHeight - sectionTop;
+  const section = await sharp(buffer)
+    .extract({ left: 0, top: sectionTop, width: imgWidth, height: sectionHeight })
+    .resize({ height: 1024, fit: "inside" })
+    .jpeg({ quality: 75 })
     .toBuffer();
-  const resizedMeta = await sharp(resized).metadata();
-  const scale = imgHeight / (resizedMeta.height ?? 768);
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: process.env.SCAN_VISION_PRIMARY_MODEL || "gemini-2.0-flash",
+    model: process.env.SCAN_VISION_PRIMARY_MODEL || "gemini-2.5-flash",
+    generationConfig: { temperature: 0, responseMimeType: "application/json" },
   });
 
   const result = await model.generateContent([
     {
       inlineData: {
         mimeType: "image/jpeg",
-        data: resized.toString("base64"),
+        data: section.toString("base64"),
       },
     },
     {
-      text: `이 이미지는 건강기능식품 상세 페이지 이미지입니다.
-"영양·기능정보" 표(성분명, 함량, % 영양성분기준치가 나오는 표)가 있는 영역의 상단 y좌표와 하단 y좌표를 픽셀 단위로 반환하세요.
-기능성 원재료 설명 텍스트도 포함하세요.
-표가 없으면 {"found": false}를 반환하세요.
+      text: `이 이미지는 건강기능식품 상세페이지 하단부입니다.
 
-반드시 JSON만 반환: {"found": true, "top": 숫자, "bottom": 숫자}`,
+"제품 정보", "제품 상세정보", "영양·기능정보" 같은 제목 아래에 있는 행/열 표(table)를 찾으세요.
+표의 첫 행은 보통 "제품명", "식품유형" 등이고, "원재료명 및 함량", "섭취량 및 섭취방법" 행이 포함됩니다.
+
+start_pct는 표 제목("제품 정보" 등) 또는 표의 첫 행이 시작되는 위치입니다.
+
+제외 대상 (표가 아닙니다):
+- 제품 사진, 제품 라인업 이미지, 마케팅 문구
+- "이렇게 섭취하세요", "이런 분들께 추천", 생애주기 등 홍보 섹션
+- 표 아래 "소비자상담", 면책문구
+
+표가 시작·끝나는 위치를 이 이미지 높이 대비 백분율(0~100)로 답하세요.
+
+JSON schema: {"found": boolean, "start_pct": number, "end_pct": number}`,
     },
   ]);
 
@@ -115,8 +225,12 @@ async function detectNutritionBounds(buffer, imgWidth, imgHeight) {
 
   if (!json.found) throw new Error("nutrition table not found");
 
+  const startPct = Math.max(0, Math.min(100, json.start_pct));
+  const endPct = Math.max(startPct, Math.min(100, json.end_pct));
+
+  // 하단 30% 내 %를 원본 전체 좌표로 변환
   return {
-    top: Math.round(json.top * scale),
-    bottom: Math.round(json.bottom * scale),
+    top: sectionTop + Math.round((startPct / 100) * sectionHeight),
+    bottom: sectionTop + Math.round((endPct / 100) * sectionHeight),
   };
 }
