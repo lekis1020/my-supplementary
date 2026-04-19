@@ -54,19 +54,47 @@ async function fetchHtml(url) {
   return await res.text();
 }
 
-/** 제품 목록에서 prodCode 수집 */
+/** 제품 목록 + 범위 열거로 prodCode 수집 */
 async function fetchProductCodes() {
-  const html = await fetchHtml(`${BASE}/product/productList.do?category=`);
-  const $ = cheerio.load(html);
+  const codes = new Set();
 
-  const codes = [];
-  $("a[href*='prodCode=']").each((_, el) => {
-    const href = $(el).attr("href") ?? "";
-    const m = href.match(/prodCode=([A-Z0-9]+)/);
-    if (m) codes.push(m[1]);
-  });
+  // 1) 제품 목록 페이지에서 수집
+  try {
+    const html = await fetchHtml(`${BASE}/product/productList.do?category=`);
+    const $ = cheerio.load(html);
+    $("a[href*='prodCode=']").each((_, el) => {
+      const href = $(el).attr("href") ?? "";
+      const m = href.match(/prodCode=([A-Z0-9]+)/);
+      if (m) codes.add(m[1]);
+    });
+  } catch (e) {
+    console.warn("  제품 목록 페이지 실패:", e.message);
+  }
 
-  return [...new Set(codes)];
+  // 2) 범위 열거 — CHC0000100~CHC0000270, HL0000100~HL0000200
+  const ranges = [
+    { prefix: "CHC", start: 100, end: 270 },
+    { prefix: "HL", start: 100, end: 200 },
+  ];
+  for (const { prefix, start, end } of ranges) {
+    for (let i = start; i <= end; i++) {
+      const code = prefix + String(i).padStart(7, "0");
+      if (codes.has(code)) continue;
+      try {
+        const res = await fetch(`${BASE}/product/productView.do?prodCode=${code}`, {
+          headers: { "User-Agent": UA },
+          signal: AbortSignal.timeout(5000),
+        });
+        const html = await res.text();
+        if (html.includes("pro_title") && html.includes("/upload/")) {
+          codes.add(code);
+        }
+      } catch {}
+      await throttle(200);
+    }
+  }
+
+  return [...codes];
 }
 
 /** 제품 상세 페이지 파싱 — ckdhc.com 전용 셀렉터 */
@@ -154,8 +182,8 @@ async function getDbProducts() {
     .from("products")
     .select("id, product_name, brand_name")
     .eq("is_published", true)
-    .or("product_name.ilike.%종근당%,product_name.ilike.%CKD%,product_name.ilike.%ckdhc%,product_name.ilike.%헬시아민%,product_name.ilike.%락토핏%")
-    .limit(500);
+    .or("product_name.ilike.%종근당%,product_name.ilike.%CKD%,product_name.ilike.%락토핏%,product_name.ilike.%프로메가%,product_name.ilike.%아임비타%,product_name.ilike.%홍삼정%,product_name.ilike.%베르베린%,product_name.ilike.%천관보%,product_name.ilike.%아이클리어%,product_name.ilike.%코어틴%,product_name.ilike.%올앳미%,product_name.ilike.%콜라겐%,product_name.ilike.%오메가3%,product_name.ilike.%멀티비타민%,product_name.ilike.%유산균%,product_name.ilike.%구미젤리%")
+    .limit(2000);
   _dbProducts = data ?? [];
   return _dbProducts;
 }

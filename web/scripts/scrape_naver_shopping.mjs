@@ -43,6 +43,7 @@ const LIMIT = Number(args.limit ?? 100);
 const DRY_RUN = args["dry-run"] === true;
 const PRODUCT_ID = args["product-id"] ? Number(args["product-id"]) : null;
 const THROTTLE_MS = Number(args["throttle"] ?? 1100); // 분당 ~50 호출
+const SKIP_ATTEMPTED = args["skip-attempted"] !== "false"; // 기본 true: 이미 시도한 제품 건너뛰기
 
 // ── 초기화 ─────────────────────────────────────────────────────────────────
 loadEnv();
@@ -114,18 +115,33 @@ async function loadTargets() {
   if (PRODUCT_ID) {
     query = query.eq("id", PRODUCT_ID);
   } else {
-    // product_image_url NULL 우선
-    // DB 수준 필터: TEST 접두사·짧은 이름 제외
     query = query
       .is("product_image_url", null)
       .not("product_name", "ilike", "TEST(%")
-      .limit(LIMIT * 2); // 후처리 필터로 빠질 것 대비 여유분
+      .limit(LIMIT * 4); // 후처리 필터로 빠질 것 대비 여유분
   }
 
   const { data, error } = await query;
   if (error) throw error;
 
-  const filtered = (data ?? []).filter(isValidTarget);
+  let filtered = (data ?? []).filter(isValidTarget);
+
+  // 이미 시도한 제품 건너뛰기 (scrape_jobs에 존재)
+  if (SKIP_ATTEMPTED && !PRODUCT_ID && filtered.length > 0) {
+    const ids = filtered.map((p) => p.id);
+    const { data: existing } = await supabase
+      .from("scrape_jobs")
+      .select("target_id")
+      .eq("source", "naver")
+      .in("target_id", ids);
+    const attemptedSet = new Set((existing ?? []).map((e) => e.target_id));
+    const before = filtered.length;
+    filtered = filtered.filter((p) => !attemptedSet.has(p.id));
+    if (before !== filtered.length) {
+      console.log(`  skip-attempted: ${before - filtered.length}개 이미 시도된 제품 건너뜀`);
+    }
+  }
+
   return PRODUCT_ID ? filtered : filtered.slice(0, LIMIT);
 }
 
@@ -274,28 +290,38 @@ async function processProduct(product) {
   const cleaned = cleanSearchQuery(rawName);
   if (!cleaned || cleaned.length < 2) return { status: "skipped", reason: "empty_after_clean" };
 
-  // 검색어 후보: 원본 정제 → 단축 variants → 제조사명 보조
-  const queries = queryVariants(cleaned);
+  // 검색어 후보: 제조사명+제품명 우선 → 제품명 단독 → 단축 variants
   const mfr = normalize(product.manufacturer_name ?? "").replace(/\([^)]*\)/g, "").trim();
+  const queries = [];
+  // 제조사명이 있으면 "제조사 제품명" 조합을 최우선 검색
   if (mfr && mfr.length >= 2 && cleaned.length >= 4) {
-    queries.push(`${mfr} ${cleaned.split(/\s+/).slice(0, 2).join(" ")}`);
+    queries.push(`${mfr} ${cleaned.split(/\s+/).slice(0, 3).join(" ")}`);
   }
+  queries.push(...queryVariants(cleaned));
 
-  // 검색어 후보 순회 — 첫 hit에서 중단
-  let items = [];
-  let total = 0;
+  // 검색어 후보 순회 — score 기준으로 최선 결과 채택
+  let bestItems = [];
+  let bestTotal = 0;
+  let bestScore = -Infinity;
   let usedQuery = "";
   for (const q of queries) {
     if (!q || q.length < 2) continue;
     const res = await searchNaverShopping(q, { display: 10 });
     if (res.items.length > 0) {
-      items = res.items;
-      total = res.total;
-      usedQuery = q;
-      break;
+      const { score } = pickBestItem(product, res.items);
+      if (score > bestScore) {
+        bestItems = res.items;
+        bestTotal = res.total;
+        bestScore = score;
+        usedQuery = q;
+      }
+      // score ≥ 5면 충분히 좋은 매칭 — 더 탐색 불필요
+      if (score >= 5) break;
     }
     await throttle(THROTTLE_MS);
   }
+  const items = bestItems;
+  const total = bestTotal;
 
   if (items.length === 0) {
     return { status: "miss", reason: "no_results", total, queries: queries.length };
@@ -379,7 +405,7 @@ async function main() {
         await recordScrapeJob({
           productId: p.id,
           status: r.status === "done" ? "done" : r.status === "miss" ? "skipped" : "failed",
-          summary: r.summary,
+          summary: r.summary ?? (r.reason ? { reason: r.reason, score: r.score, total: r.total } : null),
         });
       }
     } catch (e) {
