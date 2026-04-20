@@ -1,5 +1,6 @@
 tmp/
 .omc/
+!.omc/skills/
 .omx/
 *.log
 *.png
