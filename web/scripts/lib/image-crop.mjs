@@ -62,6 +62,13 @@ export async function cropNutritionLabel(buffer, opts = {}) {
     .jpeg({ quality: 85 })
     .toBuffer();
 
+  // 크롭 결과 검증 — 실제 제품정보 표가 있는지 확인
+  const valid = await validateNutritionCrop(cropped).catch(() => true); // 검증 실패 시 통과
+  if (!valid) {
+    const hash = createHash("sha256").update(buffer).digest("hex");
+    return { buffer, hash, width: width ?? 0, height: height ?? 0, cropped: false, method: "rejected" };
+  }
+
   const hash = createHash("sha256").update(cropped).digest("hex");
 
   return {
@@ -164,6 +171,45 @@ JSON schema: {"count": number, "tables": [{"start_pct": number, "end_pct": numbe
   }
 
   return splits;
+}
+
+/**
+ * 크롭된 이미지에 실제 제품정보/영양정보 표가 포함되어 있는지 검증.
+ * 마케팅 콘텐츠("건강정보", 홍보 문구)만 있는 크롭을 걸러냄.
+ *
+ * @param {Buffer} buffer  크롭된 이미지
+ * @returns {Promise<boolean>} true=유효한 제품정보 포함, false=마케팅만
+ */
+async function validateNutritionCrop(buffer) {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) return true;
+
+  const resized = await sharp(buffer)
+    .resize({ height: 512, fit: "inside" })
+    .jpeg({ quality: 70 })
+    .toBuffer();
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: process.env.SCAN_VISION_PRIMARY_MODEL || "gemini-2.5-flash",
+    generationConfig: { temperature: 0, responseMimeType: "application/json" },
+  });
+
+  const result = await model.generateContent([
+    { inlineData: { mimeType: "image/jpeg", data: resized.toString("base64") } },
+    {
+      text: `이 이미지에 행/열이 있는 제품정보 표(table)가 포함되어 있습니까?
+표에는 "제품명", "원재료명", "섭취량", "영양정보" 같은 행 제목이 있어야 합니다.
+
+"건강정보", "왜 먹어야 할까요?", 그래프, 통계 등 마케팅/홍보 콘텐츠만 있으면 false입니다.
+
+JSON: {"has_table": boolean}`,
+    },
+  ]);
+
+  const text = result.response.text().trim();
+  const json = JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim());
+  return json.has_table === true;
 }
 
 /**

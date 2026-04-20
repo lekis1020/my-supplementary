@@ -117,7 +117,7 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!product) notFound();
 
-  const [ingredientsRes, labelsRes] = await Promise.all([
+  const [ingredientsRes, labelsRes, labelImagesRes] = await Promise.all([
     supabase
       .from("product_ingredients")
       .select("*, ingredients(id, canonical_name_ko, canonical_name_en, slug, ingredient_type)")
@@ -128,7 +128,17 @@ export default async function ProductDetailPage({ params }: Props) {
       .eq("product_id", product.id)
       .eq("is_current", true)
       .limit(1),
+    supabase
+      .from("product_images")
+      .select("r2_public_url, source")
+      .eq("product_id", product.id)
+      .eq("source", "manufacturer_label")
+      .is("removed_at", null),
   ]);
+
+  const labelImages: string[] = (labelImagesRes.data ?? [])
+    .map((img: { r2_public_url: string | null }) => img.r2_public_url)
+    .filter((url: string | null): url is string => !!url);
 
   const productIngredients: ProductIngredientRow[] = ingredientsRes.data ?? [];
   const ingredientMetas: ProductIngredientMeta[] = productIngredients.map((row) => {
@@ -375,8 +385,29 @@ export default async function ProductDetailPage({ params }: Props) {
               )}
             </CardContent>
           </Card>
-        </div>
 
+          {labelImages.length > 0 && (
+            <Card className="overflow-hidden border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+                <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+                  <FileText className="h-5 w-5 text-green-500" />
+                  영양정보 라벨
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 p-4">
+                {labelImages.map((url, i) => (
+                  <img
+                    key={i}
+                    src={url}
+                    alt={`${displayProductName} 영양정보 라벨 ${i + 1}`}
+                    loading="lazy"
+                    className="w-full rounded-lg border border-gray-200 bg-white"
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         <div className="lg:sticky lg:top-8">
           <BenefitHexagon

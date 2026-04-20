@@ -292,7 +292,7 @@ async function main() {
       const { product, score } = await findBestMatch(detail.name);
       const totalImages = detail.mainImages.length + detail.labelImages.length;
 
-      if (!product || score < 0.15) {
+      if (!product || score < 0.35) {
         results.miss++;
         console.log(`  [${i + 1}/${targets.length}] ${code} "${detail.name}" → miss (score=${score.toFixed(3)}, imgs=${totalImages})`);
       } else if (DRY_RUN) {
