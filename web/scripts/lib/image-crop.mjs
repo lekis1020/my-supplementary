@@ -45,7 +45,7 @@ export async function cropNutritionLabel(buffer, opts = {}) {
   let method;
 
   if (bounds && bounds.top < bounds.bottom) {
-    const padding = Math.round(height * paddingPct / 100);
+    const padding = Math.min(Math.round(height * paddingPct / 100), 100);
     top = Math.max(0, bounds.top - padding);
     cropH = Math.min(height - top, bounds.bottom - top + padding * 2);
     method = "vision";
@@ -137,11 +137,15 @@ JSON schema: {"count": number, "tables": [{"start_pct": number, "end_pct": numbe
 
   // 각 표 영역을 개별 이미지로 분할 (표 간 중간점을 경계로 사용)
   const sorted = json.tables
-    .map((t) => ({
-      startPct: Math.max(0, Math.min(100, t.start_pct)),
-      endPct: Math.max(0, Math.min(100, t.end_pct)),
-      label: t.label || null,
-    }))
+    .map((t) => {
+      let sp = t.start_pct, ep = t.end_pct;
+      if (sp <= 1 && ep <= 1) { sp *= 100; ep *= 100; }
+      return {
+        startPct: Math.max(0, Math.min(100, sp)),
+        endPct: Math.max(0, Math.min(100, ep)),
+        label: t.label || null,
+      };
+    })
     .sort((a, b) => a.startPct - b.startPct);
 
   const splits = [];
@@ -185,8 +189,8 @@ async function validateNutritionCrop(buffer) {
   if (!apiKey) return true;
 
   const resized = await sharp(buffer)
-    .resize({ height: 512, fit: "inside" })
-    .jpeg({ quality: 70 })
+    .resize({ height: 768, fit: "inside" })
+    .jpeg({ quality: 75 })
     .toBuffer();
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -198,10 +202,13 @@ async function validateNutritionCrop(buffer) {
   const result = await model.generateContent([
     { inlineData: { mimeType: "image/jpeg", data: resized.toString("base64") } },
     {
-      text: `이 이미지에 행/열이 있는 제품정보 표(table)가 포함되어 있습니까?
-표에는 "제품명", "원재료명", "섭취량", "영양정보" 같은 행 제목이 있어야 합니다.
+      text: `이 이미지에 제품정보가 포함되어 있습니까?
+다음 중 하나라도 보이면 true입니다:
+- "제품명", "원재료명 및 함량", "섭취량" 등의 행 제목이 있는 표
+- "SPEC" 제목 아래 제품 상세정보
+- "영양정보", "영양·기능정보" 성분 수치 표
 
-"건강정보", "왜 먹어야 할까요?", 그래프, 통계 등 마케팅/홍보 콘텐츠만 있으면 false입니다.
+마케팅만 있고 위 내용이 전혀 없으면 false입니다.
 
 JSON: {"has_table": boolean}`,
     },
@@ -250,17 +257,26 @@ async function detectNutritionBounds(buffer, imgWidth, imgHeight) {
     {
       text: `이 이미지는 건강기능식품 상세페이지 하단부입니다.
 
-"제품 정보", "제품 상세정보", "영양·기능정보" 같은 제목 아래에 있는 행/열 표(table)를 찾으세요.
-표의 첫 행은 보통 "제품명", "식품유형" 등이고, "원재료명 및 함량", "섭취량 및 섭취방법" 행이 포함됩니다.
+## STEP 1: 표 시작 찾기
+"제품 정보", "제품 상세정보", "SPEC", "영양·기능정보" 같은 제목 아래에 있는 행/열 표(table)를 찾으세요.
+표의 첫 행은 보통 "제품명", "식품유형" 등입니다.
 
-start_pct는 표 제목("제품 정보" 등) 또는 표의 첫 행이 시작되는 위치입니다.
+## STEP 2: 표 끝 찾기
+아래 기준점 중 먼저 나오는 것이 표의 끝입니다:
+1. "건강정보" 제목 또는 주황/빨간 배너
+2. 인포그래픽, 그래프, 아이콘 그리드, 건강 통계 시작
+3. "소비자상담" 또는 전화번호 (080-XXX-XXXX)
+4. 표의 격자(grid line) 패턴이 끝나고 자유 형태 레이아웃으로 전환되는 지점
 
-제외 대상 (표가 아닙니다):
-- 제품 사진, 제품 라인업 이미지, 마케팅 문구
-- "이렇게 섭취하세요", "이런 분들께 추천", 생애주기 등 홍보 섹션
-- 표 아래 "소비자상담", 면책문구
+## 제외 대상 (end_pct에 포함하지 마세요):
+- "건강정보" 섹션 (건강 통계, 그래프, "왜 먹어야 할까요?")
+- 제품 사진, 제품 라인업 이미지
+- "이렇게 섭취하세요", "이런 분들께 추천" 마케팅
+- Q&A 섹션, 섭취량 비교 그래픽
+- 면책 문구, 법적 고지
 
-표가 시작·끝나는 위치를 이 이미지 높이 대비 백분율(0~100)로 답하세요.
+## 중요:
+- 확신이 없으면 좁게 잡으세요. 마케팅 포함보다 표가 약간 잘리는 게 낫습니다.
 
 JSON schema: {"found": boolean, "start_pct": number, "end_pct": number}`,
     },
@@ -271,8 +287,15 @@ JSON schema: {"found": boolean, "start_pct": number, "end_pct": number}`,
 
   if (!json.found) throw new Error("nutrition table not found");
 
-  const startPct = Math.max(0, Math.min(100, json.start_pct));
-  const endPct = Math.max(startPct, Math.min(100, json.end_pct));
+  // Gemini가 0~1 소수로 응답하는 경우 보정 (0~100 정수 기대)
+  let startPct = json.start_pct;
+  let endPct = json.end_pct;
+  if (startPct <= 1 && endPct <= 1) {
+    startPct *= 100;
+    endPct *= 100;
+  }
+  startPct = Math.max(0, Math.min(100, startPct));
+  endPct = Math.max(startPct, Math.min(100, endPct));
 
   // 하단 30% 내 %를 원본 전체 좌표로 변환
   return {
