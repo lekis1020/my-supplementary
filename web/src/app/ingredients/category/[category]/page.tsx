@@ -243,23 +243,17 @@ function groupIngredients(
 
   if (category === "others") {
     const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
-      const subgroups = getIngredientTypeLabels(ingredient.ingredient_type).filter((label) =>
-        ["아미노산", "효소", "기타"].includes(label),
-      );
-
-      (subgroups.length > 0 ? subgroups : [getIngredientSubgroupLabel(ingredient.ingredient_type)]).forEach(
-        (subgroup) => {
-          if (!acc[subgroup]) acc[subgroup] = [];
-          acc[subgroup].push(ingredient);
-        },
-      );
+      const subgroup = getIngredientSubgroupLabel(ingredient.ingredient_type);
+      if (!acc[subgroup]) acc[subgroup] = [];
+      acc[subgroup].push(ingredient);
 
       return acc;
     }, {});
 
-    const otherOrder = ["아미노산", "효소", "기타"];
+    const otherOrder = ["아미노산", "효소", "식이섬유", "펩타이드/단백질", "기능성 화합물", "복합원료", "기타"];
+    const extra = Object.keys(grouped).filter((k) => !otherOrder.includes(k));
 
-    return otherOrder
+    return [...otherOrder, ...extra]
       .map((groupName) => [groupName, grouped[groupName] ?? []] as [string, IngredientRow[]])
       .filter(([, items]) => items.length > 0);
   }

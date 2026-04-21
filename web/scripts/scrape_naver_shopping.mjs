@@ -106,43 +106,66 @@ function queryVariants(query) {
 }
 
 async function loadTargets() {
-  let query = supabase
-    .from("products")
-    .select("id, product_name, brand_name, manufacturer_name")
-    .eq("is_published", true)
-    .order("id", { ascending: true });
-
   if (PRODUCT_ID) {
-    query = query.eq("id", PRODUCT_ID);
-  } else {
-    query = query
-      .is("product_image_url", null)
-      .not("product_name", "ilike", "TEST(%")
-      .limit(LIMIT * 4); // 후처리 필터로 빠질 것 대비 여유분
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, product_name, brand_name, manufacturer_name")
+      .eq("id", PRODUCT_ID);
+    if (error) throw error;
+    return (data ?? []).filter(isValidTarget);
   }
 
-  const { data, error } = await query;
-  if (error) throw error;
-
-  let filtered = (data ?? []).filter(isValidTarget);
-
-  // 이미 시도한 제품 건너뛰기 (scrape_jobs에 존재)
-  if (SKIP_ATTEMPTED && !PRODUCT_ID && filtered.length > 0) {
-    const ids = filtered.map((p) => p.id);
-    const { data: existing } = await supabase
-      .from("scrape_jobs")
-      .select("target_id")
-      .eq("source", "naver")
-      .in("target_id", ids);
-    const attemptedSet = new Set((existing ?? []).map((e) => e.target_id));
-    const before = filtered.length;
-    filtered = filtered.filter((p) => !attemptedSet.has(p.id));
-    if (before !== filtered.length) {
-      console.log(`  skip-attempted: ${before - filtered.length}개 이미 시도된 제품 건너뜀`);
+  // 이미 시도한 제품 ID 먼저 로드
+  let attemptedSet = new Set();
+  if (SKIP_ATTEMPTED) {
+    const allAttempted = [];
+    let from = 0;
+    while (true) {
+      const { data: batch } = await supabase
+        .from("scrape_jobs")
+        .select("target_id")
+        .eq("source", "naver")
+        .range(from, from + 999);
+      if (!batch || batch.length === 0) break;
+      allAttempted.push(...batch.map((e) => e.target_id));
+      if (batch.length < 1000) break;
+      from += 1000;
+    }
+    attemptedSet = new Set(allAttempted);
+    if (attemptedSet.size > 0) {
+      console.log(`  skip-attempted: ${attemptedSet.size}개 이미 시도된 제품 로드됨`);
     }
   }
 
-  return PRODUCT_ID ? filtered : filtered.slice(0, LIMIT);
+  // 페이지네이션으로 충분한 타겟 수집
+  const targets = [];
+  let from = 0;
+  const PAGE_SIZE = 1000;
+
+  while (targets.length < LIMIT) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, product_name, brand_name, manufacturer_name")
+      .eq("is_published", true)
+      .is("product_image_url", null)
+      .not("product_name", "ilike", "TEST(%")
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    for (const p of data) {
+      if (!isValidTarget(p)) continue;
+      if (attemptedSet.has(p.id)) continue;
+      targets.push(p);
+      if (targets.length >= LIMIT) break;
+    }
+
+    from += PAGE_SIZE;
+  }
+
+  return targets;
 }
 
 // ── Naver 매칭 후보 선정 ───────────────────────────────────────────────────
@@ -338,6 +361,8 @@ async function processProduct(product) {
     score,
     lprice: best.lprice,
     total_results: total,
+    link: best.link,
+    mallName: best.mallName,
   };
 
   if (DRY_RUN) return { status: "dry_run", summary, best };

@@ -19,6 +19,10 @@ const INGREDIENT_TYPE_LABELS: Record<string, string> = {
   probiotic: "프로바이오틱스",
   herbal: "허브/식물성",
   enzyme: "효소",
+  fiber: "식이섬유",
+  peptide: "펩타이드/단백질",
+  functional_compound: "기능성 화합물",
+  functional_blend: "복합원료",
   other: "기타",
 };
 
@@ -223,6 +227,19 @@ function normalizeIngredientTypeToken(token: string): string | null {
     case "coenzyme":
     case "코엔자임":
       return "enzyme";
+    case "fiber":
+    case "식이섬유":
+      return "fiber";
+    case "peptide":
+    case "펩타이드":
+    case "단백질":
+      return "peptide";
+    case "functional_compound":
+    case "기능성 화합물":
+      return "functional_compound";
+    case "functional_blend":
+    case "복합원료":
+      return "functional_blend";
     case "other":
     case "기타":
       return "other";

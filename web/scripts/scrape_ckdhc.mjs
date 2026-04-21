@@ -73,7 +73,7 @@ async function fetchProductCodes() {
 
   // 2) 범위 열거 — CHC0000100~CHC0000270, HL0000100~HL0000200
   const ranges = [
-    { prefix: "CHC", start: 100, end: 270 },
+    { prefix: "CHC", start: 100, end: 320 },
     { prefix: "HL", start: 100, end: 200 },
   ];
   for (const { prefix, start, end } of ranges) {
