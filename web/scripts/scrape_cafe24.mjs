@@ -127,11 +127,18 @@ async function fetchProductDetail(productNo) {
 
   // 분류: 메인 이미지 vs 상세 이미지
   const mainImages = allUrls.filter((u) => u.includes("/web/product/big/") || u.includes("/web/product/medium/"));
+
+  // 상세 이미지: 공통 배너/프로모션 제외, 제품 고유 상세만
+  // - /web/upload/appfiles/ → Cafe24 공통 배너인 경우가 많으므로 제외
+  // - speedgabia, /details/ + 제품 관련 키워드 포함만 허용
+  // - /editor/, /board/ 내 큰 이미지는 제품 상세 가능
   const detailImages = allUrls.filter(
     (u) =>
-      (u.includes("/upload/") || u.includes("/details/") || u.includes("speedgabia")) &&
-      !u.includes("icon") && !u.includes("logo") && !u.includes("banner") && !u.includes("btn_") &&
-      !u.includes("/web/product/"),
+      (u.includes("/details/") || u.includes("speedgabia") || u.includes("/editor/")) &&
+      !u.includes("icon") && !u.includes("logo") && !u.includes("banner") &&
+      !u.includes("btn_") && !u.includes("event_") && !u.includes("brandstory") &&
+      !u.includes("main_info") && !u.includes("qr_notice") &&
+      !u.includes("/web/product/") && !u.includes("/appfiles/"),
   );
 
   return { mainImages, detailImages, allUrls };
