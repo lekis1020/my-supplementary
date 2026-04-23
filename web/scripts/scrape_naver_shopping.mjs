@@ -351,7 +351,10 @@ async function processProduct(product) {
   }
 
   const { item: best, score } = pickBestItem(product, items);
-  if (!best || score < 3) {
+  // 짧은 이름(≤5자)은 오매칭 가능성 높으므로 최소 점수 상향
+  const nameLen = (product.product_name ?? "").replace(/\s/g, "").length;
+  const minScore = nameLen <= 5 ? 5 : 3.5;
+  if (!best || score < minScore) {
     return { status: "miss", reason: "low_score", score, total };
   }
 
