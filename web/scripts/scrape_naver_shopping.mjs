@@ -85,10 +85,14 @@ async function validateProductImage(buffer, mimeType) {
         parts: [
           { inlineData: { mimeType, data: buffer.toString("base64") } },
           { text: `이 건강기능식품 이미지를 분류하세요. JSON만 응답.
-- "product_front": 제품 패키지 전면 사진 (깔끔한 제품 사진)
-- "product_angle": 제품이 보이지만 각도/여러 제품 함께
-- "marketing": 마케팅/광고 (할인가, 과도한 텍스트, 일러스트, 모델, 배너)
-- "set_gift": 선물세트/묶음 (여러 제품이 선물 박스에 담김)
+- "product_front": 제품 패키지만 보이는 깔끔한 사진 (박스, 병, 캡슐 등 제품만)
+- "product_angle": 제품이 보이지만 각도가 있거나 여러 구성품 함께
+- "marketing": 아래 중 하나라도 해당하면 marketing으로 분류:
+  · 사람(모델, 연예인, 의사 일러스트)이 포함된 이미지
+  · 할인가/판매누적/1+1 등 프로모션 텍스트
+  · 제품 외 과일/식재료가 배경 대부분을 차지
+  · 제품보다 마케팅 문구가 더 큰 이미지
+- "set_gift": 선물세트/묶음 (선물 박스, 쇼핑백 포함)
 - "unrelated": 건강기능식품과 무관
 응답: {"type": "product_front"}` },
         ],
