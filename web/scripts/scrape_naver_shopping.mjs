@@ -29,6 +29,7 @@ import {
   uploadToR2,
   getPublicUrl,
 } from "./lib/r2-mirror.mjs";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { extractAliasCandidates, deriveBrand, normalize } from "./lib/alias-extractor.mjs";
 
 // ── CLI 인자 파싱 ───────────────────────────────────────────────────────────
@@ -62,6 +63,45 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } },
 );
+
+// ── Gemini 이미지 검증 ────────────────────────────────────────────────────
+const SKIP_VALIDATION = args["skip-validation"] === true;
+let geminiModel = null;
+function getGeminiModel() {
+  if (geminiModel) return geminiModel;
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) return null;
+  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  return geminiModel;
+}
+
+async function validateProductImage(buffer, mimeType) {
+  const model = getGeminiModel();
+  if (!model || SKIP_VALIDATION) return { ok: true, type: "skipped" };
+  try {
+    const result = await model.generateContent({
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { mimeType, data: buffer.toString("base64") } },
+          { text: `이 건강기능식품 이미지를 분류하세요. JSON만 응답.
+- "product_front": 제품 패키지 전면 사진 (깔끔한 제품 사진)
+- "product_angle": 제품이 보이지만 각도/여러 제품 함께
+- "marketing": 마케팅/광고 (할인가, 과도한 텍스트, 일러스트, 모델, 배너)
+- "set_gift": 선물세트/묶음 (여러 제품이 선물 박스에 담김)
+- "unrelated": 건강기능식품과 무관
+응답: {"type": "product_front"}` },
+        ],
+      }],
+      generationConfig: { temperature: 0, responseMimeType: "application/json" },
+    });
+    const parsed = JSON.parse(result.response.text());
+    const ok = !["marketing", "set_gift", "unrelated"].includes(parsed.type);
+    return { ok, type: parsed.type };
+  } catch {
+    return { ok: true, type: "validation_error" }; // 검증 실패 시 허용
+  }
+}
 
 // ── 타겟 로드 ──────────────────────────────────────────────────────────────
 /** 저품질 타겟 필터 — 스테이징 찌꺼기·수출전용·너무 일반적인 이름 제외 */
@@ -370,12 +410,21 @@ async function processProduct(product) {
 
   if (DRY_RUN) return { status: "dry_run", summary, best };
 
-  // 이미지 수집 + R2 업로드
+  // 이미지 수집 + 검증 + R2 업로드
   let imageUrl = null;
   let imageHash = null;
   if (best.image) {
     try {
       const img = await fetchImage(best.image);
+
+      // Gemini 이미지 검증
+      const validation = await validateProductImage(img.buffer, img.contentType);
+      summary.image_type = validation.type;
+      if (!validation.ok) {
+        summary.image_rejected = validation.type;
+        return { status: "miss", reason: "image_rejected", summary };
+      }
+
       const key = buildKey({ productId: product.id, source: "naver", hash: img.hash, ext: img.ext });
       const pub = getPublicUrl(key);
 
