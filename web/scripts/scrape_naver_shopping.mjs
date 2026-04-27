@@ -239,7 +239,15 @@ function pickBestItem(product, items) {
   let best = null;
   let bestScore = -Infinity;
 
+  // 건강기능식품과 무관한 카테고리 제외
+  const BLOCKED_CATEGORIES = ["반려동물", "완구/취미", "가구/인테리어", "패션의류", "패션잡화", "화장품/미용"];
+
   for (const item of items) {
+    // 카테고리 필터: 반려동물 등 무관 카테고리 스킵
+    if (BLOCKED_CATEGORIES.some((cat) => item.category1 === cat || item.category2 === cat)) {
+      continue;
+    }
+
     const title = normalize(item.title);
     const brand = normalize(item.brand ?? item.maker ?? "");
     const titleGrams = bigrams(title);
