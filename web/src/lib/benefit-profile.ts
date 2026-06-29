@@ -54,6 +54,24 @@ function getClaimMeta(claim: ClaimShape): {
   return Array.isArray(claim.claims) ? claim.claims[0] ?? null : claim.claims;
 }
 
+// Claim scopes that may be surfaced to consumers as health claims.
+// Anything else — notably "prohibited" / "prohibited_disease_claim" — is a
+// non-permitted expression and must never be rendered. This is a legal
+// compliance requirement (see CLAUDE.md), so the check fails closed: only
+// known-permitted scopes pass.
+const CONSUMER_VISIBLE_CLAIM_SCOPES = new Set([
+  "approved_kr",
+  "approved_us",
+  "studied",
+  "traditional",
+  "pending",
+]);
+
+export function isConsumerVisibleClaim(claim: ClaimShape): boolean {
+  const scope = getClaimMeta(claim)?.claim_scope;
+  return scope != null && CONSUMER_VISIBLE_CLAIM_SCOPES.has(scope);
+}
+
 function mapClaimCategoryToBenefitCategory(
   claimCategory: string | null | undefined,
 ): BenefitCategoryKey | null {
@@ -83,8 +101,16 @@ function mapClaimCategoryToBenefitCategory(
   }
 }
 
+// Benefit weight mapping: 2 = active, 1 = possible, 0 = inactive.
+// Keep the 2/1/0 branches distinct — collapsing the tail to a single `return 1`
+// makes "inactive" unreachable and overstates weak/non-permitted claims.
 function getClaimWeight(claim: ClaimShape): number {
   const claimMeta = getClaimMeta(claim);
+
+  // Non-permitted expressions must never count as a benefit signal.
+  if (claimMeta?.claim_scope === "prohibited") {
+    return 0;
+  }
 
   if (
     claim.is_regulator_approved ||
@@ -98,11 +124,13 @@ function getClaimWeight(claim: ClaimShape): number {
     return 2;
   }
 
+  // Has some evidence grade (C/D/...) or is an acknowledged studied claim.
   if (claim.evidence_grade || claimMeta?.claim_scope === "studied") {
     return 1;
   }
 
-  return 1;
+  // Present but with no approval, no grade, and no studied scope → no signal.
+  return 0;
 }
 
 export function buildBenefitProfile(claims: ClaimShape[]): BenefitProfileItem[] {

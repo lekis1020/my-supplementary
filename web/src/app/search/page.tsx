@@ -75,6 +75,15 @@ function parsePage(value: string | string[] | undefined): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
+// PostgREST .or() separates sub-filters with commas and groups them with
+// parentheses, and ilike treats % / * as wildcards. Interpolating a raw query
+// would let a value like "a,b" or "x)y" fragment the filter (wrong/empty
+// results) or inject extra operators. Strip the structural characters and the
+// wildcards so the query matches literally inside a single ilike sub-filter.
+function sanitizeOrFilterValue(value: string): string {
+  return value.replace(/[,()\\]/g, " ").replace(/[%*]/g, "").trim();
+}
+
 function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
   const params = new URLSearchParams();
 
@@ -247,12 +256,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   if (query) {
     const supabase = await createClient();
     const queryToken = normalizeSearchToken(query);
+    const orFilterQuery = sanitizeOrFilterValue(query);
 
     const { data: ingredients } = await supabase
       .from("ingredients")
       .select("id, canonical_name_ko, canonical_name_en, display_name, slug, ingredient_type")
       .eq("is_published", true)
-      .or(`canonical_name_ko.ilike.%${query}%,canonical_name_en.ilike.%${query}%,display_name.ilike.%${query}%`)
+      .or(`canonical_name_ko.ilike.%${orFilterQuery}%,canonical_name_en.ilike.%${orFilterQuery}%,display_name.ilike.%${orFilterQuery}%`)
       .order("canonical_name_ko")
       .limit(100);
 
@@ -299,7 +309,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       .from("products")
       .select("id, product_name, brand_name, manufacturer_name")
       .eq("is_published", true)
-      .or(`product_name.ilike.%${query}%,brand_name.ilike.%${query}%`)
+      .or(`product_name.ilike.%${orFilterQuery}%,brand_name.ilike.%${orFilterQuery}%`)
       .order("product_name")
       .limit(500);
 

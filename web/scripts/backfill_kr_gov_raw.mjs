@@ -101,13 +101,38 @@ const dataGoKey =
   process.env.DATA_GO_KR_SERVICE_KEY_ENCODED;
 const databaseUrl = process.env.DATABASE_URL;
 
+// raw_documents.source_url is the canonical provenance field and is queryable
+// via service_role, backups, and admin surfaces. The fetch URLs embed live API
+// keys (foodsafety as a path segment, data.go.kr as a ServiceKey query param),
+// so the key must be stripped before the URL is persisted. Fetching still uses
+// the original key-bearing URL; only the stored copy is redacted.
+const SECRET_VALUES = [
+  process.env.FOODSAFETY_KOREA_API_KEY,
+  process.env.DATA_GO_KR_SERVICE_KEY_DECODED,
+  process.env.DATA_GO_KR_SERVICE_KEY_ENCODED,
+].filter((value) => typeof value === "string" && value.length > 0);
+
+function redactSecretsFromUrl(url) {
+  if (typeof url !== "string") return url;
+  let redacted = url;
+  for (const secret of SECRET_VALUES) {
+    // Match the raw value and its URL-encoded form.
+    redacted = redacted.split(secret).join("{API_KEY}");
+    const encoded = encodeURIComponent(secret);
+    if (encoded !== secret) {
+      redacted = redacted.split(encoded).join("{API_KEY}");
+    }
+  }
+  return redacted;
+}
+
 const connectors = [
   {
     key: "foodsafety-i0030",
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-i0030",
     sourceCategory: "product_catalog",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -134,7 +159,7 @@ const connectors = [
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-c003",
     sourceCategory: "product_catalog",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -161,7 +186,7 @@ const connectors = [
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-i2710",
     sourceCategory: "regulator",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -188,7 +213,7 @@ const connectors = [
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-i-0040",
     sourceCategory: "regulator",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -215,7 +240,7 @@ const connectors = [
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-i-0050",
     sourceCategory: "regulator",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -242,7 +267,7 @@ const connectors = [
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-i0760",
     sourceCategory: "regulator",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -269,7 +294,7 @@ const connectors = [
     sourceName: "식품안전나라",
     connectorName: "foodsafety-kr-i0960",
     sourceCategory: "regulator",
-    baseUrl: "http://openapi.foodsafetykorea.go.kr/api",
+    baseUrl: "https://openapi.foodsafetykorea.go.kr/api",
     accessStrategy: "api",
     authType: "api_key",
     rateLimitPerMinute: 30,
@@ -657,7 +682,7 @@ async function processConnector(sql, connector) {
           checksum: sha256(rawText),
           rawText,
           record,
-          sourceUrl: connector.buildPageUrl(page),
+          sourceUrl: redactSecretsFromUrl(connector.buildPageUrl(page)),
         };
       });
 

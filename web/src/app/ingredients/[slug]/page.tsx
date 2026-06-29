@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
-import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
+import {
+  buildBenefitClaimDetails,
+  buildBenefitProfile,
+  isConsumerVisibleClaim,
+} from "@/lib/benefit-profile";
 import { getVitaminSideEffectInfosForIngredient } from "@/lib/vitamin-side-effects";
 import {
   getIngredientCategory,
@@ -413,8 +417,8 @@ export default async function IngredientDetailPage({ params }: Props) {
     : [null, null];
 
   const mergedIngredientClaims = (
-    relatedClaimsRes?.data?.length ? relatedClaimsRes.data : ingredientClaims
-  ) as IngredientClaimRow[];
+    (relatedClaimsRes?.data?.length ? relatedClaimsRes.data : ingredientClaims) as IngredientClaimRow[]
+  ).filter((claim) => isConsumerVisibleClaim(claim));
   const mergedEvidenceStudies = (
     relatedEvidenceRes?.data?.length ? relatedEvidenceRes.data : evidenceStudies
   ) as EvidenceStudyRow[];

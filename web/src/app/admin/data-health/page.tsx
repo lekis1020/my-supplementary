@@ -1,6 +1,9 @@
+import { notFound } from "next/navigation";
 import { adminDb } from "@/lib/db/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/server";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -228,6 +231,17 @@ function formatNumber(n: number): string {
 // ============================================================================
 
 export default async function DataHealthPage() {
+  // Defense in depth: middleware also gates /admin/*, but this page reads via
+  // the RLS-bypassing service_role client, so it must fail closed on its own
+  // before any privileged query runs.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!isAdminRole(getUserRole(user))) {
+    notFound();
+  }
+
   const [freshness, tableCounts, verifications, discrepancies] =
     await Promise.all([
       getFreshness(),

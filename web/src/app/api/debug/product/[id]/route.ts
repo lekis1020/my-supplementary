@@ -5,7 +5,17 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Diagnostic endpoint — keep it out of production.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { id } = await params;
+  const productId = Number(id);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
+  }
+
   const supabase = await createClient();
 
   const { data: ingredients, error } = await supabase
@@ -23,7 +33,7 @@ export async function GET(
         canonical_name_en
       )
     `)
-    .eq("product_id", Number(id))
+    .eq("product_id", productId)
     .order("id");
 
   if (error) {
@@ -31,19 +41,22 @@ export async function GET(
   }
 
   // 중복 분석 로직 추가
-  const analysis = ingredients.reduce((acc: any, curr: any) => {
-    const key = curr.ingredient_id || curr.raw_label_name;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(curr);
-    return acc;
-  }, {});
+  type IngredientRow = (typeof ingredients)[number];
+  const analysis = (ingredients ?? []).reduce<Record<string, IngredientRow[]>>(
+    (acc, curr) => {
+      const key = String(curr.ingredient_id ?? curr.raw_label_name);
+      (acc[key] ??= []).push(curr);
+      return acc;
+    },
+    {},
+  );
 
   const duplicates = Object.entries(analysis)
-    .filter(([_, items]: [any, any]) => items.length > 1)
-    .map(([key, items]: [any, any]) => ({
+    .filter(([, items]) => items.length > 1)
+    .map(([key, items]) => ({
       key,
       count: items.length,
-      items
+      items,
     }));
 
   return NextResponse.json({ 

@@ -5,7 +5,11 @@ import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompareActions } from "@/components/product/compare-actions";
-import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
+import {
+  buildBenefitClaimDetails,
+  buildBenefitProfile,
+  isConsumerVisibleClaim,
+} from "@/lib/benefit-profile";
 import {
   cn,
   formatProductName,
@@ -188,7 +192,7 @@ export default async function ProductDetailPage({ params }: Props) {
       return pi.ingredient?.id;
     })
     .filter((value: number | null | undefined): value is number => Number.isInteger(value));
-  const productClaims = ingredientIds.length > 0
+  const productClaims = (ingredientIds.length > 0
     ? (
         await supabase
           .from("ingredient_claims")
@@ -197,7 +201,8 @@ export default async function ProductDetailPage({ params }: Props) {
           )
           .in("ingredient_id", ingredientIds)
       ).data ?? []
-    : [];
+    : []
+  ).filter((claim) => isConsumerVisibleClaim(claim));
   const benefitProfile = buildBenefitProfile(productClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(productClaims);
   const displayProductName = formatProductName(product.product_name);
