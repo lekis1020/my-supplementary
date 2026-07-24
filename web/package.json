@@ -23,6 +23,7 @@
     "freshness:json": "node scripts/check_freshness.mjs --json",
     "freshness:ci": "node scripts/check_freshness.mjs --warn-only",
     "scrape:naver": "node scripts/scrape_naver_shopping.mjs",
+    "enrich:products": "node scripts/enrich_products_from_staging.mjs",
     "scrape:naver:dry": "node scripts/scrape_naver_shopping.mjs --dry-run --limit=5"
   },
   "dependencies": {

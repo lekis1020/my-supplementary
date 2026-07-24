@@ -40,6 +40,7 @@ interface ProductSearchResult {
   subtitle: string | null;
   href: string;
   directNameMatch: boolean;
+  saleVerified: boolean;
   activeMatches: string[];
   supportingMatches: string[];
 }
@@ -295,11 +296,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       .slice(0, 20)
       .map(({ ingredient }) => ingredient.id);
 
+    // 제품명 직접 검색은 판매 미확인(신고 정보만 있는) 제품도 포함 —
+    // 단, 결과에서 "식약처 신고 정보" 라벨로 구분 표시
     const { data: directProducts } = await supabase
       .from("products")
-      .select("id, product_name, brand_name, manufacturer_name")
+      .select("id, product_name, brand_name, manufacturer_name, sale_verified_at")
       .eq("is_published", true)
       .or(`product_name.ilike.%${query}%,brand_name.ilike.%${query}%`)
+      .order("sale_verified_at", { ascending: false, nullsFirst: false })
       .order("product_name")
       .limit(500);
 
@@ -312,19 +316,22 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         subtitle: product.brand_name || product.manufacturer_name,
         href: `/products/${product.id}`,
         directNameMatch: true,
+        saleVerified: product.sale_verified_at != null,
         activeMatches: [],
         supportingMatches: [],
       });
     }
 
     if (ingredientIds.length > 0) {
+      // 원료 기반 제품 결과는 판매 확인된 제품만 노출
       const { data: productIngredients } = await supabase
         .from("product_ingredients")
         .select(
-          "product_id, ingredient_id, ingredient_role, products!inner(id, product_name, brand_name, manufacturer_name, is_published), ingredients!inner(canonical_name_ko)",
+          "product_id, ingredient_id, ingredient_role, products!inner(id, product_name, brand_name, manufacturer_name, is_published, sale_verified_at), ingredients!inner(canonical_name_ko)",
         )
         .in("ingredient_id", ingredientIds)
-        .eq("products.is_published", true);
+        .eq("products.is_published", true)
+        .not("products.sale_verified_at", "is", null);
 
       for (const row of productIngredients ?? []) {
         const product = Array.isArray(row.products) ? row.products[0] : row.products;
@@ -338,6 +345,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           subtitle: product.brand_name || product.manufacturer_name,
           href: `/products/${product.id}`,
           directNameMatch: false,
+          saleVerified: true,
           activeMatches: [],
           supportingMatches: [],
         };
@@ -367,6 +375,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       .sort((left, right) => {
         if (left.directNameMatch !== right.directNameMatch) {
           return left.directNameMatch ? -1 : 1;
+        }
+
+        if (left.saleVerified !== right.saleVerified) {
+          return left.saleVerified ? -1 : 1;
         }
 
         if (left.activeMatches.length !== right.activeMatches.length) {
@@ -650,6 +662,11 @@ function ProductResultSection({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {product.saleVerified ? (
+                  <Badge className="bg-emerald-50 text-emerald-700">판매 확인</Badge>
+                ) : (
+                  <Badge className="bg-slate-100 text-slate-500">식약처 신고 정보</Badge>
+                )}
                 {product.directNameMatch && (
                   <Badge className="bg-blue-50 text-blue-700">제품명 일치</Badge>
                 )}

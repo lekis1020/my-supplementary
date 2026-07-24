@@ -85,6 +85,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       ).data
     : null;
 
+  // 판매 확인(sale_verified_at)된 제품만 기본 노출 — 신고만 있고 유통 미확인인
+  // 제품은 목록에서 제외 (제품명 직접 검색으로만 접근 가능)
   const productsQuery = ingredientId
     ? supabase
         .from("products")
@@ -93,6 +95,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           { count: "exact" }
         )
         .eq("is_published", true)
+        .not("sale_verified_at", "is", null)
         .eq("product_ingredients.ingredient_id", ingredientId)
         .order("product_name")
     : supabase
@@ -102,6 +105,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           { count: "exact" }
         )
         .eq("is_published", true)
+        .not("sale_verified_at", "is", null)
         .order("product_name");
 
   const { data: products, error, count } = await productsQuery.range(rangeFrom, rangeTo);
@@ -149,8 +153,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">영양제 제품 데이터베이스</h1>
           <p className="mt-3 text-slate-500 text-lg max-w-2xl leading-relaxed">
             {filteredIngredientName
-              ? `${filteredIngredientName}을 포함한 제품 ${totalCount.toLocaleString()}개 중 ${pageStart.toLocaleString()}-${pageEnd.toLocaleString()}번째 항목을 보고 있습니다.`
-              : `총 ${totalCount.toLocaleString()}개의 검증된 제품 중 ${pageStart.toLocaleString()}-${pageEnd.toLocaleString()}번째 항목을 보고 있습니다.`}
+              ? `${filteredIngredientName}을 포함한 판매 확인 제품 ${totalCount.toLocaleString()}개 중 ${pageStart.toLocaleString()}-${pageEnd.toLocaleString()}번째 항목을 보고 있습니다.`
+              : `실제 판매가 확인된 제품 ${totalCount.toLocaleString()}개 중 ${pageStart.toLocaleString()}-${pageEnd.toLocaleString()}번째 항목을 보고 있습니다.`}
+          </p>
+          <p className="mt-1 text-sm text-slate-400">
+            판매처가 확인되지 않은 신고 제품은 목록에서 제외되며, 제품명 검색으로 찾을 수 있습니다.
           </p>
           <p className="mt-2 text-sm font-medium text-slate-400">
             페이지 {currentPage} / {totalPages}

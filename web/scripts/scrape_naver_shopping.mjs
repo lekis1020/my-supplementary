@@ -22,14 +22,20 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
-import { searchNaverShopping, throttle } from "./lib/naver-client.mjs";
+import { searchNaverShopping, throttle } from "../src/lib/scraper/naver-client.mjs";
 import {
   fetchImage,
   buildKey,
   uploadToR2,
   getPublicUrl,
 } from "./lib/r2-mirror.mjs";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { validateProductImage } from "../src/lib/scraper/image-validate.mjs";
+import {
+  cleanSearchQuery,
+  queryVariants,
+  pickBestItem,
+  minScoreForName,
+} from "../src/lib/scraper/naver-match.mjs";
 import { extractAliasCandidates, deriveBrand, normalize } from "./lib/alias-extractor.mjs";
 
 // ── CLI 인자 파싱 ───────────────────────────────────────────────────────────
@@ -64,48 +70,8 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
-// ── Gemini 이미지 검증 ────────────────────────────────────────────────────
+// ── Gemini 이미지 검증 (공용 모듈: src/lib/scraper/image-validate.mjs) ────
 const SKIP_VALIDATION = args["skip-validation"] === true;
-let geminiModel = null;
-function getGeminiModel() {
-  if (geminiModel) return geminiModel;
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) return null;
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-  geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-  return geminiModel;
-}
-
-async function validateProductImage(buffer, mimeType) {
-  const model = getGeminiModel();
-  if (!model || SKIP_VALIDATION) return { ok: true, type: "skipped" };
-  try {
-    const result = await model.generateContent({
-      contents: [{
-        role: "user",
-        parts: [
-          { inlineData: { mimeType, data: buffer.toString("base64") } },
-          { text: `이 건강기능식품 이미지를 분류하세요. JSON만 응답.
-- "product_front": 제품 패키지만 보이는 깔끔한 사진 (박스, 병, 캡슐 등 제품만)
-- "product_angle": 제품이 보이지만 각도가 있거나 여러 구성품 함께
-- "marketing": 아래 중 하나라도 해당하면 marketing으로 분류:
-  · 사람(모델, 연예인, 의사 일러스트)이 포함된 이미지
-  · 할인가/판매누적/1+1 등 프로모션 텍스트
-  · 제품 외 과일/식재료가 배경 대부분을 차지
-  · 제품보다 마케팅 문구가 더 큰 이미지
-- "set_gift": 선물세트/묶음 (선물 박스, 쇼핑백 포함)
-- "unrelated": 건강기능식품과 무관
-응답: {"type": "product_front"}` },
-        ],
-      }],
-      generationConfig: { temperature: 0, responseMimeType: "application/json" },
-    });
-    const parsed = JSON.parse(result.response.text());
-    const ok = !["marketing", "set_gift", "unrelated"].includes(parsed.type);
-    return { ok, type: parsed.type };
-  } catch {
-    return { ok: true, type: "validation_error" }; // 검증 실패 시 허용
-  }
-}
 
 // ── 타겟 로드 ──────────────────────────────────────────────────────────────
 /** 저품질 타겟 필터 — 스테이징 찌꺼기·수출전용·너무 일반적인 이름 제외 */
@@ -118,35 +84,6 @@ function isValidTarget(product) {
   if (/^\d+$/.test(name)) return false;              // 숫자만
   if (/전량\s*수출\s*용/i.test(name)) return false;   // 수출 전용 — 국내 Naver 미판매
   return true;
-}
-
-/**
- * 검색어 전처리:
- *  - 괄호 + 내용 제거: (전량수출용), (HEFIX Vitamin, ...), 【...】
- *  - 한자 제거: 效, 孝 등
- *  - 연속 공백 정리
- */
-function cleanSearchQuery(rawName) {
-  return rawName
-    .replace(/\([^)]*\)/g, "")         // (...) 괄호 전체 제거
-    .replace(/【[^】]*】/g, "")         // 【...】 전각 괄호 제거
-    .replace(/[\u4E00-\u9FFF]/g, "")   // CJK 한자 제거
-    .replace(/[,./\-·•]/g, " ")        // 구두점 → 공백
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * 검색어 단축 시퀀스 생성: "A B C D" → ["A B C D", "A B C", "A B"]
- * 공백 기반이므로, 공백 없는 단일 토큰은 자기 자신만 반환.
- */
-function queryVariants(query) {
-  const variants = [query];
-  const tokens = query.split(/\s+/);
-  for (let len = tokens.length - 1; len >= 2; len--) {
-    variants.push(tokens.slice(0, len).join(" "));
-  }
-  return variants;
 }
 
 async function loadTargets() {
@@ -210,71 +147,6 @@ async function loadTargets() {
   }
 
   return targets;
-}
-
-// ── Naver 매칭 후보 선정 ───────────────────────────────────────────────────
-/** 공백 무시 bigram 집합 (한국어 연속 제품명 대응) */
-function bigrams(s) {
-  const clean = s.replace(/\s+/g, "").toLowerCase();
-  const grams = new Set();
-  for (let i = 0; i < clean.length - 1; i++) {
-    grams.add(clean.slice(i, i + 2));
-  }
-  return grams;
-}
-
-/** Jaccard 유사도 (0~1) */
-function jaccard(a, b) {
-  if (a.size === 0 || b.size === 0) return 0;
-  let inter = 0;
-  for (const g of a) if (b.has(g)) inter++;
-  return inter / (a.size + b.size - inter);
-}
-
-function pickBestItem(product, items) {
-  const nameNorm = normalize(product.product_name);
-  const brandNorm = normalize(product.brand_name ?? product.manufacturer_name ?? "");
-  const nameGrams = bigrams(nameNorm);
-
-  let best = null;
-  let bestScore = -Infinity;
-
-  // 건강기능식품과 무관한 카테고리 제외
-  const BLOCKED_CATEGORIES = ["반려동물", "완구/취미", "가구/인테리어", "패션의류", "패션잡화", "화장품/미용"];
-
-  for (const item of items) {
-    // 카테고리 필터: 반려동물 등 무관 카테고리 스킵
-    if (BLOCKED_CATEGORIES.some((cat) => item.category1 === cat || item.category2 === cat)) {
-      continue;
-    }
-
-    const title = normalize(item.title);
-    const brand = normalize(item.brand ?? item.maker ?? "");
-    const titleGrams = bigrams(title);
-
-    // Jaccard 유사도 (이름 bigram) — 0~1 → 0~10점
-    const jac = jaccard(nameGrams, titleGrams);
-    let score = jac * 10;
-
-    // 브랜드 일치 보너스 — DB 또는 Naver 측 brand/maker에 부분 포함
-    if (brandNorm.length >= 2) {
-      const brandClean = brandNorm.replace(/\s+/g, "").toLowerCase();
-      const brandHit =
-        brand.replace(/\s+/g, "").toLowerCase().includes(brandClean) ||
-        title.replace(/\s+/g, "").toLowerCase().includes(brandClean);
-      if (brandHit) score += 3;
-    }
-
-    // 이미지 존재 보너스
-    if (item.image) score += 1;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = item;
-    }
-  }
-
-  return { item: best, score: bestScore };
 }
 
 // ── DB 적재 ────────────────────────────────────────────────────────────────
@@ -403,9 +275,7 @@ async function processProduct(product) {
   }
 
   const { item: best, score } = pickBestItem(product, items);
-  // 짧은 이름(≤5자)은 오매칭 가능성 높으므로 최소 점수 상향
-  const nameLen = (product.product_name ?? "").replace(/\s/g, "").length;
-  const minScore = nameLen <= 5 ? 5 : 4;
+  const minScore = minScoreForName(product.product_name);
   if (!best || score < minScore) {
     return { status: "miss", reason: "low_score", score, total };
   }
@@ -430,7 +300,9 @@ async function processProduct(product) {
       const img = await fetchImage(best.image);
 
       // Gemini 이미지 검증
-      const validation = await validateProductImage(img.buffer, img.contentType);
+      const validation = await validateProductImage(img.buffer, img.contentType, {
+        skip: SKIP_VALIDATION,
+      });
       summary.image_type = validation.type;
       if (!validation.ok) {
         summary.image_rejected = validation.type;

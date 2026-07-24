@@ -17,7 +17,21 @@ import {
  * - 데이터 시각화 (Progress Bar)
  * - 가성비 지표 (Unit Price)
  */
-const EnhancedProductCard = ({ product }: { product: any }) => {
+interface MockProduct {
+  id: number;
+  brand: string;
+  name: string;
+  mainIngredient: string;
+  percentage: number;
+  price: number;
+  unitPrice: number;
+  isBest: boolean;
+  isNew: boolean;
+  categoryIcon: React.ReactNode;
+  tags: string[];
+}
+
+const EnhancedProductCard = ({ product }: { product: MockProduct }) => {
   return (
     <Card className="group overflow-hidden border-slate-200 hover:border-emerald-200 hover:shadow-xl transition-all duration-300 bg-white">
       <CardContent className="p-5">
@@ -182,7 +196,7 @@ export default function DesignLabPage() {
                   <span className="text-emerald-500 text-xs font-black">01</span> Visual Credibility
                 </h4>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  전형적인 쇼핑몰 느낌을 탈피하고, 신뢰감을 주는 Emerald Green 포인트와 정갈한 타이포그래피를 사용하여 '건강/의료' 전문성을 강조했습니다.
+                  전형적인 쇼핑몰 느낌을 탈피하고, 신뢰감을 주는 Emerald Green 포인트와 정갈한 타이포그래피를 사용하여 &lsquo;건강/의료&rsquo; 전문성을 강조했습니다.
                 </p>
               </div>
               <div className="group">
@@ -190,7 +204,7 @@ export default function DesignLabPage() {
                   <span className="text-emerald-500 text-xs font-black">02</span> Data Visualization
                 </h4>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  복잡한 함량 수치를 단순 텍스트가 아닌 'Progress Bar'로 시각화하여, 1일 권장량 대비 충족도를 직관적으로 인지하게 했습니다.
+                  복잡한 함량 수치를 단순 텍스트가 아닌 &lsquo;Progress Bar&rsquo;로 시각화하여, 1일 권장량 대비 충족도를 직관적으로 인지하게 했습니다.
                 </p>
               </div>
             </div>
@@ -219,7 +233,7 @@ export default function DesignLabPage() {
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-[24px] shadow-2xl flex items-center justify-between z-50 border border-slate-700/50">
           <div className="flex -space-x-3 overflow-hidden ml-2">
             <div className="inline-block h-10 w-10 rounded-full ring-2 ring-slate-900 bg-emerald-500 flex items-center justify-center text-[10px] font-bold">Nature</div>
-            <div className="inline-block h-10 w-10 rounded-full ring-2 ring-slate-900 bg-blue-500 flex items-center justify-center text-[10px] font-bold">Doc's</div>
+            <div className="inline-block h-10 w-10 rounded-full ring-2 ring-slate-900 bg-blue-500 flex items-center justify-center text-[10px] font-bold">Doc&apos;s</div>
           </div>
           <div className="flex-1 px-4 text-sm font-bold tracking-tight">
             2개 제품 비교하기

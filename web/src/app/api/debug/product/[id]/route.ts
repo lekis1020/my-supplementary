@@ -31,16 +31,18 @@ export async function GET(
   }
 
   // 중복 분석 로직 추가
-  const analysis = ingredients.reduce((acc: any, curr: any) => {
-    const key = curr.ingredient_id || curr.raw_label_name;
+  type IngredientRow = (typeof ingredients)[number];
+
+  const analysis = ingredients.reduce<Record<string, IngredientRow[]>>((acc, curr) => {
+    const key = String(curr.ingredient_id ?? curr.raw_label_name);
     if (!acc[key]) acc[key] = [];
     acc[key].push(curr);
     return acc;
   }, {});
 
   const duplicates = Object.entries(analysis)
-    .filter(([_, items]: [any, any]) => items.length > 1)
-    .map(([key, items]: [any, any]) => ({
+    .filter(([, items]) => items.length > 1)
+    .map(([key, items]) => ({
       key,
       count: items.length,
       items
