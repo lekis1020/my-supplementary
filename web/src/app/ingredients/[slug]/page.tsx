@@ -23,7 +23,7 @@ import {
 import {
   ArrowLeft, AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
 } from "lucide-react";
-import { LiveRelatedProducts } from "@/components/product/live-related-products";
+import { LiveSearchFallback } from "@/components/product/live-search-fallback";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -1121,9 +1121,10 @@ export default async function IngredientDetailPage({ params }: Props) {
             )}
 
             {/* DB에 판매확인 제품이 부족하면 실시간 검색으로 폴백 */}
-            <LiveRelatedProducts
-              ingredientName={displayIngredientName}
+            <LiveSearchFallback
+              query={displayIngredientName}
               initialCount={verifiedProducts.length}
+              threshold={3}
             />
 
             {productCount > 0 && (
