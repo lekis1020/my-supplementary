@@ -9,6 +9,7 @@
  *   3. 퍼지: 검색어 정제 후 ilike 후보 → bigram Jaccard ≥ 0.5 승인
  *
  * 성공: product_ingredients 생성 + queue status='matched' + matched_report_no
+ *       + 제품 공개(is_published=true — live_search 유입 제품은 비공개로 적재됨)
  * 실패: status='manual' (staging은 정적 데이터라 재시도 무의미 → 수동 검토)
  *
  * 사용법:
@@ -192,6 +193,12 @@ async function processQueueItem(item) {
     .select("id", { count: "exact", head: true })
     .eq("product_id", product.id);
   if ((existingCount ?? 0) > 0) {
+    if (!DRY_RUN) {
+      await supabase
+        .from("products")
+        .update({ is_published: true })
+        .eq("id", product.id);
+    }
     await updateQueue(item.id, {
       status: "matched",
       matched_report_no: product.approval_or_report_no,
@@ -241,13 +248,12 @@ async function processQueueItem(item) {
       .insert(rows);
     if (insertError) throw insertError;
 
-    // 매칭된 report_no를 제품에도 보존
+    // 매칭 성공 → 공개 전환 + 매칭된 report_no 보존
+    const productPatch = { is_published: true };
     if (!product.approval_or_report_no && reportNo) {
-      await supabase
-        .from("products")
-        .update({ approval_or_report_no: reportNo })
-        .eq("id", product.id);
+      productPatch.approval_or_report_no = reportNo;
     }
+    await supabase.from("products").update(productPatch).eq("id", product.id);
   }
 
   await updateQueue(item.id, {

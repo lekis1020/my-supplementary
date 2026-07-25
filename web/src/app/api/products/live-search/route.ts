@@ -11,7 +11,8 @@ import { filterItemsForQuery, normalize } from "@/lib/scraper/naver-match.mjs";
  *  1. products를 RLS 경유로 검색 (판매확인 우선 정렬)
  *  2. 판매확인 결과가 MIN_DB_RESULTS 미만이면 Naver API 호출
  *  3. 카테고리 필터 + 토큰 매칭 통과분만 응답에 포함하고,
- *     service_role로 products upsert + 성분 보강 큐(product_enrichment_queue) 등록
+ *     service_role로 products에 비공개(is_published=false) 적재 + 성분 보강
+ *     큐(product_enrichment_queue) 등록 — 보강 성공 시 배치가 공개 전환
  *
  * 보호 장치: 동일 쿼리 24시간 인메모리 캐시, 일일 Naver 호출 예산.
  * (서버 인스턴스 재시작 시 캐시/카운터 초기화 — 일 25,000 한도 대비 보수적 예산)
@@ -126,7 +127,9 @@ async function persistLiveItem(item: NaverItem): Promise<number | null> {
         country_code: "KR",
         product_type: "health_functional_food",
         status: "active",
-        is_published: true,
+        // 비공개로 적재 — 보강 배치가 성분 매칭에 성공하면 공개 전환.
+        // 임의 검색어 유입으로 잡음 제품이 사이트 전역에 노출되는 것을 방지.
+        is_published: false,
         sale_verified_at: new Date().toISOString(),
         sale_channel: "live_search",
         sale_url: item.link,
