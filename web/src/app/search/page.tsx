@@ -6,6 +6,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/state-message";
 import { HighlightMatch } from "@/components/ui/highlight";
 import { SearchCombobox } from "@/components/search/search-combobox";
+import { LiveSearchFallback } from "@/components/product/live-search-fallback";
 import {
   formatProductName,
   getIngredientHref,
@@ -411,6 +412,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   const pageLinks = getPaginationPages(safeCurrentPage, totalPages);
 
+  const verifiedProductCount = productResults.filter(
+    (product) => product.saleVerified,
+  ).length;
+
   return (
     <div className="min-h-screen bg-white">
       <section className="border-b border-slate-200 bg-[radial-gradient(circle_at_top,#ecfdf5,transparent_55%)] px-4 py-14">
@@ -560,6 +565,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 </div>
               )}
             </section>
+
+            <LiveSearchFallback
+              query={query}
+              initialCount={verifiedProductCount}
+              threshold={5}
+            />
           </div>
         )}
       </section>
