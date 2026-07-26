@@ -6,7 +6,7 @@
  *
  * 규칙 요약:
  *  - Bigram Jaccard 유사도 기반 매칭, 최소 점수 4.0 (공백 제거 5자 이하 이름은 5.0)
- *  - 반려동물/완구/패션 등 무관 카테고리 차단
+ *  - 카테고리 허용 목록: category1 "식품"만 통과 (화장품·육아용품 등 차단)
  *  - 브랜드 일치 +3, 이미지 존재 +1 보너스
  */
 
@@ -64,20 +64,18 @@ export function jaccard(a, b) {
   return inter / (a.size + b.size - inter);
 }
 
-/** 건강기능식품과 무관한 Naver 카테고리 */
-export const BLOCKED_CATEGORIES = [
-  "반려동물",
-  "완구/취미",
-  "가구/인테리어",
-  "패션의류",
-  "패션잡화",
-  "화장품/미용",
-];
+/**
+ * 허용 목록 방식 카테고리 필터.
+ *
+ * 건강기능식품·영양제는 예외 없이 "식품 > 건강식품" 경로에 분류되므로
+ * category1이 "식품"인 항목만 통과시킨다. 차단 목록 방식은 화장품이
+ * "출산/육아 > 스킨/바디용품" 등 다른 경로로 새어 들어오는 것을 막지
+ * 못해 폐기했다. category 정보가 없는 항목은 안전하게 차단한다.
+ */
+export const ALLOWED_CATEGORY1 = ["식품"];
 
-export function isBlockedCategory(item) {
-  return BLOCKED_CATEGORIES.some(
-    (cat) => item.category1 === cat || item.category2 === cat,
-  );
+export function isAllowedCategory(item) {
+  return ALLOWED_CATEGORY1.includes(item.category1);
 }
 
 /** 짧은 이름(공백 제거 ≤5자)은 오매칭 가능성이 높으므로 최소 점수 상향 */
@@ -99,7 +97,7 @@ export function pickBestItem(product, items) {
   let bestScore = -Infinity;
 
   for (const item of items) {
-    if (isBlockedCategory(item)) continue;
+    if (!isAllowedCategory(item)) continue;
 
     const title = normalize(item.title);
     const brand = normalize(item.brand ?? item.maker ?? "");
@@ -143,7 +141,7 @@ export function filterItemsForQuery(query, items) {
   if (tokens.length === 0) return [];
 
   return items.filter((item) => {
-    if (isBlockedCategory(item)) return false;
+    if (!isAllowedCategory(item)) return false;
     const haystack = `${item.title} ${item.brand ?? ""} ${item.maker ?? ""}`
       .replace(/\s+/g, "")
       .toLowerCase();
