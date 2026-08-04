@@ -563,6 +563,21 @@ export default async function IngredientDetailPage({ params }: Props) {
       </div>
 
       <div className="space-y-8">
+        {isProbiotic && (
+          <Link
+            href="/probiotics"
+            className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 transition-colors hover:bg-emerald-50"
+          >
+            <div>
+              <p className="font-semibold text-emerald-900">유산균 균주별 효능 비교 보기</p>
+              <p className="mt-0.5 text-sm text-emerald-700">
+                장건강·면역·정신건강·체지방 효능별로 균주를 근거등급과 함께 비교합니다.
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-emerald-700">비교 →</span>
+          </Link>
+        )}
+
         {propolisFamilyRoot && propolisFamilyChildren.length > 0 && (
           <Card>
             <CardHeader>

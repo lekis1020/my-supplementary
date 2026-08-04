@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
     "lint": "eslint",
     "gov:smoke:kr": "node ../scripts/test_korean_gov_apis.mjs",
     "gov:backfill:kr": "node scripts/backfill_kr_gov_raw.mjs",
@@ -52,6 +53,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
