@@ -112,10 +112,15 @@ export function buildBenefitGroups(inputs: StrainClaimInput[]): BenefitGroup[] {
     const comboInputs = axisInputs.filter(
       (i) => axis.claimCode === COMBINATION_CLAIM_CODE && i.slug != null && COMBINATION_SLUGS.includes(i.slug),
     );
-    const normalInputs = axisInputs.filter((i) => !comboInputs.includes(i));
+
+    // Only merge into a combination row if BOTH slugs in COMBINATION_SLUGS are present
+    const comboPresentSlugs = new Set(comboInputs.map((i) => i.slug));
+    const shouldMerge = COMBINATION_SLUGS.every((slug) => comboPresentSlugs.has(slug));
+
+    const normalInputs = shouldMerge ? axisInputs.filter((i) => !comboInputs.includes(i)) : axisInputs;
 
     const rows: StrainRow[] = normalInputs.map(toRow);
-    if (comboInputs.length > 0) {
+    if (shouldMerge) {
       rows.push(mergeCombination(comboInputs));
     }
 

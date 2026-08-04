@@ -55,4 +55,14 @@ describe("buildBenefitGroups", () => {
     expect(groups[0].rows[0].href).toBe("/ingredients/lactobacillus-rhamnosus-gg");
     expect(groups[0].rows[0].isCombination).toBe(false);
   });
+
+  it("treats single combination strain as normal row when partner absent", () => {
+    const groups = buildBenefitGroups([
+      input({ ingredientId: 10, slug: "lactobacillus-helveticus-r0052", strainName: "R0052", claimCode: "MENTAL_HEALTH", evidenceGrade: "B" }),
+    ]);
+    const mental = groups.find((g) => g.claimCode === "MENTAL_HEALTH")!;
+    expect(mental.rows).toHaveLength(1);
+    expect(mental.rows[0].isCombination).toBe(false);
+    expect(mental.rows[0].href).toBe("/ingredients/lactobacillus-helveticus-r0052");
+  });
 });
