@@ -21,21 +21,7 @@ export const metadata: Metadata = {
 
 const AXIS_CODES = PROBIOTIC_BENEFIT_AXES.map((axis) => axis.claimCode);
 
-interface ClaimJoin {
-  claim_code: string | null;
-  claim_name_ko: string | null;
-}
-
-interface StrainClaimRow {
-  ingredient_id: number;
-  evidence_grade: string | null;
-  evidence_summary: string | null;
-  allowed_expression: string | null;
-  is_regulator_approved: boolean | null;
-  claims: ClaimJoin | ClaimJoin[] | null;
-}
-
-function firstClaim(input: ClaimJoin | ClaimJoin[] | null): ClaimJoin | null {
+function getClaimMeta<T>(input: T | T[] | null | undefined): T | null {
   return Array.isArray(input) ? input[0] ?? null : input ?? null;
 }
 
@@ -70,9 +56,9 @@ export default async function ProbioticsComparePage() {
       ).data ?? [])
     : [];
 
-  const inputs: StrainClaimInput[] = (claimRows as StrainClaimRow[])
-    .map((row) => {
-      const claim = firstClaim(row.claims);
+  const inputs: StrainClaimInput[] = claimRows
+    .map((row): StrainClaimInput | null => {
+      const claim = getClaimMeta(row.claims);
       const meta = strainMeta.get(row.ingredient_id);
       if (!claim?.claim_code || !meta) return null;
       if (!AXIS_CODES.includes(claim.claim_code)) return null;
@@ -89,7 +75,7 @@ export default async function ProbioticsComparePage() {
         evidenceSummary: row.evidence_summary,
         allowedExpression: row.allowed_expression,
         isRegulatorApproved: row.is_regulator_approved === true,
-      } satisfies StrainClaimInput;
+      };
     })
     .filter((v): v is StrainClaimInput => v !== null);
 

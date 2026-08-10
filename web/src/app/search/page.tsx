@@ -46,15 +46,6 @@ interface ProductSearchResult {
   supportingMatches: string[];
 }
 
-interface IngredientRow {
-  id: number;
-  canonical_name_ko: string;
-  canonical_name_en: string | null;
-  display_name: string | null;
-  slug: string | null;
-  ingredient_type: string;
-}
-
 const PROBIOTIC_QUERY_KEYWORDS = [
   "프로바이오틱스",
   "프로바이오틱",
@@ -130,10 +121,13 @@ function includesProbioticKeyword(value: string | null | undefined): boolean {
   );
 }
 
-function getIngredientMatchKind(
-  ingredient: IngredientRow,
-  queryToken: string,
-): IngredientMatchKind {
+function getIngredientMatchKind<
+  T extends {
+    canonical_name_ko: string;
+    canonical_name_en: string | null;
+    display_name: string | null;
+  },
+>(ingredient: T, queryToken: string): IngredientMatchKind {
   if (!isGenericProbioticQuery(queryToken)) {
     return "direct";
   }
@@ -159,9 +153,16 @@ function getIngredientMatchKind(
   return "direct";
 }
 
-function buildIngredientSearchResult(
-  ingredient: IngredientRow,
-): IngredientSearchResult {
+function buildIngredientSearchResult<
+  T extends {
+    id: number;
+    canonical_name_ko: string;
+    canonical_name_en: string | null;
+    display_name: string | null;
+    slug: string | null;
+    ingredient_type: string;
+  },
+>(ingredient: T): IngredientSearchResult {
   const normalizedTitle = normalizeIngredientNameForDisplay(ingredient.canonical_name_ko);
   const subtitleParts: string[] = [];
   const isClearlyStrain = hasClearlyIdentifiedProbioticStrain({
@@ -191,7 +192,14 @@ function buildIngredientSearchResult(
   };
 }
 
-function getIngredientMatchScore(ingredient: IngredientRow, queryToken: string): number {
+function getIngredientMatchScore<
+  T extends {
+    canonical_name_ko: string;
+    canonical_name_en: string | null;
+    display_name: string | null;
+    slug: string | null;
+  },
+>(ingredient: T, queryToken: string): number {
   const fields = [
     ingredient.canonical_name_ko,
     ingredient.display_name,
@@ -258,7 +266,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       .order("canonical_name_ko")
       .limit(100);
 
-    const rankedIngredients = ((ingredients ?? []) as IngredientRow[])
+    const rankedIngredients = (ingredients ?? [])
       .map((ingredient) => ({
         ingredient,
         score: getIngredientMatchScore(ingredient, queryToken),
@@ -325,6 +333,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     if (ingredientIds.length > 0) {
       // 원료 기반 제품 결과는 판매 확인된 제품만 노출
+      // products/ingredients는 product_ingredients 기준 다대일 FK이므로 항상 단일 객체로 반환된다.
       const { data: productIngredients } = await supabase
         .from("product_ingredients")
         .select(
@@ -335,8 +344,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         .not("products.sale_verified_at", "is", null);
 
       for (const row of productIngredients ?? []) {
-        const product = Array.isArray(row.products) ? row.products[0] : row.products;
-        const ingredient = Array.isArray(row.ingredients) ? row.ingredients[0] : row.ingredients;
+        const product = row.products;
+        const ingredient = row.ingredients;
 
         if (!product || !ingredient) continue;
 
