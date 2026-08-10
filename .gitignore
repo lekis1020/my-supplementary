@@ -4,3 +4,6 @@ tmp/
 .omx/
 *.log
 *.png
+
+# superpowers brainstorm mockups
+.superpowers/
