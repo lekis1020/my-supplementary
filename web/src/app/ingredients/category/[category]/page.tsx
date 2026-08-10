@@ -23,16 +23,6 @@ interface CategoryPageProps {
   params: Promise<{ category: string }>;
 }
 
-type IngredientRow = {
-  id: number;
-  canonical_name_ko: string;
-  canonical_name_en: string | null;
-  scientific_name: string | null;
-  slug: string | null;
-  ingredient_type: string;
-  description: string | null;
-};
-
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { category } = await params;
   if (!isIngredientCategory(category)) {
@@ -170,12 +160,16 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
   );
 }
 
-function groupIngredients(
-  ingredients: IngredientRow[],
-  category: IngredientCategory,
-): Array<[string, IngredientRow[]]> {
+function groupIngredients<
+  T extends {
+    canonical_name_ko: string;
+    canonical_name_en: string | null;
+    scientific_name: string | null;
+    ingredient_type: string;
+  },
+>(ingredients: T[], category: IngredientCategory): Array<[string, T[]]> {
   if (category === "vitamins") {
-    const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
+    const grouped = ingredients.reduce<Record<string, T[]>>((acc, ingredient) => {
       const subgroups = getVitaminSubgroups({
         canonicalNameKo: ingredient.canonical_name_ko,
         canonicalNameEn: ingredient.canonical_name_en,
@@ -210,12 +204,12 @@ function groupIngredients(
     ];
 
     return vitaminOrder
-      .map((groupName) => [groupName, grouped[groupName] ?? []] as [string, IngredientRow[]])
+      .map((groupName): [string, T[]] => [groupName, grouped[groupName] ?? []])
       .filter(([, items]) => items.length > 0);
   }
 
   if (category === "probiotics") {
-    const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
+    const grouped = ingredients.reduce<Record<string, T[]>>((acc, ingredient) => {
       const subgroup = getProbioticSubgroup({
         canonicalNameKo: ingredient.canonical_name_ko,
         canonicalNameEn: ingredient.canonical_name_en,
@@ -237,12 +231,12 @@ function groupIngredients(
     ];
 
     return probioticOrder
-      .map((groupName) => [groupName, grouped[groupName] ?? []] as [string, IngredientRow[]])
+      .map((groupName): [string, T[]] => [groupName, grouped[groupName] ?? []])
       .filter(([, items]) => items.length > 0);
   }
 
   if (category === "others") {
-    const grouped = ingredients.reduce<Record<string, IngredientRow[]>>((acc, ingredient) => {
+    const grouped = ingredients.reduce<Record<string, T[]>>((acc, ingredient) => {
       const subgroup = getIngredientSubgroupLabel(ingredient.ingredient_type);
       if (!acc[subgroup]) acc[subgroup] = [];
       acc[subgroup].push(ingredient);
@@ -254,7 +248,7 @@ function groupIngredients(
     const extra = Object.keys(grouped).filter((k) => !otherOrder.includes(k));
 
     return [...otherOrder, ...extra]
-      .map((groupName) => [groupName, grouped[groupName] ?? []] as [string, IngredientRow[]])
+      .map((groupName): [string, T[]] => [groupName, grouped[groupName] ?? []])
       .filter(([, items]) => items.length > 0);
   }
 
