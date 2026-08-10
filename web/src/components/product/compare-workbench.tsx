@@ -15,34 +15,26 @@ import {
 } from "@/lib/compare";
 import { AlertTriangle, Plus, Scale, Sparkles, X } from "lucide-react";
 import Link from "next/link";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { QueryData, SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/types/supabase";
 
-interface Product {
-  id: number;
-  product_name: string;
-  manufacturer_name: string | null;
-  country_code: string | null;
+type Product = Pick<
+  Database["public"]["Tables"]["products"]["Row"],
+  "id" | "product_name" | "manufacturer_name" | "country_code"
+>;
+
+// Query shape helper — never invoked, only used so `QueryData` can infer the
+// exact joined row type (incl. the `ingredients` embed) for the select below.
+function buildProductIngredientsQuery(client: SupabaseClient<Database>, productId: number) {
+  return client
+    .from("product_ingredients")
+    .select(
+      "*, ingredients(id, canonical_name_ko, canonical_name_en, scientific_name, ingredient_type, slug)",
+    )
+    .eq("product_id", productId);
 }
 
-interface ProductIngredient {
-  id: number;
-  product_id: number;
-  ingredient_id: number;
-  amount_per_serving: string | number | null;
-  amount_unit: string | null;
-  daily_amount: string | number | null;
-  daily_amount_unit: string | null;
-  ingredient_role?: string | null;
-  raw_label_name: string | null;
-  ingredients: {
-    id: number;
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    scientific_name: string | null;
-    ingredient_type: string | null;
-    slug: string | null;
-  } | null;
-}
+type ProductIngredient = QueryData<ReturnType<typeof buildProductIngredientsQuery>>[number];
 
 interface NormalizedAmount {
   displayText: string;
@@ -159,7 +151,7 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
     {},
   );
   const [loading, setLoading] = useState(true);
-  const supabaseRef = useRef<SupabaseClient | null>(null);
+  const supabaseRef = useRef<SupabaseClient<Database> | null>(null);
 
   function getSupabase() {
     if (!supabaseRef.current) {
@@ -189,7 +181,7 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
           return;
         }
 
-        const rows = (data as Product[] | null) ?? [];
+        const rows = data ?? [];
         if (rows.length === 0) {
           break;
         }
@@ -236,7 +228,7 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
         const ids = new Set(previous.map((product) => product.id));
         const appended = [...previous];
 
-        for (const product of data as Product[]) {
+        for (const product of data) {
           if (!ids.has(product.id)) {
             appended.push(product);
           }
@@ -269,12 +261,9 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
           continue;
         }
 
-        const { data } = await supabase
-          .from("product_ingredients")
-          .select("*, ingredients(id, canonical_name_ko, canonical_name_en, scientific_name, ingredient_type, slug)")
-          .eq("product_id", id);
+        const { data } = await buildProductIngredientsQuery(supabase, id);
 
-        newIngredients[id] = (data as ProductIngredient[]) ?? [];
+        newIngredients[id] = data ?? [];
       }
 
       setProductIngredients(newIngredients);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import type { QueryData } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/types/supabase";
 
 /**
  * POST /api/compare/summary
@@ -38,37 +40,21 @@ interface SummaryResponse {
 // comparison tool; swap for Redis later if needed.
 const summaryCache = new Map<string, CacheEntry>();
 
-interface ProductRow {
-  id: number;
-  product_name: string;
-  manufacturer_name: string | null;
-  country_code: string | null;
-}
+type ProductRow = Pick<
+  Database["public"]["Tables"]["products"]["Row"],
+  "id" | "product_name" | "manufacturer_name" | "country_code"
+>;
 
-interface IngredientJoin {
-  id: number;
-  canonical_name_ko: string | null;
-  canonical_name_en: string | null;
-  ingredient_type: string | null;
-}
-
-interface ProductIngredientRow {
-  product_id: number;
-  ingredient_id: number;
-  amount_per_serving: string | number | null;
-  amount_unit: string | null;
-  daily_amount: string | number | null;
-  daily_amount_unit: string | null;
-  raw_label_name: string | null;
-  ingredient_role: string | null;
-  ingredients: IngredientJoin | null;
-}
+type ProductIngredientAmount = Pick<
+  Database["public"]["Tables"]["product_ingredients"]["Row"],
+  "amount_per_serving" | "amount_unit" | "daily_amount" | "daily_amount_unit"
+>;
 
 function cacheKey(productIds: number[]) {
   return [...productIds].sort((a, b) => a - b).join("-");
 }
 
-function formatAmount(row: ProductIngredientRow): string {
+function formatAmount(row: ProductIngredientAmount): string {
   const value = row.amount_per_serving ?? row.daily_amount;
   const unit = row.amount_unit ?? row.daily_amount_unit;
   if (value == null && !unit) return "";
@@ -139,23 +125,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: ingredients, error: ingredientError } = await supabase
+  const ingredientsQuery = supabase
     .from("product_ingredients")
     .select(
       "product_id, ingredient_id, amount_per_serving, amount_unit, daily_amount, daily_amount_unit, raw_label_name, ingredient_role, ingredients(id, canonical_name_ko, canonical_name_en, ingredient_type)",
     )
     .in("product_id", productIds);
+  type ProductIngredientRow = QueryData<typeof ingredientsQuery>[number];
+
+  const { data: ingredients, error: ingredientError } = await ingredientsQuery;
 
   if (ingredientError) {
     return NextResponse.json({ error: ingredientError.message }, { status: 500 });
   }
 
   const productMap = new Map<number, ProductRow>();
-  for (const product of (products as ProductRow[]) ?? []) {
+  for (const product of products) {
     productMap.set(product.id, product);
   }
 
-  const rows = ((ingredients as unknown) as ProductIngredientRow[]) ?? [];
+  const rows = ingredients ?? [];
   const byProduct = new Map<number, ProductIngredientRow[]>();
   const ingredientProducts = new Map<number, Set<number>>();
   const ingredientNames = new Map<number, string>();
