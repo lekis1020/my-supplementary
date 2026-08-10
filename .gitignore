@@ -7,3 +7,5 @@ tmp/
 
 # superpowers brainstorm mockups
 .superpowers/
+.playwright-mcp/
+scripts/__pycache__/

@@ -186,7 +186,7 @@ Unreferenced scripts moved here pending owner confirmation for deletion.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add -A && git commit -m "chore: archive orphaned staging builder scripts
+git add scripts/archive && git commit -m "chore: archive orphaned staging builder scripts
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -322,7 +322,7 @@ Expected: 성공, 기존 테스트 통과
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "feat: wire generated Database types into supabase clients
+git add web/src && git commit -m "feat: wire generated Database types into supabase clients
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -482,7 +482,7 @@ Expected: 전부 통과
 - [ ] **Step 4: Commit**
 
 ```bash
-git add -A && git commit -m "refactor: derive component types from generated supabase rows
+git add web/src && git commit -m "refactor: derive component types from generated supabase rows
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -518,7 +518,7 @@ Expected: `CLEAN` (예외 발견 시 사유를 최종 보고에 기록)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "refactor: remove hand-written database types, generated types are canonical
+git add web/src && git commit -m "refactor: remove hand-written database types, generated types are canonical
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
