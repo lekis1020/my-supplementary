@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import "./globals.css";
+
+const pretendard = localFont({
+  src: "../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2",
+  display: "swap",
+  weight: "45 920",
+  variable: "--font-pretendard",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -18,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={pretendard.variable}>
       <body className="flex min-h-screen flex-col antialiased">
         <Header />
         <main className="flex-1">{children}</main>
