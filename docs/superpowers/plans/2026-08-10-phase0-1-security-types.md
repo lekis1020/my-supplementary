@@ -92,7 +92,7 @@ NCBI_API_KEY=
 
 - [ ] **Step 3: 저장소 전체에서 키 문자열 소거 확인**
 
-Run: `git grep -n "447eb2e330874c15cf15eaac1a7f6bd0a809" || echo CLEAN`
+Run: `git grep -n "447eb2e3" -- ':!docs/superpowers' || echo CLEAN`  (노출 키의 접두사 — 전체 키를 문서에 재기록하지 않는다)
 Expected: `CLEAN`
 
 - [ ] **Step 4: 컴파일 검증**
