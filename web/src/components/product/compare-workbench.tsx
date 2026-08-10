@@ -23,8 +23,10 @@ type Product = Pick<
   "id" | "product_name" | "manufacturer_name" | "country_code"
 >;
 
-// Query shape helper — never invoked, only used so `QueryData` can infer the
-// exact joined row type (incl. the `ingredients` embed) for the select below.
+// Single source of truth for the product_ingredients select: invoked at runtime
+// by loadIngredients, and its ReturnType lets `QueryData` infer the exact joined
+// row type (incl. the `ingredients` embed) — a bare Database[...] reference
+// cannot express the embed shape.
 function buildProductIngredientsQuery(client: SupabaseClient<Database>, productId: number) {
   return client
     .from("product_ingredients")
