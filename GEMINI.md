@@ -64,7 +64,7 @@ npm run gov:import-core:kr    # Normalize into core tables
 
 ### 4. Evidence Fetching (PubMed)
 ```bash
-python3 scripts/fetch_pubmed_evidence_v2.py
+python3 scripts/fetch_pubmed_evidence.py
 # Generates db/009_seed_evidence.sql
 ```
 
