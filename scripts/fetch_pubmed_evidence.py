@@ -4,6 +4,7 @@ PubMed E-utilities를 사용하여 25종 원료별 메타분석/체계적 문헌
 → db/009_seed_evidence.sql 생성 (v2 - 중복 PMID 방지)
 """
 
+import os
 import json
 import time
 import urllib.request
@@ -11,7 +12,9 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-API_KEY = "447eb2e330874c15cf15eaac1a7f6bd0a809"
+API_KEY = os.environ.get("NCBI_API_KEY", "")
+if not API_KEY:
+    raise SystemExit("NCBI_API_KEY environment variable is required")
 BASE_SEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 BASE_FETCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
