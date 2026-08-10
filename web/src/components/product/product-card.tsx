@@ -11,13 +11,13 @@ import {
 
 interface ProductCardProps {
   product: {
-    id: string;
+    id: number;
     product_name: string;
     brand_name: string | null;
     manufacturer_name?: string | null;
     approval_or_report_no?: string | null;
-    product_type?: string;
-    country_code?: string;
+    product_type?: string | null;
+    country_code?: string | null;
     tags?: string[];
   };
 }
