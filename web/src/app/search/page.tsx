@@ -9,31 +9,25 @@ import { SearchCombobox } from "@/components/search/search-combobox";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
 import {
   formatProductName,
-  getIngredientHref,
   getIngredientRoleLabel,
-  getIngredientTypeLabel,
-  hasClearlyIdentifiedProbioticStrain,
   normalizeIngredientNameForDisplay,
 } from "@/lib/utils";
+import { getPaginationPages, parsePage } from "@/lib/pagination";
+import {
+  buildIngredientSearchResult,
+  getIngredientMatchKind,
+  getIngredientMatchScore,
+  normalizeSearchToken,
+  type IngredientSearchResult,
+} from "@/lib/search/ingredient-ranking";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
-const PAGINATION_VISIBLE_COUNT = 10;
 
 interface SearchPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
-
-interface IngredientSearchResult {
-  id: number;
-  title: string;
-  subtitle: string | null;
-  href: string;
-  badge: string;
-}
-
-type IngredientMatchKind = "direct" | "probiotic-strain-category";
 
 interface ProductSearchResult {
   id: number;
@@ -46,26 +40,11 @@ interface ProductSearchResult {
   supportingMatches: string[];
 }
 
-const PROBIOTIC_QUERY_KEYWORDS = [
-  "프로바이오틱스",
-  "프로바이오틱",
-  "유산균",
-  "probiotic",
-  "probiotics",
-  "lactic acid bacteria",
-  "lab",
-] as const;
-
 function getSearchParam(
   value: string | string[] | undefined,
   fallback = "",
 ): string {
   return Array.isArray(value) ? value[0] ?? fallback : value ?? fallback;
-}
-
-function parsePage(value: string | string[] | undefined): number {
-  const parsed = Number(getSearchParam(value, "1"));
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
 function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
@@ -77,171 +56,6 @@ function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
 
   const queryString = params.toString();
   return queryString ? `/search?${queryString}` : "/search";
-}
-
-function getPaginationPages(
-  currentPage: number,
-  totalPages: number,
-  visibleCount = PAGINATION_VISIBLE_COUNT,
-) {
-  if (totalPages <= visibleCount) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  const half = Math.floor(visibleCount / 2);
-  let start = Math.max(1, currentPage - half);
-  let end = start + visibleCount - 1;
-
-  if (end > totalPages) {
-    end = totalPages;
-    start = end - visibleCount + 1;
-  }
-
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-}
-
-function normalizeSearchToken(value: string | null | undefined): string {
-  if (!value) return "";
-  return value.toLowerCase().replace(/\s+/g, "").trim();
-}
-
-function isGenericProbioticQuery(queryToken: string): boolean {
-  if (!queryToken) return false;
-  return PROBIOTIC_QUERY_KEYWORDS.some(
-    (keyword) => normalizeSearchToken(keyword) === queryToken,
-  );
-}
-
-function includesProbioticKeyword(value: string | null | undefined): boolean {
-  const token = normalizeSearchToken(value);
-  if (!token) return false;
-
-  return PROBIOTIC_QUERY_KEYWORDS.some((keyword) =>
-    token.includes(normalizeSearchToken(keyword)),
-  );
-}
-
-function getIngredientMatchKind<
-  T extends {
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    display_name: string | null;
-  },
->(ingredient: T, queryToken: string): IngredientMatchKind {
-  if (!isGenericProbioticQuery(queryToken)) {
-    return "direct";
-  }
-
-  const isStrain = hasClearlyIdentifiedProbioticStrain({
-    canonicalNameKo: ingredient.canonical_name_ko,
-    canonicalNameEn: ingredient.canonical_name_en,
-    rawLabelName: ingredient.display_name,
-  });
-
-  if (!isStrain) {
-    return "direct";
-  }
-
-  if (
-    includesProbioticKeyword(ingredient.canonical_name_ko) ||
-    includesProbioticKeyword(ingredient.canonical_name_en) ||
-    includesProbioticKeyword(ingredient.display_name)
-  ) {
-    return "probiotic-strain-category";
-  }
-
-  return "direct";
-}
-
-function buildIngredientSearchResult<
-  T extends {
-    id: number;
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    display_name: string | null;
-    slug: string | null;
-    ingredient_type: string;
-  },
->(ingredient: T): IngredientSearchResult {
-  const normalizedTitle = normalizeIngredientNameForDisplay(ingredient.canonical_name_ko);
-  const subtitleParts: string[] = [];
-  const isClearlyStrain = hasClearlyIdentifiedProbioticStrain({
-    canonicalNameKo: ingredient.canonical_name_ko,
-    canonicalNameEn: ingredient.canonical_name_en,
-    rawLabelName: ingredient.display_name,
-  });
-
-  if (
-    normalizedTitle !== ingredient.canonical_name_ko &&
-    ingredient.canonical_name_ko &&
-    !isClearlyStrain
-  ) {
-    subtitleParts.push(ingredient.canonical_name_ko);
-  }
-
-  if (ingredient.canonical_name_en) {
-    subtitleParts.push(ingredient.canonical_name_en);
-  }
-
-  return {
-    id: ingredient.id,
-    title: normalizedTitle,
-    subtitle: subtitleParts.length > 0 ? subtitleParts.join(" · ") : null,
-    href: getIngredientHref({ id: ingredient.id, slug: ingredient.slug }),
-    badge: getIngredientTypeLabel(ingredient.ingredient_type),
-  };
-}
-
-function getIngredientMatchScore<
-  T extends {
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    display_name: string | null;
-    slug: string | null;
-  },
->(ingredient: T, queryToken: string): number {
-  const fields = [
-    ingredient.canonical_name_ko,
-    ingredient.display_name,
-    ingredient.canonical_name_en,
-  ];
-  let score = 0;
-
-  for (const field of fields) {
-    const token = normalizeSearchToken(field);
-    if (!token) continue;
-
-    if (token === queryToken) {
-      score = Math.max(score, 120);
-      continue;
-    }
-
-    if (token.startsWith(queryToken)) {
-      score = Math.max(score, 100);
-      continue;
-    }
-
-    if (token.includes(queryToken)) {
-      score = Math.max(score, 80);
-      continue;
-    }
-
-    if (queryToken.includes(token)) {
-      score = Math.max(score, 70);
-    }
-  }
-
-  if (queryToken === "프로바이오틱스" || queryToken === "유산균") {
-    if (ingredient.slug === "probiotics" || normalizeSearchToken(ingredient.canonical_name_ko) === "프로바이오틱스") {
-      score += 40;
-    }
-
-    if (hasClearlyIdentifiedProbioticStrain(ingredient.canonical_name_ko)) {
-      score -= 5;
-    }
-  }
-
-  return score;
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {

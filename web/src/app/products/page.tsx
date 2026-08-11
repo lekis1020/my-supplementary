@@ -5,11 +5,11 @@ import { EnhancedProductCard } from "@/components/product/product-card";
 import { CompareWorkbench } from "@/components/product/compare-workbench";
 import { Pagination } from "@/components/ui/pagination";
 import { Card } from "@/components/ui/card";
+import { getPaginationPages, parsePage } from "@/lib/pagination";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 24;
-const PAGINATION_VISIBLE_COUNT = 10;
 
 export const metadata: Metadata = {
   title: "제품 데이터베이스 | bochoong.com",
@@ -18,12 +18,6 @@ export const metadata: Metadata = {
 
 interface ProductsPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function parsePage(rawPage: string | string[] | undefined) {
-  const pageValue = Array.isArray(rawPage) ? rawPage[0] : rawPage;
-  const parsed = Number(pageValue);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
 function parsePositiveInteger(rawValue: string | string[] | undefined) {
@@ -45,27 +39,6 @@ function buildPageHref(page: number, ingredientId?: number | null) {
 
   const query = params.toString();
   return query ? `/products?${query}` : "/products";
-}
-
-function getPaginationPages(
-  currentPage: number,
-  totalPages: number,
-  visibleCount = PAGINATION_VISIBLE_COUNT,
-) {
-  if (totalPages <= visibleCount) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  const half = Math.floor(visibleCount / 2);
-  let start = Math.max(1, currentPage - half);
-  let end = start + visibleCount - 1;
-
-  if (end > totalPages) {
-    end = totalPages;
-    start = end - visibleCount + 1;
-  }
-
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
