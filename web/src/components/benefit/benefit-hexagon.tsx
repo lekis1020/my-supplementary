@@ -32,10 +32,10 @@ const CATEGORY_META: Record<
     shortLabel: "면역·항산화",
     fullLabel: "면역 기능, 항산화",
     icon: ShieldPlus,
-    colorClass: "text-emerald-700",
-    tintClass: "bg-emerald-50 border-emerald-200",
-    activeFill: "rgb(16 185 129)",
-    activeStroke: "rgb(167 243 208)",
+    colorClass: "text-orange-700",
+    tintClass: "bg-brand-bg border-orange-200",
+    activeFill: "rgb(249 115 22)",
+    activeStroke: "rgb(254 215 170)",
   },
   gut_digestive: {
     shortLabel: "장·소화",
@@ -202,7 +202,7 @@ export function BenefitHexagon({
     >
       <CardHeader className="border-b border-slate-100 bg-slate-50/60 p-5">
         <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
-          <Sparkles className="h-5 w-5 fill-emerald-100 text-emerald-500" />
+          <Sparkles className="h-5 w-5 fill-orange-100 text-orange-700" />
           {title}
         </CardTitle>
         <p className="text-xs font-medium leading-relaxed text-slate-500">{description}</p>
@@ -248,8 +248,8 @@ export function BenefitHexagon({
                       return `${targetX},${targetY}`;
                     })
                     .join(" ")}
-                  fill="rgba(16, 185, 129, 0.15)"
-                  stroke="rgb(16 185 129)"
+                  fill="rgba(249, 115, 22, 0.15)"
+                  stroke="rgb(249 115 22)"
                   strokeWidth="2.5"
                   strokeLinejoin="round"
                 />
@@ -267,7 +267,7 @@ export function BenefitHexagon({
                   textAnchor="middle"
                   className={cn(
                     "text-[10px] font-black tracking-tight",
-                    activeItems.length > 0 ? "fill-slate-900" : "fill-emerald-600"
+                    activeItems.length > 0 ? "fill-slate-900" : "fill-orange-700"
                   )}
                 >
                   {activeItems.length > 0 ? "BENEFITS" : "PREPARING"}
@@ -352,10 +352,10 @@ export function BenefitHexagon({
                   );
                 })
               ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50/50 px-3 py-1 text-xs font-bold text-emerald-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-100 bg-brand-bg/50 px-3 py-1 text-xs font-bold text-orange-700">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500"></span>
                   </span>
                   전문가 데이터 검수 대기 중
                 </span>

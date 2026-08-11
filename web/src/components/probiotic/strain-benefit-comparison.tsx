@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { getEvidenceGradeColor } from "@/lib/utils";
+import { EvidenceGradeBadge, RegulatoryBadge } from "@/components/ui/domain-badges";
 import type { BenefitGroup, StrainRow } from "@/lib/probiotic-comparison";
 
 function StrainRowCard({ row }: { row: StrainRow }) {
@@ -23,14 +23,8 @@ function StrainRowCard({ row }: { row: StrainRow }) {
           )}
         </div>
         <div className="flex flex-shrink-0 flex-wrap justify-end gap-1.5">
-          {row.evidenceGrade && (
-            <Badge className={getEvidenceGradeColor(row.evidenceGrade)}>
-              근거 {row.evidenceGrade}
-            </Badge>
-          )}
-          {row.isRegulatorApproved && (
-            <Badge className="bg-emerald-600 text-white">식약처 인정</Badge>
-          )}
+          {row.evidenceGrade && <EvidenceGradeBadge grade={row.evidenceGrade} />}
+          {row.isRegulatorApproved && <RegulatoryBadge countryCode="KR" />}
           {row.isCombination && (
             <Badge className="bg-violet-50 text-violet-700">조합 전용</Badge>
           )}

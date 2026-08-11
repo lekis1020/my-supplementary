@@ -163,9 +163,9 @@ const FRESHNESS_CONFIG: Record<
 > = {
   fresh: {
     label: "정상",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    dot: "bg-emerald-500",
+    bg: "bg-brand-bg",
+    text: "text-orange-700",
+    dot: "bg-brand",
   },
   aging: {
     label: "주의",
@@ -264,8 +264,8 @@ export default async function DataHealthPage() {
         <SummaryCard
           label="정상"
           value={freshCounts.fresh}
-          color="text-emerald-600"
-          bg="bg-emerald-50"
+          color="text-orange-700"
+          bg="bg-brand-bg"
         />
         <SummaryCard
           label="주의"
@@ -481,7 +481,7 @@ export default async function DataHealthPage() {
                         <td className="py-2 pr-4 font-mono text-gray-600">
                           L{v.layers_checked}
                         </td>
-                        <td className="py-2 pr-4 text-emerald-600">
+                        <td className="py-2 pr-4 text-orange-700">
                           {v.total_passed}/{v.total_checked}{" "}
                           <span className="text-gray-400">
                             ({passRate}%)

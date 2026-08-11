@@ -262,14 +262,14 @@ export default async function ProductDetailPage({ params }: Props) {
           <Card className="overflow-hidden border-slate-200 shadow-sm">
             <CardHeader className="border-b border-slate-100 bg-slate-50/50">
               <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
-                <Tag className="h-5 w-5 text-emerald-500" />
+                <Tag className="h-5 w-5 text-orange-700" />
                 원료 조성 ({visibleIngredientCount}종)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {visibleIngredientCount === 0 || hasUnclearActiveProbiotic ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-bg text-orange-500">
                     <Clock className="h-6 w-6 animate-pulse" />
                   </div>
                   <p className="text-sm font-bold text-slate-900">원료 조성 분석 준비 중</p>
@@ -303,7 +303,7 @@ export default async function ProductDetailPage({ params }: Props) {
                           <td className="px-6 py-4">
                             <Link
                               href={ingredientHref}
-                              className="flex flex-col font-black text-emerald-600 hover:underline"
+                              className="flex flex-col font-black text-orange-700 hover:underline"
                             >
                               <span>{meta.displayName}</span>
                               {pi.raw_label_name && (
@@ -321,7 +321,7 @@ export default async function ProductDetailPage({ params }: Props) {
                               className={cn(
                                 "rounded-md border-none px-2 py-0.5 text-[10px] font-black",
                                 pi.ingredient_role === "active"
-                                  ? "bg-emerald-50 text-emerald-700"
+                                  ? "bg-brand-bg text-orange-700"
                                   : "bg-slate-100 text-slate-500",
                               )}
                             >

@@ -101,15 +101,15 @@ export function IngredientHero({
       {isProbiotic && (
         <Link
           href="/probiotics"
-          className="mb-8 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 transition-colors hover:bg-emerald-50"
+          className="mb-8 flex items-center justify-between rounded-2xl border border-orange-200 bg-brand-bg/60 p-4 transition-colors hover:bg-brand-bg"
         >
           <div>
-            <p className="font-semibold text-emerald-900">유산균 균주별 효능 비교 보기</p>
-            <p className="mt-0.5 text-sm text-emerald-700">
+            <p className="font-semibold text-orange-700">유산균 균주별 효능 비교 보기</p>
+            <p className="mt-0.5 text-sm text-orange-700">
               장건강·면역·정신건강·체지방 효능별로 균주를 근거등급과 함께 비교합니다.
             </p>
           </div>
-          <span className="text-sm font-semibold text-emerald-700">비교 →</span>
+          <span className="text-sm font-semibold text-orange-700">비교 →</span>
         </Link>
       )}
 
@@ -118,7 +118,7 @@ export function IngredientHero({
           <CardHeader>
             <CardTitle>
               <span className="flex items-center gap-2">
-                <Pill className="h-5 w-5 text-emerald-600" />
+                <Pill className="h-5 w-5 text-orange-700" />
                 프로폴리스추출물 하위 카테고리
               </span>
             </CardTitle>
@@ -128,10 +128,10 @@ export function IngredientHero({
           </CardHeader>
           <CardContent>
             <div className="mb-3 flex flex-wrap gap-2">
-              <Badge className="bg-emerald-50 text-emerald-700">상위 카테고리</Badge>
+              <Badge className="bg-brand-bg text-orange-700">상위 카테고리</Badge>
               <Link
                 href={`/ingredients/${propolisFamilyRoot.id}`}
-                className="text-sm font-semibold text-emerald-700 hover:underline"
+                className="text-sm font-semibold text-orange-700 hover:underline"
               >
                 {propolisFamilyRoot.canonical_name_ko}
               </Link>
@@ -144,8 +144,8 @@ export function IngredientHero({
                   className={[
                     "rounded-full border px-3 py-1.5 text-sm transition-colors",
                     child.id === ingredient.id
-                      ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-stone-200 bg-stone-50 text-ink-muted hover:border-emerald-200 hover:text-emerald-700",
+                      ? "border-orange-700 bg-orange-700 text-white"
+                      : "border-stone-200 bg-stone-50 text-ink-muted hover:border-orange-200 hover:text-orange-700",
                   ].join(" ")}
                 >
                   {child.canonical_name_ko}

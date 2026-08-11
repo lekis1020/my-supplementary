@@ -91,7 +91,7 @@ export default async function ProbioticsComparePage() {
         </p>
         {/* 범례: 규제 vs 학술 분리(법적 요구) */}
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-600">
-          <span><strong className="text-emerald-700">식약처 인정</strong> — 규제기관이 기능성을 인정한 균주</span>
+          <span><strong className="text-regulatory">식약처 인정</strong> — 규제기관이 기능성을 인정한 균주</span>
           <span><strong className="text-gray-700">근거 A~C</strong> — 학술 연구의 근거 수준(A가 가장 강함)</span>
         </div>
       </div>

@@ -246,7 +246,7 @@ export function SearchCombobox({
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           className={cn(
-            "w-full rounded-2xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100",
+            "w-full rounded-2xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand",
             inputClassName,
           )}
         />
@@ -304,7 +304,7 @@ export function SearchCombobox({
           <Link
             href={buildSearchHref(trimmed)}
             onClick={() => setOpen(false)}
-            className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+            className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-orange-700 hover:bg-brand-bg"
           >
             <span>&ldquo;{trimmed}&rdquo; 전체 검색 결과 보기</span>
             <span aria-hidden>→</span>
@@ -352,7 +352,7 @@ function SuggestionGroup({
                 className={cn(
                   "flex items-center justify-between gap-3 px-4 py-2 text-sm",
                   active
-                    ? "bg-emerald-50 text-emerald-900"
+                    ? "bg-brand-bg text-orange-700"
                     : "text-slate-700 hover:bg-slate-50",
                 )}
               >
