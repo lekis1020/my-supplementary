@@ -16,15 +16,6 @@ export const metadata: Metadata = {
   description: "원료를 대분류별로 탐색하고, 각 카테고리 안에서 세부 성분을 찾아보세요.",
 };
 
-type IngredientRow = {
-  id: number;
-  canonical_name_ko: string;
-  canonical_name_en: string | null;
-  slug: string | null;
-  ingredient_type: string;
-  description: string | null;
-};
-
 type CategorySummary = {
   category: IngredientCategory;
   count: number;
@@ -96,8 +87,13 @@ export default async function IngredientsPage() {
   );
 }
 
-function buildCategorySummaries(ingredients: IngredientRow[]): CategorySummary[] {
-  const grouped = ingredients.reduce<Record<IngredientCategory, IngredientRow[]>>(
+function buildCategorySummaries<
+  T extends {
+    canonical_name_ko: string;
+    ingredient_type: string;
+  },
+>(ingredients: T[]): CategorySummary[] {
+  const grouped = ingredients.reduce<Record<IngredientCategory, T[]>>(
     (acc, ingredient) => {
       getIngredientCategories(ingredient.ingredient_type).forEach((category) => {
         if (!acc[category]) acc[category] = [];

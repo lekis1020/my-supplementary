@@ -4,3 +4,8 @@ tmp/
 .omx/
 *.log
 *.png
+
+# superpowers brainstorm mockups
+.superpowers/
+.playwright-mcp/
+scripts/__pycache__/

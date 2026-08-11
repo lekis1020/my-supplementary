@@ -3,23 +3,26 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatProductName } from "@/lib/utils";
-import { 
+import {
   Factory,
   FileBadge2,
   ChevronRight
 } from "lucide-react";
+import type { Database } from "@/lib/types/supabase";
+
+type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 
 interface ProductCardProps {
-  product: {
-    id: string;
-    product_name: string;
-    brand_name: string | null;
-    manufacturer_name?: string | null;
-    approval_or_report_no?: string | null;
-    product_type?: string;
-    country_code?: string;
-    tags?: string[];
-  };
+  product: Pick<
+    ProductRow,
+    | "id"
+    | "product_name"
+    | "brand_name"
+    | "manufacturer_name"
+    | "approval_or_report_no"
+    | "product_type"
+    | "country_code"
+  > & { tags?: string[] };
 }
 
 /**

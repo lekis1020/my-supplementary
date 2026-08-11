@@ -16,36 +16,12 @@ import {
 } from "@/lib/utils";
 import { ArrowLeft, Clock, FileText, Tag } from "lucide-react";
 import type { Metadata } from "next";
+import type { QueryData } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ id: string }>;
-}
-
-interface ProductIngredientRelation {
-  id: number | null;
-  canonical_name_ko: string | null;
-  canonical_name_en: string | null;
-  slug: string | null;
-  ingredient_type: string | null;
-}
-
-interface ProductIngredientRow {
-  id: number;
-  ingredient_role: string | null;
-  amount_per_serving: string | number | null;
-  amount_unit: string | null;
-  raw_label_name: string | null;
-  ingredients: ProductIngredientRelation | ProductIngredientRelation[] | null;
-}
-
-interface ProductIngredientMeta {
-  row: ProductIngredientRow;
-  ingredient: ProductIngredientRelation | null;
-  isProbiotic: boolean;
-  isSpecificProbiotic: boolean;
-  displayName: string;
 }
 
 function ingredientRolePriority(role: string | null): number {
@@ -61,7 +37,16 @@ function ingredientRolePriority(role: string | null): number {
   }
 }
 
-function shouldReplaceIngredientMeta(current: ProductIngredientMeta, candidate: ProductIngredientMeta): boolean {
+function shouldReplaceIngredientMeta<
+  T extends {
+    row: {
+      id: number;
+      ingredient_role: string | null;
+      amount_per_serving: unknown;
+      raw_label_name: string | null;
+    };
+  },
+>(current: T, candidate: T): boolean {
   const roleDiff =
     ingredientRolePriority(candidate.row.ingredient_role) -
     ingredientRolePriority(current.row.ingredient_role);
@@ -117,11 +102,25 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!product) notFound();
 
+  const productIngredientsQuery = supabase
+    .from("product_ingredients")
+    .select("*, ingredients(id, canonical_name_ko, canonical_name_en, slug, ingredient_type)")
+    .eq("product_id", product.id);
+  type ProductIngredientRow = QueryData<typeof productIngredientsQuery>[number];
+  type ProductIngredientRelationEmbed = ProductIngredientRow["ingredients"];
+  type ProductIngredientRelation = ProductIngredientRelationEmbed extends Array<infer R>
+    ? R
+    : NonNullable<ProductIngredientRelationEmbed>;
+  type ProductIngredientMeta = {
+    row: ProductIngredientRow;
+    ingredient: ProductIngredientRelation | null;
+    isProbiotic: boolean;
+    isSpecificProbiotic: boolean;
+    displayName: string;
+  };
+
   const [ingredientsRes, labelsRes, labelImagesRes] = await Promise.all([
-    supabase
-      .from("product_ingredients")
-      .select("*, ingredients(id, canonical_name_ko, canonical_name_en, slug, ingredient_type)")
-      .eq("product_id", product.id),
+    productIngredientsQuery,
     supabase
       .from("label_snapshots")
       .select("*")
@@ -140,7 +139,7 @@ export default async function ProductDetailPage({ params }: Props) {
     .map((img: { r2_public_url: string | null }) => img.r2_public_url)
     .filter((url: string | null): url is string => !!url);
 
-  const productIngredients: ProductIngredientRow[] = ingredientsRes.data ?? [];
+  const productIngredients = ingredientsRes.data ?? [];
   const ingredientMetas: ProductIngredientMeta[] = productIngredients.map((row) => {
     const ingredient = Array.isArray(row.ingredients) ? row.ingredients[0] : row.ingredients;
     const isProbiotic = ingredient?.ingredient_type === "probiotic";

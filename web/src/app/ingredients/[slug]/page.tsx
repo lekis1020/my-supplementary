@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
 import type { Metadata } from "next";
+import type { QueryData } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -32,118 +33,23 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-interface ClaimMetaRow {
-  claim_name_ko?: string | null;
-  claim_scope?: string | null;
-}
-
-interface IngredientClaimRow {
-  id: number;
-  ingredient_id: number;
-  claim_id: number | null;
-  evidence_grade: string | null;
-  evidence_summary: string | null;
-  allowed_expression: string | null;
-  claims: ClaimMetaRow | ClaimMetaRow[] | null;
-}
-
-interface EvidenceOutcomeRow {
-  id: number;
-  effect_direction: string | null;
-  effect_size_text: string | null;
-  p_value_text: string | null;
-  confidence_interval_text: string | null;
-  conclusion_summary: string | null;
-  claims?: {
-    claim_code?: string | null;
-    claim_name_ko?: string | null;
-  } | null;
-}
-
-interface EvidenceStudyRow {
-  id: number;
-  ingredient_id: number;
-  title: string;
-  authors: string | null;
-  journal_name: string | null;
-  publication_year: number | null;
-  pmid: string | null;
-  external_url: string | null;
-  study_design: string | null;
-  population_text: string | null;
-  sample_size: number | null;
-  duration_text: string | null;
-  evidence_outcomes?: EvidenceOutcomeRow[] | null;
-}
-
-interface SafetyItemRow {
-  id: number;
-  title: string;
-  description: string | null;
-  severity_level: string | null;
-  applies_to_population: string | null;
-  management_advice: string | null;
-}
-
-interface DrugInteractionRow {
-  id: number;
-  drug_name: string;
-  clinical_effect: string | null;
-  recommendation: string | null;
-  severity_level: string | null;
-}
-
-interface DosageGuidelineRow {
-  id: number;
-  population_group: string | null;
-  dose_min: string | number | null;
-  dose_max: string | number | null;
-  dose_unit: string | null;
-  frequency_text: string | null;
-  recommendation_type: string | null;
-  notes: string | null;
-}
-
-interface VerifiedProductMeta {
-  id: number;
-  product_name: string | null;
-  brand_name: string | null;
-  product_image_url: string | null;
-  sale_url: string | null;
-  sale_channel: string | null;
-}
-
-interface VerifiedProductRow {
-  id: number;
-  products: VerifiedProductMeta | VerifiedProductMeta[] | null;
-}
-
-interface SourceMetaRow {
-  source_name: string;
-  organization_name: string | null;
-  source_url: string | null;
-}
-
-interface SourceLinkRow {
-  id: number;
-  entity_type: string;
-  entity_id: number;
-  source_reference: string | null;
-  source_excerpt: string | null;
-  retrieved_at: string | null;
-  sources?: SourceMetaRow | SourceMetaRow[] | null;
-}
-
-function getClaimMeta(input: ClaimMetaRow | ClaimMetaRow[] | null | undefined) {
+function getClaimMeta<T>(input: T | T[] | null | undefined): T | null {
   return Array.isArray(input) ? input[0] ?? null : input ?? null;
 }
 
-function getSourceMeta(input: SourceMetaRow | SourceMetaRow[] | null | undefined) {
+function getSourceMeta<T>(input: T | T[] | null | undefined): T | null {
   return Array.isArray(input) ? input[0] ?? null : input ?? null;
 }
 
-function dedupeSourceLinks(rows: SourceLinkRow[]) {
-  const map = new Map<string, SourceLinkRow>();
+function dedupeSourceLinks<
+  T extends {
+    entity_type: string;
+    entity_id: number;
+    source_reference: string | null;
+    sources?: { source_name: string } | Array<{ source_name: string }> | null;
+  },
+>(rows: T[]): T[] {
+  const map = new Map<string, T>();
 
   for (const row of rows) {
     const source = getSourceMeta(row.sources);
@@ -231,6 +137,19 @@ export default async function IngredientDetailPage({ params }: Props) {
 
   if (!ingredient) notFound();
 
+  // 판매 확인된 관련 제품 (이미지 우선 정렬은 JS에서) — QueryData로 조인 결과 타입을 도출
+  const verifiedProductsQuery = supabase
+    .from("product_ingredients")
+    .select(
+      "id, products!inner(id, product_name, brand_name, product_image_url, sale_url, sale_channel, sale_verified_at)",
+      { count: "exact" },
+    )
+    .eq("ingredient_id", ingredient.id)
+    .not("products.sale_verified_at", "is", null)
+    .limit(24);
+  type VerifiedProductsEmbed = QueryData<typeof verifiedProductsQuery>[number]["products"];
+  type VerifiedProduct = VerifiedProductsEmbed extends Array<infer P> ? P : NonNullable<VerifiedProductsEmbed>;
+
   // 병렬 쿼리: 기능성, 안전성, 약물상호작용, 용량, 포함 제품, 판매확인 제품
   const [claimsRes, safetyRes, drugRes, dosageRes, productsRes, evidenceRes, verifiedProductsRes] = await Promise.all([
     supabase
@@ -263,28 +182,19 @@ export default async function IngredientDetailPage({ params }: Props) {
       .eq("ingredient_id", ingredient.id)
       .eq("included_in_summary", true)
       .order("publication_year", { ascending: false }),
-    // 판매 확인된 관련 제품 (이미지 우선 정렬은 JS에서)
-    supabase
-      .from("product_ingredients")
-      .select(
-        "id, products!inner(id, product_name, brand_name, product_image_url, sale_url, sale_channel, sale_verified_at)",
-        { count: "exact" },
-      )
-      .eq("ingredient_id", ingredient.id)
-      .not("products.sale_verified_at", "is", null)
-      .limit(24),
+    verifiedProductsQuery,
   ]);
 
   const ingredientClaims = claimsRes.data ?? [];
-  const safetyItems = (safetyRes.data ?? []) as SafetyItemRow[];
-  const drugInteractions = (drugRes.data ?? []) as DrugInteractionRow[];
-  const dosageGuidelines = (dosageRes.data ?? []) as DosageGuidelineRow[];
+  const safetyItems = safetyRes.data ?? [];
+  const drugInteractions = drugRes.data ?? [];
+  const dosageGuidelines = dosageRes.data ?? [];
   const evidenceStudies = evidenceRes.data ?? [];
   const productCount = productsRes.count ?? 0;
 
   // 판매확인 제품: product 단위 dedupe → 이미지 보유 우선 → 상위 8건
-  const verifiedProductMap = new Map<number, VerifiedProductMeta>();
-  for (const row of (verifiedProductsRes.data ?? []) as VerifiedProductRow[]) {
+  const verifiedProductMap = new Map<number, VerifiedProduct>();
+  for (const row of verifiedProductsRes.data ?? []) {
     const product = Array.isArray(row.products) ? row.products[0] : row.products;
     if (product && !verifiedProductMap.has(product.id)) {
       verifiedProductMap.set(product.id, product);
@@ -431,12 +341,10 @@ export default async function IngredientDetailPage({ params }: Props) {
       ])
     : [null, null];
 
-  const mergedIngredientClaims = (
-    relatedClaimsRes?.data?.length ? relatedClaimsRes.data : ingredientClaims
-  ) as IngredientClaimRow[];
-  const mergedEvidenceStudies = (
-    relatedEvidenceRes?.data?.length ? relatedEvidenceRes.data : evidenceStudies
-  ) as EvidenceStudyRow[];
+  const mergedIngredientClaims =
+    relatedClaimsRes?.data?.length ? relatedClaimsRes.data : ingredientClaims;
+  const mergedEvidenceStudies =
+    relatedEvidenceRes?.data?.length ? relatedEvidenceRes.data : evidenceStudies;
   const prioritizedEvidenceStudies = [...mergedEvidenceStudies].sort((left, right) => {
     const studyPriorityDiff = getStudyPriority(right.study_design) - getStudyPriority(left.study_design);
     if (studyPriorityDiff !== 0) {
@@ -456,14 +364,17 @@ export default async function IngredientDetailPage({ params }: Props) {
     ),
   );
   const evidenceStudyIds = prioritizedEvidenceStudies.map((study) => study.id);
-  const { data: ingredientSourceLinksRaw } = await supabase
+  const ingredientSourceLinksQuery = supabase
     .from("source_links")
     .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
     .eq("entity_type", "ingredient")
     .in("entity_id", relatedIngredientIds)
     .order("retrieved_at", { ascending: false });
+  type SourceLink = QueryData<typeof ingredientSourceLinksQuery>[number];
 
-  let claimSourceLinksRaw: SourceLinkRow[] = [];
+  const { data: ingredientSourceLinksRaw } = await ingredientSourceLinksQuery;
+
+  let claimSourceLinksRaw: SourceLink[] = [];
   if (claimIds.length > 0) {
     const { data } = await supabase
       .from("source_links")
@@ -471,10 +382,10 @@ export default async function IngredientDetailPage({ params }: Props) {
       .eq("entity_type", "claim")
       .in("entity_id", claimIds)
       .order("retrieved_at", { ascending: false });
-    claimSourceLinksRaw = (data ?? []) as SourceLinkRow[];
+    claimSourceLinksRaw = data ?? [];
   }
 
-  let evidenceSourceLinksRaw: SourceLinkRow[] = [];
+  let evidenceSourceLinksRaw: SourceLink[] = [];
   if (evidenceStudyIds.length > 0) {
     const { data } = await supabase
       .from("source_links")
@@ -482,16 +393,16 @@ export default async function IngredientDetailPage({ params }: Props) {
       .eq("entity_type", "evidence_study")
       .in("entity_id", evidenceStudyIds)
       .order("retrieved_at", { ascending: false });
-    evidenceSourceLinksRaw = (data ?? []) as SourceLinkRow[];
+    evidenceSourceLinksRaw = data ?? [];
   }
 
-  const ingredientSourceLinks = dedupeSourceLinks((ingredientSourceLinksRaw ?? []) as SourceLinkRow[]);
+  const ingredientSourceLinks = dedupeSourceLinks(ingredientSourceLinksRaw ?? []);
   const claimSourceLinks = dedupeSourceLinks(claimSourceLinksRaw);
   const evidenceSourceLinks = dedupeSourceLinks(evidenceSourceLinksRaw);
   const claimNamesWithEvidence = new Set(
     prioritizedEvidenceStudies.flatMap((study) =>
       (study.evidence_outcomes ?? [])
-        .map((outcome) => outcome.claims?.claim_name_ko)
+        .map((outcome) => getClaimMeta(outcome.claims)?.claim_name_ko)
         .filter((value): value is string => Boolean(value)),
     ),
   );
@@ -730,6 +641,7 @@ export default async function IngredientDetailPage({ params }: Props) {
               <div className="space-y-4">
                 {prioritizedEvidenceStudies.map((study) => {
                   const outcome = study.evidence_outcomes?.[0];
+                  const outcomeClaimMeta = getClaimMeta(outcome?.claims);
                   const pubmedUrl =
                     study.external_url ||
                     (study.pmid
@@ -828,9 +740,9 @@ export default async function IngredientDetailPage({ params }: Props) {
                       {/* 결과 요약 */}
                       {outcome?.conclusion_summary && (
                         <div className="mt-3 rounded-md bg-gray-50 p-3">
-                          {outcome.claims?.claim_name_ko && (
+                          {outcomeClaimMeta?.claim_name_ko && (
                             <p className="mb-1 text-xs font-medium text-purple-600">
-                              {outcome.claims.claim_name_ko}
+                              {outcomeClaimMeta.claim_name_ko}
                             </p>
                           )}
                           <p className="text-sm leading-relaxed text-gray-700">
@@ -1175,7 +1087,17 @@ export default async function IngredientDetailPage({ params }: Props) {
   );
 }
 
-function SourceLinkBlock({ title, links }: { title: string; links: SourceLinkRow[] }) {
+function SourceLinkBlock<
+  T extends {
+    id: number;
+    entity_type: string;
+    entity_id: number;
+    source_reference: string | null;
+    source_excerpt: string | null;
+    retrieved_at: string | null;
+    sources?: { source_name: string; organization_name: string | null; source_url: string | null } | Array<{ source_name: string; organization_name: string | null; source_url: string | null }> | null;
+  },
+>({ title, links }: { title: string; links: T[] }) {
   return (
     <section>
       <p className="mb-2 text-sm font-semibold text-slate-800">{title}</p>
