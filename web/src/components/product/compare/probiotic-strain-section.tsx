@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { formatProductName } from "@/lib/utils";
-import type { ProbioticStrainGroup } from "@/lib/compare/compare-math";
-import type { Product } from "../compare-workbench";
+import type { ProbioticStrainGroup, Product } from "@/lib/compare/compare-math";
 
 // NOTE on grid unification: this table's structure (scroll wrapper, header
 // row, grid-template-columns row layout) superficially resembles
@@ -66,7 +65,7 @@ export function ProbioticStrainSection({
                   <div key={`${row.key}-${cell.productId}`} className="border-l border-stone-100 px-4 py-4">
                     {cell.present ? (
                       <div className="space-y-2">
-                        <Badge variant="promo" className="text-[11px]">
+                        <Badge variant="outline" className="text-[11px]">
                           표기됨
                         </Badge>
                         {cell.amountTexts.length > 0 && (

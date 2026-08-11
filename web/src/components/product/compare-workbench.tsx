@@ -17,6 +17,7 @@ import {
   buildProbioticStrainGroups,
   sortProductsByName,
   type IngredientComparisonRow,
+  type Product,
 } from "@/lib/compare/compare-math";
 import { ComparisonSection } from "@/components/product/compare/comparison-section";
 import { SummaryCard } from "@/components/product/compare/summary-card";
@@ -26,10 +27,10 @@ import { AlertTriangle, Plus, Scale, Sparkles, X } from "lucide-react";
 import type { QueryData, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/supabase";
 
-export type Product = Pick<
-  Database["public"]["Tables"]["products"]["Row"],
-  "id" | "product_name" | "manufacturer_name" | "country_code"
->;
+// Re-exported so existing consumers (e.g. app/compare/page.tsx) can keep
+// importing Product from here; the canonical definition now lives in
+// compare-math.ts alongside its sibling comparison types.
+export type { Product } from "@/lib/compare/compare-math";
 
 // Single source of truth for the product_ingredients select: invoked at runtime
 // by loadIngredients, and its ReturnType lets `QueryData` infer the exact joined
@@ -313,7 +314,7 @@ export function CompareWorkbench({
 
   if (loading) {
     return (
-      <div className={cn("text-center text-gray-400", embedded ? "py-12" : "mx-auto max-w-6xl px-4 py-12")}>
+      <div className={cn("text-center text-ink-faint", embedded ? "py-12" : "mx-auto max-w-6xl px-4 py-12")}>
         로딩 중...
       </div>
     );
@@ -324,39 +325,39 @@ export function CompareWorkbench({
       id="compare-tool"
       className={cn(
         embedded
-          ? "rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+          ? "rounded-3xl border border-stone-200 bg-surface p-6 shadow-sm"
           : "mx-auto max-w-6xl px-4 py-12",
       )}
     >
       <div className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700">
           Compare Tool
         </p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-gray-900">
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-ink">
           {embedded ? "제품 데이터베이스 비교 도구" : "제품 비교 도구"}
         </h1>
-        <p className="mt-3 text-gray-500">
+        <p className="mt-3 text-ink-muted">
           최대 4개 제품을 비교합니다. 공통 원료, 중복 위험, 제품별 고유 원료를 나누어 보고,
           같은 단위인 경우에는 어떤 제품에 더 많이 들어있는지도 직관적으로 확인할 수 있습니다.
         </p>
       </div>
 
-      <Card className="mt-8 border-slate-200 bg-slate-50 p-5">
+      <Card className="mt-8 border-stone-200 bg-stone-50 p-5">
         <div className="flex flex-wrap items-start gap-3">
           {selectedProducts.map((product) => (
             <div
               key={product.id}
-              className="flex min-w-[220px] items-start justify-between gap-3 rounded-xl border border-emerald-100 bg-white px-4 py-3"
+              className="flex min-w-[220px] items-start justify-between gap-3 rounded-xl border border-orange-200 bg-surface px-4 py-3"
             >
               <div>
-                <p className="text-sm font-semibold text-slate-900">{formatProductName(product.product_name)}</p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="text-sm font-semibold text-ink">{formatProductName(product.product_name)}</p>
+                <p className="mt-1 text-xs text-ink-faint">
                   {product.manufacturer_name || "제조사 정보 없음"}
                 </p>
               </div>
               <button
                 onClick={() => removeProduct(product.id)}
-                className="rounded-full p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                className="rounded-full p-1 text-ink-faint transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label={`${formatProductName(product.product_name)} 제거`}
               >
                 <X className="h-4 w-4" />
@@ -366,11 +367,11 @@ export function CompareWorkbench({
 
           {effectiveSelectedIds.length < COMPARE_MAX_PRODUCTS && (
             <div className="min-w-[260px] flex-1">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint">
                 제품 추가
               </label>
               <select
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                className="w-full rounded-xl border border-stone-200 bg-surface px-4 py-3 text-sm text-ink"
                 value=""
                 onChange={(event) => addProduct(Number(event.target.value))}
               >
@@ -455,14 +456,14 @@ export function CompareWorkbench({
             <section className="mt-10">
               <div className="mb-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+                  <h2 className="text-2xl font-bold tracking-tight text-ink">
                     프로바이오틱스 균주 비교
                   </h2>
-                  <Badge className="bg-violet-100 text-violet-700">
+                  <Badge variant="promo">
                     {probioticStrainCount.toLocaleString()}개 균주
                   </Badge>
                 </div>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-ink-muted">
                   라벨 원문과 원료명을 함께 파싱해, 같은 균주끼리 큰 분류(계열)로 묶어 비교합니다.
                 </p>
               </div>
@@ -526,10 +527,10 @@ export function CompareWorkbench({
             <section>
               <div className="mb-5">
                 <div className="flex items-center gap-2">
-                  <Scale className="h-5 w-5 text-blue-600" />
-                  <h2 className="text-2xl font-bold tracking-tight text-slate-900">제품별 고유 원료</h2>
+                  <Scale className="h-5 w-5 text-orange-500" />
+                  <h2 className="text-2xl font-bold tracking-tight text-ink">제품별 고유 원료</h2>
                 </div>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-ink-muted">
                   한 제품에만 들어있는 원료를 제품별로 나누어 봅니다.
                 </p>
               </div>
@@ -556,8 +557,8 @@ export function CompareWorkbench({
       )}
 
       {effectiveSelectedIds.length < 2 && (
-        <div className="py-20 text-center text-gray-400">
-          <Plus className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+        <div className="py-20 text-center text-ink-faint">
+          <Plus className="mx-auto mb-3 h-12 w-12 text-stone-300" />
           <p>비교할 제품을 2개 이상 선택하세요 (최대 {COMPARE_MAX_PRODUCTS}개)</p>
         </div>
       )}

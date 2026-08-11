@@ -3,6 +3,16 @@
 
 import { extractProbioticStrains, isLikelyProbioticType } from "@/lib/probiotic-strains";
 import { resolveIngredientAmount, type IngredientAmountFields, type NormalizedAmount } from "./units";
+import type { Database } from "@/lib/types/supabase";
+
+// Canonical product shape for the comparison workbench and its leaf table
+// components. Defined here (not in compare-workbench.tsx) so the pure
+// comparison-math module is the single source of truth for every comparison
+// type; compare-workbench.tsx re-exports this for its existing consumers.
+export type Product = Pick<
+  Database["public"]["Tables"]["products"]["Row"],
+  "id" | "product_name" | "manufacturer_name" | "country_code"
+>;
 
 // Minimal structural shape of the joined `ingredients` relation, as selected by
 // compare-workbench's `buildProductIngredientsQuery` (id, canonical_name_ko,

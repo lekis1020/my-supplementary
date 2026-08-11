@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { SectionHeader } from "@/components/ui/section-header";
 import { cn, formatProductName } from "@/lib/utils";
-import type { IngredientComparisonRow } from "@/lib/compare/compare-math";
-import type { Product } from "../compare-workbench";
+import type { IngredientComparisonRow, Product } from "@/lib/compare/compare-math";
 import { AmountCell } from "./amount-cell";
 import { EmptySection } from "./empty-section";
 
@@ -26,7 +24,14 @@ export function ComparisonSection({
 }) {
   return (
     <section>
-      <SectionHeader icon={icon} title={title} count={rows.length} description={description} />
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {icon && <span className="text-orange-500">{icon}</span>}
+          <h2 className="text-lg font-bold text-ink">{title}</h2>
+          <Badge variant="tag">{rows.length.toLocaleString()}개</Badge>
+        </div>
+        {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
+      </div>
 
       {rows.length === 0 ? (
         <EmptySection message={emptyMessage || "표시할 항목이 없습니다."} />
