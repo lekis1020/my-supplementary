@@ -4,10 +4,11 @@
 // display-only — claim merge logic stays in `@/lib/data/ingredient-detail`.
 //
 // `claims` is a union: default-path rows (`.select("*, claims(*)")` in
-// `ingredient-detail.ts`) carry `is_regulator_approved` /
-// `approval_country_code` on the `ingredient_claims` row itself; the
-// family-merged query (narrower select, for related-strain rows) omits both
-// fields entirely. `claim_scope` (approved_kr / approved_us) is claim
+// `ingredient-detail.ts`) and — since Phase 2-2b — the family-merged query
+// both carry `is_regulator_approved` / `approval_country_code` on the
+// `ingredient_claims` row itself, so verified badges render on strain pages
+// too. The `in` guard below stays as a safety net for any future select that
+// drops the fields. `claim_scope` (approved_kr / approved_us) is claim
 // taxonomy, not per-ingredient approval, and seed data has rows with
 // `claim_scope = 'approved_kr'` but `is_regulator_approved = false` — so it
 // must never be used to decide the official badge.
@@ -17,14 +18,13 @@ import { RegulatoryBadge, EvidenceGradeBadge } from "@/components/ui/domain-badg
 import { getClaimMeta, type IngredientDetail } from "@/lib/data/ingredient-detail";
 import { getClaimScopeLabel } from "@/lib/utils";
 
-// `ingredient_claims` rows fetched via the default select ("*, claims(*)")
-// carry these two columns; the family-merged select (narrower, related-strain
-// rows) omits them. TS structurally collapses that union down to the
-// narrower shape (the wide row is assignable wherever the narrow row is
-// expected), so the wide-only fields aren't visible on `IngredientDetail["claims"][number]`
-// even though they're present on some rows at runtime. This local optional
-// shape lets the `in` guard below check for — and safely read — them without
-// ever assuming they exist.
+// Both the default select ("*, claims(*)") and the family-merged select carry
+// these two columns at runtime (the family select was widened in Phase 2-2b).
+// TS still structurally collapses the union down to the narrower shape, so the
+// fields aren't visible on `IngredientDetail["claims"][number]`. This local
+// optional shape lets the `in` guard below check for — and safely read — them
+// without ever assuming they exist, keeping the gate robust if a future select
+// drops the columns again.
 interface ApprovalFields {
   is_regulator_approved?: boolean;
   approval_country_code?: string | null;
