@@ -25,7 +25,7 @@ import Link from "next/link";
 import type { QueryData, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/supabase";
 
-type Product = Pick<
+export type Product = Pick<
   Database["public"]["Tables"]["products"]["Row"],
   "id" | "product_name" | "manufacturer_name" | "country_code"
 >;
@@ -33,23 +33,37 @@ type Product = Pick<
 // Single source of truth for the product_ingredients select: invoked at runtime
 // by loadIngredients, and its ReturnType lets `QueryData` infer the exact joined
 // row type (incl. the `ingredients` embed) — a bare Database[...] reference
-// cannot express the embed shape.
-function buildProductIngredientsQuery(client: SupabaseClient<Database>, productId: number) {
+// cannot express the embed shape. Takes the full set of selected product ids
+// so the workbench can fetch every selected product's ingredients in one
+// round trip instead of one query per product.
+function buildProductIngredientsQuery(client: SupabaseClient<Database>, productIds: number[]) {
   return client
     .from("product_ingredients")
     .select(
       "*, ingredients(id, canonical_name_ko, canonical_name_en, scientific_name, ingredient_type, slug)",
     )
-    .eq("product_id", productId);
+    .in("product_id", productIds);
 }
 
 type ProductIngredient = QueryData<ReturnType<typeof buildProductIngredientsQuery>>[number];
 
 const PRODUCTS_BATCH_SIZE = 1000;
 
-export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [productsLoaded, setProductsLoaded] = useState(false);
+export function CompareWorkbench({
+  embedded = false,
+  initialProducts,
+}: {
+  embedded?: boolean;
+  // Server-fetched product list (see app/compare/page.tsx). When omitted
+  // (e.g. the embedded /products picker, which isn't part of this task's
+  // scope), the workbench falls back to its own browser-side full-table
+  // fetch below so that usage keeps working unchanged.
+  initialProducts?: Product[];
+}) {
+  const [allProducts, setAllProducts] = useState<Product[]>(() =>
+    initialProducts ? [...initialProducts].sort(sortProductsByName) : [],
+  );
+  const [productsLoaded, setProductsLoaded] = useState(initialProducts !== undefined);
   const [productsLoadError, setProductsLoadError] = useState<string | null>(null);
   const currentHost =
     typeof window === "undefined" ? null : window.location.hostname;
@@ -90,7 +104,7 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
   const [productIngredients, setProductIngredients] = useState<Record<number, ProductIngredient[]>>(
     {},
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialProducts === undefined);
   const supabaseRef = useRef<SupabaseClient<Database> | null>(null);
 
   function getSupabase() {
@@ -100,7 +114,13 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
     return supabaseRef.current;
   }
 
+  // Only runs when the caller doesn't supply initialProducts (the embedded
+  // /products picker). /compare/page.tsx fetches the full product list
+  // server-side and this effect is a no-op there, since initialProducts is
+  // already defined on first render.
   useEffect(() => {
+    if (initialProducts !== undefined) return;
+
     async function loadProducts() {
       const supabase = getSupabase();
       const mergedProducts: Product[] = [];
@@ -139,7 +159,7 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
       setLoading(false);
     }
     loadProducts();
-  }, []);
+  }, [initialProducts]);
 
   const validProductIds = useMemo(() => new Set(allProducts.map((product) => product.id)), [allProducts]);
   const missingSelectedIds = useMemo(
@@ -191,28 +211,32 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
   }, [storageHydrated, effectiveSelectedIds, productsLoaded, selectedIds, setStoredIds]);
 
   useEffect(() => {
+    if (effectiveSelectedIds.length === 0) return;
+
+    let cancelled = false;
+
     async function loadIngredients() {
       const supabase = getSupabase();
-      const newIngredients: Record<number, ProductIngredient[]> = {};
+      const { data } = await buildProductIngredientsQuery(supabase, effectiveSelectedIds);
+      if (cancelled) return;
 
+      const grouped: Record<number, ProductIngredient[]> = {};
       for (const id of effectiveSelectedIds) {
-        if (productIngredients[id]) {
-          newIngredients[id] = productIngredients[id];
-          continue;
-        }
-
-        const { data } = await buildProductIngredientsQuery(supabase, id);
-
-        newIngredients[id] = data ?? [];
+        grouped[id] = [];
+      }
+      for (const row of data ?? []) {
+        (grouped[row.product_id] ??= []).push(row);
       }
 
-      setProductIngredients(newIngredients);
+      setProductIngredients(grouped);
     }
 
-    if (effectiveSelectedIds.length > 0) {
-      loadIngredients();
-    }
-  }, [effectiveSelectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadIngredients();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveSelectedIds]);
 
   const addProduct = (id: number) => {
     if (selectedIds.length >= COMPARE_MAX_PRODUCTS || selectedIds.includes(id)) return;
