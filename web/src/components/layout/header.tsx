@@ -136,7 +136,7 @@ export function Header() {
             onClick={() => setMenuOpen(false)}
             className={cn(
               "flex items-center justify-between py-3 text-sm font-medium",
-              pathname.startsWith("/compare") ? "text-green-600" : "text-gray-600"
+              pathname.startsWith("/compare") ? "text-orange-700" : "text-ink-muted"
             )}
           >
             <span className="inline-flex items-center gap-2">
