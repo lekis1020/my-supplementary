@@ -77,7 +77,7 @@ export function LiveSearchFallback({
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="h-24 animate-pulse rounded-2xl border border-slate-100 bg-slate-50"
+            className="h-24 animate-pulse rounded-2xl border border-stone-100 bg-stone-50"
           />
         ))}
       </div>
@@ -90,16 +90,16 @@ export function LiveSearchFallback({
     <div className="mt-6">
       <div className="mb-3 flex items-center gap-2">
         <Badge className="bg-sky-50 text-sky-700">실시간 검색 결과</Badge>
-        <p className="text-xs text-slate-400">{description}</p>
+        <p className="text-xs text-ink-faint">{description}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <div
             key={item.link}
-            className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3"
+            className="flex gap-3 rounded-2xl border border-stone-200 bg-white p-3"
           >
             {item.image && (
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-stone-100 bg-white">
                 <Image
                   src={item.image}
                   alt={item.title}
@@ -111,11 +111,11 @@ export function LiveSearchFallback({
               </div>
             )}
             <div className="min-w-0">
-              <p className="line-clamp-2 text-sm font-semibold text-slate-800">
+              <p className="line-clamp-2 text-sm font-semibold text-ink">
                 {item.title}
               </p>
               {item.brand && (
-                <p className="mt-1 text-xs text-slate-500">{item.brand}</p>
+                <p className="mt-1 text-xs text-ink-muted">{item.brand}</p>
               )}
             </div>
           </div>
