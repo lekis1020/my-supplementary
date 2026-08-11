@@ -4,10 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
-import { buildBenefitClaimDetails, buildBenefitProfile } from "@/lib/benefit-profile";
-import { getVitaminSideEffectInfosForIngredient } from "@/lib/vitamin-side-effects";
 import {
-  getIngredientCategory,
   getIngredientCategoryLabel,
   getIngredientTypeLabel,
   getEvidenceGradeColor,
@@ -17,74 +14,18 @@ import {
   getStudyDesignColor,
   getEffectDirectionLabel,
   getEffectDirectionBadgeColor,
-  hasClearlyIdentifiedProbioticStrain,
-  normalizeProbioticStrainNameForDisplay,
 } from "@/lib/utils";
 import {
   ArrowLeft, AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
 } from "lucide-react";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
+import { getIngredientDetail, getClaimMeta } from "@/lib/data/ingredient-detail";
 import type { Metadata } from "next";
-import type { QueryData } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
-}
-
-function getClaimMeta<T>(input: T | T[] | null | undefined): T | null {
-  return Array.isArray(input) ? input[0] ?? null : input ?? null;
-}
-
-function getSourceMeta<T>(input: T | T[] | null | undefined): T | null {
-  return Array.isArray(input) ? input[0] ?? null : input ?? null;
-}
-
-function dedupeSourceLinks<
-  T extends {
-    entity_type: string;
-    entity_id: number;
-    source_reference: string | null;
-    sources?: { source_name: string } | Array<{ source_name: string }> | null;
-  },
->(rows: T[]): T[] {
-  const map = new Map<string, T>();
-
-  for (const row of rows) {
-    const source = getSourceMeta(row.sources);
-    const key = [
-      row.entity_type,
-      row.entity_id,
-      source?.source_name ?? "",
-      row.source_reference ?? "",
-    ].join("|");
-
-    if (!map.has(key)) {
-      map.set(key, row);
-    }
-  }
-
-  return Array.from(map.values());
-}
-
-function getStudyPriority(design: string | null): number {
-  switch (design) {
-    case "meta_analysis":
-      return 5;
-    case "systematic_review":
-      return 4;
-    case "guideline":
-      return 4;
-    case "rct":
-      return 3;
-    case "cohort":
-      return 2;
-    case "case_control":
-      return 1;
-    default:
-      return 0;
-  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -115,308 +56,39 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function IngredientDetailPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
-  const numericId = Number(slug);
+  const detail = await getIngredientDetail(slug);
+  if (!detail) notFound();
 
-  // 원료 기본 정보
-  let ingredientQuery = supabase
-    .from("ingredients")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_published", true);
-
-  if (Number.isInteger(numericId) && numericId > 0) {
-    ingredientQuery = supabase
-      .from("ingredients")
-      .select("*")
-      .eq("id", numericId)
-      .eq("is_published", true);
-  }
-
-  const { data: ingredient } = await ingredientQuery.single();
-
-  if (!ingredient) notFound();
-
-  // 판매 확인된 관련 제품 (이미지 우선 정렬은 JS에서) — QueryData로 조인 결과 타입을 도출
-  const verifiedProductsQuery = supabase
-    .from("product_ingredients")
-    .select(
-      "id, products!inner(id, product_name, brand_name, product_image_url, sale_url, sale_channel, sale_verified_at)",
-      { count: "exact" },
-    )
-    .eq("ingredient_id", ingredient.id)
-    .not("products.sale_verified_at", "is", null)
-    .limit(24);
-  type VerifiedProductsEmbed = QueryData<typeof verifiedProductsQuery>[number]["products"];
-  type VerifiedProduct = VerifiedProductsEmbed extends Array<infer P> ? P : NonNullable<VerifiedProductsEmbed>;
-
-  // 병렬 쿼리: 기능성, 안전성, 약물상호작용, 용량, 포함 제품, 판매확인 제품
-  const [claimsRes, safetyRes, drugRes, dosageRes, productsRes, evidenceRes, verifiedProductsRes] = await Promise.all([
-    supabase
-      .from("ingredient_claims")
-      .select("*, claims(*)")
-      .eq("ingredient_id", ingredient.id),
-    supabase
-      .from("safety_items")
-      .select("*")
-      .eq("ingredient_id", ingredient.id)
-      .order("severity_level"),
-    supabase
-      .from("ingredient_drug_interactions")
-      .select("*")
-      .eq("ingredient_id", ingredient.id),
-    supabase
-      .from("dosage_guidelines")
-      .select("*")
-      .eq("ingredient_id", ingredient.id),
-    supabase
-      .from("product_ingredients")
-      .select("id, amount_per_serving, amount_unit, products!inner(id, product_name, brand_name)", {
-        count: "exact",
-      })
-      .eq("ingredient_id", ingredient.id)
-      .limit(3),
-    supabase
-      .from("evidence_studies")
-      .select("*, evidence_outcomes(*, claims(claim_code, claim_name_ko))")
-      .eq("ingredient_id", ingredient.id)
-      .eq("included_in_summary", true)
-      .order("publication_year", { ascending: false }),
-    verifiedProductsQuery,
-  ]);
-
-  const ingredientClaims = claimsRes.data ?? [];
-  const safetyItems = safetyRes.data ?? [];
-  const drugInteractions = drugRes.data ?? [];
-  const dosageGuidelines = dosageRes.data ?? [];
-  const evidenceStudies = evidenceRes.data ?? [];
-  const productCount = productsRes.count ?? 0;
-
-  // 판매확인 제품: product 단위 dedupe → 이미지 보유 우선 → 상위 8건
-  const verifiedProductMap = new Map<number, VerifiedProduct>();
-  for (const row of verifiedProductsRes.data ?? []) {
-    const product = Array.isArray(row.products) ? row.products[0] : row.products;
-    if (product && !verifiedProductMap.has(product.id)) {
-      verifiedProductMap.set(product.id, product);
-    }
-  }
-  const verifiedProducts = Array.from(verifiedProductMap.values())
-    .sort((a, b) => Number(b.product_image_url != null) - Number(a.product_image_url != null))
-    .slice(0, 8);
-  const verifiedProductCount = verifiedProductsRes.count ?? verifiedProducts.length;
-  const category = getIngredientCategory(ingredient.ingredient_type);
-  const vitaminSideEffectInfos =
-    category === "vitamins"
-      ? getVitaminSideEffectInfosForIngredient({
-          canonicalNameKo: ingredient.canonical_name_ko,
-          canonicalNameEn: ingredient.canonical_name_en,
-          scientificName: ingredient.scientific_name,
-        })
-      : [];
-  const displayIngredientName = normalizeProbioticStrainNameForDisplay(ingredient.canonical_name_ko);
-  const isProbiotic = category === "probiotics";
-  const isPropolisIngredient = ingredient.canonical_name_ko.replace(/\s+/g, "").includes("프로폴리스");
-  const isLikelyProbioticStrain =
-    isProbiotic &&
-    hasClearlyIdentifiedProbioticStrain({
-      canonicalNameKo: ingredient.canonical_name_ko,
-      canonicalNameEn: ingredient.canonical_name_en,
-    });
-
-  let probioticFamilyRoot:
-    | {
-        id: number;
-        canonical_name_ko: string;
-      }
-    | null = null;
-
-  if (isProbiotic) {
-    if (ingredient.parent_ingredient_id) {
-      const { data } = await supabase
-        .from("ingredients")
-        .select("id, canonical_name_ko")
-        .eq("id", ingredient.parent_ingredient_id)
-        .eq("is_published", true)
-        .maybeSingle();
-      probioticFamilyRoot = data ?? null;
-    } else if (ingredient.slug === "probiotics") {
-      probioticFamilyRoot = {
-        id: ingredient.id,
-        canonical_name_ko: ingredient.canonical_name_ko,
-      };
-    } else if (isLikelyProbioticStrain) {
-      const { data } = await supabase
-        .from("ingredients")
-        .select("id, canonical_name_ko")
-        .eq("slug", "probiotics")
-        .eq("is_published", true)
-        .maybeSingle();
-      probioticFamilyRoot =
-        data && data.id !== ingredient.id ? data : null;
-    }
-  }
-
-  const probioticFamilyRootId =
-    probioticFamilyRoot?.id ??
-    (isProbiotic && ingredient.slug === "probiotics" ? ingredient.id : null);
-
-  const relatedIngredients = probioticFamilyRootId
-    ? (
-        (
-          await supabase
-            .from("ingredients")
-            .select("id, canonical_name_ko, canonical_name_en, scientific_name")
-            .eq("parent_ingredient_id", probioticFamilyRootId)
-            .eq("is_published", true)
-            .order("canonical_name_ko")
-        ).data ?? []
-      )
-    : [];
-
-  const propolisFamilyRootName = "프로폴리스추출물";
-  let propolisFamilyRoot:
-    | {
-        id: number;
-        canonical_name_ko: string;
-      }
-    | null = null;
-
-  if (isPropolisIngredient) {
-    if (ingredient.canonical_name_ko === propolisFamilyRootName) {
-      propolisFamilyRoot = {
-        id: ingredient.id,
-        canonical_name_ko: ingredient.canonical_name_ko,
-      };
-    } else {
-      const { data } = await supabase
-        .from("ingredients")
-        .select("id, canonical_name_ko")
-        .eq("canonical_name_ko", propolisFamilyRootName)
-        .eq("is_published", true)
-        .maybeSingle();
-      propolisFamilyRoot = data ?? null;
-    }
-  }
-
-  const propolisFamilyChildren = propolisFamilyRoot
-    ? (
-        (
-          await supabase
-            .from("ingredients")
-            .select("id, canonical_name_ko")
-            .eq("is_published", true)
-            .ilike("canonical_name_ko", "%프로폴리스%")
-            .neq("id", propolisFamilyRoot.id)
-            .order("canonical_name_ko")
-        ).data ?? []
-      )
-    : [];
-
-  const relatedIngredientIds = Array.from(
-    new Set([
-      ingredient.id,
-      ...(probioticFamilyRootId ? [probioticFamilyRootId] : []),
-      ...relatedIngredients.map((item) => item.id),
-    ]),
-  );
-  const relatedIngredientNameMap = new Map<number, string>([
-    [ingredient.id, ingredient.canonical_name_ko],
-    ...(probioticFamilyRoot ? [[probioticFamilyRoot.id, probioticFamilyRoot.canonical_name_ko] as const] : []),
-    ...relatedIngredients.map((item) => [item.id, item.canonical_name_ko] as const),
-  ]);
-  const isFamilyRootPage = probioticFamilyRootId === ingredient.id;
-  const includeFamilyEvidence = relatedIngredientIds.length > 1;
-
-  const [relatedClaimsRes, relatedEvidenceRes] = relatedIngredientIds.length > 1
-    ? await Promise.all([
-        supabase
-          .from("ingredient_claims")
-          .select("id, ingredient_id, claim_id, evidence_grade, evidence_summary, allowed_expression, claims(claim_name_ko, claim_scope)")
-          .in("ingredient_id", relatedIngredientIds),
-        supabase
-          .from("evidence_studies")
-          .select("id, ingredient_id, title, authors, journal_name, publication_year, pmid, external_url, study_design, population_text, sample_size, duration_text, evidence_outcomes(id, effect_direction, effect_size_text, p_value_text, confidence_interval_text, conclusion_summary, claims(claim_code, claim_name_ko))")
-          .in("ingredient_id", relatedIngredientIds)
-          .eq("included_in_summary", true),
-      ])
-    : [null, null];
-
-  const mergedIngredientClaims =
-    relatedClaimsRes?.data?.length ? relatedClaimsRes.data : ingredientClaims;
-  const mergedEvidenceStudies =
-    relatedEvidenceRes?.data?.length ? relatedEvidenceRes.data : evidenceStudies;
-  const prioritizedEvidenceStudies = [...mergedEvidenceStudies].sort((left, right) => {
-    const studyPriorityDiff = getStudyPriority(right.study_design) - getStudyPriority(left.study_design);
-    if (studyPriorityDiff !== 0) {
-      return studyPriorityDiff;
-    }
-
-    return (right.publication_year ?? 0) - (left.publication_year ?? 0);
-  });
-  const highlightedEvidenceStudies = prioritizedEvidenceStudies.filter(
-    (study) => getStudyPriority(study.study_design) >= 3,
-  );
-  const claimIds = Array.from(
-    new Set(
-      mergedIngredientClaims
-        .map((claim) => claim.claim_id)
-        .filter((value): value is number => Number.isInteger(value)),
-    ),
-  );
-  const evidenceStudyIds = prioritizedEvidenceStudies.map((study) => study.id);
-  const ingredientSourceLinksQuery = supabase
-    .from("source_links")
-    .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
-    .eq("entity_type", "ingredient")
-    .in("entity_id", relatedIngredientIds)
-    .order("retrieved_at", { ascending: false });
-  type SourceLink = QueryData<typeof ingredientSourceLinksQuery>[number];
-
-  const { data: ingredientSourceLinksRaw } = await ingredientSourceLinksQuery;
-
-  let claimSourceLinksRaw: SourceLink[] = [];
-  if (claimIds.length > 0) {
-    const { data } = await supabase
-      .from("source_links")
-      .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
-      .eq("entity_type", "claim")
-      .in("entity_id", claimIds)
-      .order("retrieved_at", { ascending: false });
-    claimSourceLinksRaw = data ?? [];
-  }
-
-  let evidenceSourceLinksRaw: SourceLink[] = [];
-  if (evidenceStudyIds.length > 0) {
-    const { data } = await supabase
-      .from("source_links")
-      .select("id, entity_type, entity_id, source_reference, source_excerpt, retrieved_at, sources(source_name, organization_name, source_url)")
-      .eq("entity_type", "evidence_study")
-      .in("entity_id", evidenceStudyIds)
-      .order("retrieved_at", { ascending: false });
-    evidenceSourceLinksRaw = data ?? [];
-  }
-
-  const ingredientSourceLinks = dedupeSourceLinks(ingredientSourceLinksRaw ?? []);
-  const claimSourceLinks = dedupeSourceLinks(claimSourceLinksRaw);
-  const evidenceSourceLinks = dedupeSourceLinks(evidenceSourceLinksRaw);
-  const claimNamesWithEvidence = new Set(
-    prioritizedEvidenceStudies.flatMap((study) =>
-      (study.evidence_outcomes ?? [])
-        .map((outcome) => getClaimMeta(outcome.claims)?.claim_name_ko)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  );
-  const claimsMissingDirectEvidence = Array.from(
-    new Set(
-      mergedIngredientClaims
-        .map((claim) => getClaimMeta(claim.claims)?.claim_name_ko)
-        .filter((value): value is string => Boolean(value))
-        .filter((claimName) => !claimNamesWithEvidence.has(claimName)),
-    ),
-  );
-  const hasEvidenceGap = prioritizedEvidenceStudies.length === 0 || claimsMissingDirectEvidence.length > 0;
-  const benefitProfile = buildBenefitProfile(mergedIngredientClaims);
-  const benefitClaimDetails = buildBenefitClaimDetails(mergedIngredientClaims);
+  const {
+    ingredient,
+    category,
+    displayIngredientName,
+    isProbiotic,
+    vitaminSideEffectInfos,
+    propolisFamilyRoot,
+    propolisFamilyChildren,
+    isFamilyRootPage,
+    includeFamilyEvidence,
+    relatedIngredientNameMap,
+    claims: mergedIngredientClaims,
+    benefitProfile,
+    benefitClaimDetails,
+    evidenceStudies: prioritizedEvidenceStudies,
+    highlightedEvidenceStudies,
+    hasEvidenceGap,
+    claimsMissingDirectEvidence,
+    safetyItems,
+    drugInteractions,
+    dosageGuidelines,
+    products: productCount,
+    verifiedProducts,
+    verifiedProductCount,
+    sourceLinks: {
+      ingredient: ingredientSourceLinks,
+      claim: claimSourceLinks,
+      evidence: evidenceSourceLinks,
+    },
+  } = detail;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -1109,7 +781,7 @@ function SourceLinkBlock<
       ) : (
         <div className="space-y-2">
           {links.slice(0, 8).map((link) => {
-            const source = getSourceMeta(link.sources);
+            const source = getClaimMeta(link.sources);
             const href = link.source_reference || source?.source_url || null;
             const retrievedDate = link.retrieved_at
               ? new Date(link.retrieved_at).toLocaleDateString("ko-KR")
