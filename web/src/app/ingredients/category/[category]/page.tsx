@@ -2,13 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { IngredientCard } from "@/components/ingredient/ingredient-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { ErrorState } from "@/components/ui/state-message";
+import { cn } from "@/lib/utils";
 import { getVitaminSideEffectInfoBySubgroup } from "@/lib/vitamin-side-effects";
 import {
   getIngredientCategories,
   getIngredientCategoryDescription,
   getIngredientCategoryLabel,
   getIngredientSubgroupLabel,
-  getIngredientTypeLabels,
   getProbioticSubgroup,
   getVitaminSubgroups,
   INGREDIENT_CATEGORY_ORDER,
@@ -53,7 +55,14 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
     .order("canonical_name_ko");
 
   if (error) {
-    return <ErrorState message={error.message} />;
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <ErrorState
+          title={`데이터를 불러오지 못했습니다: ${error.message}`}
+          description="Supabase 연결을 확인해 주세요."
+        />
+      </div>
+    );
   }
 
   const categoryIngredients = (ingredients ?? []).filter(
@@ -68,22 +77,22 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
-      <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-        <Link href="/ingredients" className="hover:text-emerald-600">
+      <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-ink-faint">
+        <Link href="/ingredients" className="hover:text-ink">
           원료 사전
         </Link>
         <span>/</span>
-        <span className="font-medium text-slate-600">{getIngredientCategoryLabel(category)}</span>
+        <span className="font-medium text-ink">{getIngredientCategoryLabel(category)}</span>
       </nav>
 
-      <div className="mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
+      <div className="mb-10 rounded-3xl border border-stone-200 bg-surface p-8 shadow-card">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700">
           {getIngredientCategoryLabel(category)}
         </p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-ink">
           {getIngredientCategoryLabel(category)} 원료
         </h1>
-        <p className="mt-3 max-w-3xl text-slate-500">
+        <p className="mt-3 max-w-3xl text-ink-muted">
           {getIngredientCategoryDescription(category)}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
@@ -91,22 +100,22 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
             <Link
               key={item}
               href={`/ingredients/category/${item}`}
-              className={[
+              className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                 item === category
                   ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-emerald-200 hover:text-emerald-700",
-              ].join(" ")}
+                  : "border-stone-200 bg-stone-50 text-ink-muted hover:border-emerald-200 hover:text-emerald-700",
+              )}
             >
               {getIngredientCategoryLabel(item)}
             </Link>
           ))}
         </div>
-        <p className="mt-6 text-sm font-medium text-slate-400">
+        <p className="mt-6 text-sm font-medium text-ink-faint">
           총 {categoryIngredients.length.toLocaleString()}개 원료
         </p>
         {category === "vitamins" && (
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-ink-muted">
             복합 비타민 원료는 포함된 성분 기준으로 여러 세부 분류에 함께 표시됩니다.
             복합 유형 원료는 관련 카테고리에 각각 나뉘어 표시됩니다.
           </p>
@@ -120,36 +129,25 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
 
           return (
             <section key={groupName}>
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{groupName}</h2>
-                  <p className="mt-1 text-sm text-slate-400">{items.length.toLocaleString()}개 원료</p>
-                  {sideEffectInfo && (
-                    <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      <p className="font-semibold">부작용 요약</p>
-                      <p className="mt-1">{sideEffectInfo.summary}</p>
-                      <p className="mt-1 text-amber-700">주의: {sideEffectInfo.caution}</p>
-                      <a
-                        href={sideEffectInfo.referenceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-block font-medium underline decoration-amber-400 underline-offset-2"
-                      >
-                        참고문헌(ODS)
-                      </a>
-                    </div>
-                  )}
+              <SectionHeader title={groupName} count={items.length} />
+              {sideEffectInfo && (
+                <div className="-mt-2 mb-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <p className="font-semibold">부작용 요약</p>
+                  <p className="mt-1">{sideEffectInfo.summary}</p>
+                  <p className="mt-1 text-amber-700">주의: {sideEffectInfo.caution}</p>
+                  <a
+                    href={sideEffectInfo.referenceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-block font-medium underline decoration-amber-400 underline-offset-2"
+                  >
+                    참고문헌(ODS)
+                  </a>
                 </div>
-              </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((ingredient) => (
-                  <IngredientCard
-                    key={ingredient.id}
-                    ingredient={ingredient}
-                    subgroupLabel={
-                      category === "probiotics" || category === "vitamins" ? groupName : null
-                    }
-                  />
+                  <IngredientCard key={ingredient.id} ingredient={ingredient} />
                 ))}
               </div>
             </section>
@@ -253,13 +251,4 @@ function groupIngredients<
   }
 
   return [[getIngredientCategoryLabel(category), ingredients]];
-}
-
-function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-12 text-center">
-      <p className="text-red-500">데이터를 불러오지 못했습니다: {message}</p>
-      <p className="mt-2 text-sm text-gray-400">Supabase 연결을 확인해 주세요.</p>
-    </div>
-  );
 }
