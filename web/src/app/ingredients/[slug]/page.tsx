@@ -4,9 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
+import { IngredientHero } from "@/components/ingredient/ingredient-hero";
 import {
-  getIngredientCategoryLabel,
-  getIngredientTypeLabel,
   getEvidenceGradeColor,
   getSeverityColor,
   getClaimScopeLabel,
@@ -16,7 +15,7 @@ import {
   getEffectDirectionBadgeColor,
 } from "@/lib/utils";
 import {
-  ArrowLeft, AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
+  AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
 } from "lucide-react";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
 import { getIngredientDetail, getClaimMeta } from "@/lib/data/ingredient-detail";
@@ -92,118 +91,18 @@ export default async function IngredientDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
-      {/* Breadcrumb */}
-      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-500">
-        <Link href="/ingredients" className="inline-flex items-center gap-1 hover:text-green-600">
-          <ArrowLeft className="h-4 w-4" />
-          원료 사전
-        </Link>
-        <span>/</span>
-        <Link
-          href={`/ingredients/category/${category}`}
-          className="hover:text-green-600"
-        >
-          {getIngredientCategoryLabel(category)}
-        </Link>
-        <span>/</span>
-        <span className="font-medium text-gray-700">{displayIngredientName}</span>
-      </div>
-
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {displayIngredientName}
-          </h1>
-          <Badge className="bg-gray-100 text-gray-600">
-            {getIngredientTypeLabel(ingredient.ingredient_type)}
-          </Badge>
-        </div>
-        {displayIngredientName !== ingredient.canonical_name_ko && (
-          <p className="mt-1 text-sm text-gray-400">
-            원료 표기: {ingredient.canonical_name_ko}
-          </p>
-        )}
-        {ingredient.canonical_name_en && (
-          <p className="mt-1 text-lg text-gray-400">{ingredient.canonical_name_en}</p>
-        )}
-        {ingredient.scientific_name && (
-          <p className="text-sm italic text-gray-400">{ingredient.scientific_name}</p>
-        )}
-        {ingredient.description && (
-          <p className="mt-4 text-gray-600">{ingredient.description}</p>
-        )}
-        {ingredient.form_description && (
-          <p className="mt-2 text-sm text-gray-500">
-            <strong>주요 형태:</strong> {ingredient.form_description}
-          </p>
-        )}
-        {ingredient.standardization_info && (
-          <p className="text-sm text-gray-500">
-            <strong>표준화:</strong> {ingredient.standardization_info}
-          </p>
-        )}
-      </div>
+      <IngredientHero
+        ingredient={ingredient}
+        category={category}
+        displayIngredientName={displayIngredientName}
+        summary={detail.summary}
+        hasApprovedClaim={detail.summary.approvedClaimCount > 0}
+        isProbiotic={isProbiotic}
+        propolisFamilyRoot={propolisFamilyRoot}
+        propolisFamilyChildren={propolisFamilyChildren}
+      />
 
       <div className="space-y-8">
-        {isProbiotic && (
-          <Link
-            href="/probiotics"
-            className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 transition-colors hover:bg-emerald-50"
-          >
-            <div>
-              <p className="font-semibold text-emerald-900">유산균 균주별 효능 비교 보기</p>
-              <p className="mt-0.5 text-sm text-emerald-700">
-                장건강·면역·정신건강·체지방 효능별로 균주를 근거등급과 함께 비교합니다.
-              </p>
-            </div>
-            <span className="text-sm font-semibold text-emerald-700">비교 →</span>
-          </Link>
-        )}
-
-        {propolisFamilyRoot && propolisFamilyChildren.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <Pill className="h-5 w-5 text-emerald-600" />
-                  프로폴리스추출물 하위 카테고리
-                </span>
-              </CardTitle>
-              <p className="mt-1 text-sm text-gray-500">
-                프로폴리스 관련 복합 표기를 한 곳에서 탐색할 수 있도록 연결했습니다.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-3 flex flex-wrap gap-2">
-                <Badge className="bg-emerald-50 text-emerald-700">상위 카테고리</Badge>
-                <Link
-                  href={`/ingredients/${propolisFamilyRoot.id}`}
-                  className="text-sm font-semibold text-emerald-700 hover:underline"
-                >
-                  {propolisFamilyRoot.canonical_name_ko}
-                </Link>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {propolisFamilyChildren.map((child) => (
-                  <Link
-                    key={child.id}
-                    href={`/ingredients/${child.id}`}
-                    className={[
-                      "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                      child.id === ingredient.id
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:text-emerald-700",
-                    ].join(" ")}
-                  >
-                    {child.canonical_name_ko}
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <BenefitHexagon
           title="효능 육각형"
           description="강도 비교가 아니라, 이 원료가 어떤 효능 축에 관련되는지를 빠르게 읽기 위한 요약입니다."
