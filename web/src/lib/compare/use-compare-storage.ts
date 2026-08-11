@@ -139,8 +139,10 @@ function writeCompareIds(ids: number[]): void {
   try {
     window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(ids));
   } catch {
-    // localStorage unavailable — fall through and still notify listeners so
-    // same-tab consumers reflect the in-memory value below.
+    // localStorage unavailable (private mode/quota) — the write is lost and
+    // setIds effectively no-ops: getIdsSnapshot re-reads storage, so listeners
+    // re-render with the unchanged stored value. Still notify for consistency;
+    // this is equal-or-better than the pre-hook behavior (uncaught throw).
   }
 
   cache = null;
