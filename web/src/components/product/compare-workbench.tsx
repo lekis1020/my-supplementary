@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CompareSummary } from "@/components/product/compare-summary";
-import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
+import { cn, formatProductName, getIngredientHref } from "@/lib/utils";
 import {
   COMPARE_MAX_PRODUCTS,
   normalizeCompareIds,
@@ -16,12 +16,13 @@ import {
   buildComparisonRow,
   buildProbioticStrainGroups,
   sortProductsByName,
-  type ComparisonCell,
   type IngredientComparisonRow,
-  type ProbioticStrainGroup,
 } from "@/lib/compare/compare-math";
+import { ComparisonSection } from "@/components/product/compare/comparison-section";
+import { SummaryCard } from "@/components/product/compare/summary-card";
+import { EmptySection } from "@/components/product/compare/empty-section";
+import { ProbioticStrainSection } from "@/components/product/compare/probiotic-strain-section";
 import { AlertTriangle, Plus, Scale, Sparkles, X } from "lucide-react";
-import Link from "next/link";
 import type { QueryData, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/supabase";
 
@@ -507,7 +508,7 @@ export function CompareWorkbench({
             <ComparisonSection
               title="공통 원료"
               description="모든 선택 제품에 같이 포함된 원료입니다. 같은 단위로 표기된 경우 상대 함량을 막대로 보여줍니다."
-              icon={<Sparkles className="h-5 w-5 text-emerald-600" />}
+              icon={<Sparkles className="h-5 w-5" />}
               rows={comparison.commonRows}
               selectedProducts={selectedProducts}
               emptyMessage="모든 제품에 공통으로 들어있는 원료는 없습니다."
@@ -516,7 +517,7 @@ export function CompareWorkbench({
             <ComparisonSection
               title="부분 중복 원료"
               description="일부 제품끼리만 겹치는 원료입니다. 복용 조합을 볼 때 가장 먼저 확인해야 하는 구간입니다."
-              icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
+              icon={<AlertTriangle className="h-5 w-5" />}
               rows={comparison.overlapRows}
               selectedProducts={selectedProducts}
               emptyMessage="부분적으로만 겹치는 원료는 없습니다."
@@ -561,306 +562,6 @@ export function CompareWorkbench({
         </div>
       )}
     </div>
-  );
-}
-
-function ComparisonSection({
-  title,
-  description,
-  icon,
-  rows,
-  selectedProducts,
-  emptyMessage,
-  focusProductId,
-}: {
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-  rows: IngredientComparisonRow[];
-  selectedProducts: Product[];
-  emptyMessage?: string;
-  focusProductId?: number;
-}) {
-  return (
-    <section>
-      <div className="mb-5">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h2>
-          <Badge className="bg-slate-100 text-slate-600">{rows.length.toLocaleString()}개</Badge>
-        </div>
-        <p className="mt-2 text-sm text-slate-500">{description}</p>
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptySection message={emptyMessage || "표시할 항목이 없습니다."} />
-      ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="min-w-[860px]">
-            <div
-              className="grid gap-0 border-b border-slate-200 bg-slate-50"
-              style={{
-                gridTemplateColumns: `minmax(220px, 1.1fr) repeat(${selectedProducts.length}, minmax(160px, 1fr))`,
-              }}
-            >
-              <div className="px-4 py-4 text-sm font-semibold text-slate-600">원료</div>
-              {selectedProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className={cn(
-                    "border-l border-slate-200 px-4 py-4 text-sm",
-                    focusProductId === product.id ? "bg-blue-50/70" : "",
-                  )}
-                >
-                  <div className="font-semibold text-slate-900">{formatProductName(product.product_name)}</div>
-                  <div className="mt-1 text-xs text-slate-400">
-                    {product.manufacturer_name || "제조사 정보 없음"}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {rows.map((row) => (
-                <div
-                  key={row.ingredientId}
-                  className="grid gap-0"
-                  style={{
-                    gridTemplateColumns: `minmax(220px, 1.1fr) repeat(${selectedProducts.length}, minmax(160px, 1fr))`,
-                  }}
-                >
-                  <div className="px-4 py-4">
-                    <Link
-                      href={row.ingredientHref}
-                      className="font-semibold text-emerald-700 hover:underline"
-                    >
-                      {row.ingredientName}
-                    </Link>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {row.duplicate && (
-                        <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-semibold text-yellow-800">
-                          중복
-                        </span>
-                      )}
-                      {row.isComparable && row.compareLabel && (
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                          동일 기준 비교 · {row.compareLabel}
-                        </span>
-                      )}
-                      {!row.isComparable && row.productCount >= 2 && (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-                          단위 상이 또는 표기 부족
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {row.cells.map((cell) => (
-                    <div
-                      key={`${row.ingredientId}-${cell.productId}`}
-                      className={cn(
-                        "border-l border-slate-100 px-4 py-4",
-                        focusProductId === cell.productId ? "bg-blue-50/40" : "",
-                      )}
-                    >
-                      <AmountCell
-                        cell={cell}
-                        row={row}
-                        highlighted={focusProductId === cell.productId}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function AmountCell({
-  cell,
-  row,
-  highlighted,
-}: {
-  cell: ComparisonCell;
-  row: IngredientComparisonRow;
-  highlighted?: boolean;
-}) {
-  if (!cell.ingredient) {
-    return <div className="py-3 text-center text-sm text-slate-300">—</div>;
-  }
-
-  const amount = cell.amount;
-  const isComparable =
-    row.isComparable &&
-    amount?.normalizedValue !== null &&
-    row.maxComparableValue !== null &&
-    row.maxComparableValue > 0;
-  const comparableAmountValue = isComparable ? amount?.normalizedValue ?? null : null;
-  const ratio =
-    comparableAmountValue !== null && row.maxComparableValue !== null
-      ? Math.max(8, (comparableAmountValue / row.maxComparableValue) * 100)
-      : 0;
-  const isMax = comparableAmountValue !== null && comparableAmountValue === row.maxComparableValue;
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl border px-3 py-3",
-        highlighted ? "border-blue-200 bg-white" : "border-slate-200 bg-slate-50/60",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-slate-900">
-            {amount?.displayText ?? "함량 정보 없음"}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            {getIngredientRoleLabel(cell.ingredient.ingredient_role)}
-          </div>
-        </div>
-        {isMax && (
-          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-            최대
-          </span>
-        )}
-      </div>
-
-      {isComparable ? (
-        <div className="mt-3">
-          <div className="h-2 rounded-full bg-slate-200">
-            <div
-              className="h-2 rounded-full bg-emerald-500 transition-all"
-              style={{ width: `${Math.min(ratio, 100)}%` }}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 text-[11px] text-slate-400">
-          {row.productCount >= 2 ? "상대 비교 없음" : "단독 포함"}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  description,
-  tone,
-}: {
-  label: string;
-  value: number;
-  description: string;
-  tone: "emerald" | "amber" | "blue" | "slate";
-}) {
-  const toneClassName =
-    {
-      emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
-      amber: "bg-amber-50 text-amber-700 border-amber-100",
-      blue: "bg-blue-50 text-blue-700 border-blue-100",
-      slate: "bg-slate-50 text-slate-700 border-slate-100",
-    }[tone] || "bg-slate-50 text-slate-700 border-slate-100";
-
-  return (
-    <Card className="border-slate-200 p-5">
-      <div className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-semibold", toneClassName)}>
-        {label}
-      </div>
-      <div className="mt-4 text-3xl font-black tracking-tight text-slate-900">
-        {value.toLocaleString()}
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
-    </Card>
-  );
-}
-
-function EmptySection({ message }: { message: string }) {
-  return (
-    <Card className="border-dashed border-slate-200 bg-slate-50/70 p-8 text-center text-sm text-slate-400">
-      {message}
-    </Card>
-  );
-}
-
-function ProbioticStrainSection({
-  group,
-  selectedProducts,
-}: {
-  group: ProbioticStrainGroup;
-  selectedProducts: Product[];
-}) {
-  return (
-    <section>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-bold text-slate-900">{group.subgroup}</h3>
-        <Badge className="bg-slate-100 text-slate-600">{group.rows.length.toLocaleString()}개</Badge>
-      </div>
-
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="min-w-[760px]">
-          <div
-            className="grid gap-0 border-b border-slate-200 bg-slate-50"
-            style={{
-              gridTemplateColumns: `minmax(240px, 1.1fr) repeat(${selectedProducts.length}, minmax(160px, 1fr))`,
-            }}
-          >
-            <div className="px-4 py-3 text-sm font-semibold text-slate-600">균주</div>
-            {selectedProducts.map((product) => (
-              <div
-                key={product.id}
-                className="border-l border-slate-200 px-4 py-3 text-xs font-semibold text-slate-700"
-              >
-                {formatProductName(product.product_name)}
-              </div>
-            ))}
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {group.rows.map((row) => (
-              <div
-                key={row.key}
-                className="grid gap-0"
-                style={{
-                  gridTemplateColumns: `minmax(240px, 1.1fr) repeat(${selectedProducts.length}, minmax(160px, 1fr))`,
-                }}
-              >
-                <div className="px-4 py-4">
-                  <p className="font-semibold text-slate-900">{row.label}</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {row.productCount >= 2 ? `공통 ${row.productCount}개 제품` : "단일 제품 표기"}
-                  </p>
-                </div>
-
-                {row.cells.map((cell) => (
-                  <div key={`${row.key}-${cell.productId}`} className="border-l border-slate-100 px-4 py-4">
-                    {cell.present ? (
-                      <div className="space-y-2">
-                        <span className="inline-flex rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
-                          표기됨
-                        </span>
-                        {cell.amountTexts.length > 0 && (
-                          <p className="text-xs font-medium text-slate-700">{cell.amountTexts[0]}</p>
-                        )}
-                        {cell.rawLabels.length > 0 && (
-                          <p className="line-clamp-2 text-[11px] text-slate-400">{cell.rawLabels[0]}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="py-2 text-center text-sm text-slate-300">—</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
