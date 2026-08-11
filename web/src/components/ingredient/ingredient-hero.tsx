@@ -31,6 +31,7 @@ interface IngredientHeroProps {
     cautionCount: number;
   };
   hasApprovedClaim: boolean;
+  approvalCountryCode?: string;
   isProbiotic: boolean;
   propolisFamilyRoot: { id: number; canonical_name_ko: string } | null;
   propolisFamilyChildren: Array<{ id: number; canonical_name_ko: string }>;
@@ -42,6 +43,7 @@ export function IngredientHero({
   displayIngredientName,
   summary,
   hasApprovedClaim,
+  approvalCountryCode,
   isProbiotic,
   propolisFamilyRoot,
   propolisFamilyChildren,
@@ -67,7 +69,7 @@ export function IngredientHero({
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-extrabold text-ink">{displayIngredientName}</h1>
           <Badge variant="tag">{getIngredientTypeLabel(ingredient.ingredient_type)}</Badge>
-          {hasApprovedClaim && <RegulatoryBadge />}
+          {hasApprovedClaim && <RegulatoryBadge countryCode={approvalCountryCode} />}
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-3">

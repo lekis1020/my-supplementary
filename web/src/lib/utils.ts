@@ -162,22 +162,6 @@ export function getEvidenceGradeColor(grade: string | null): string {
   }
 }
 
-/** 안전성 심각도 배지 색상 */
-export function getSeverityColor(level: string | null): string {
-  switch (level) {
-    case "critical":
-      return "bg-red-100 text-red-800";
-    case "serious":
-      return "bg-orange-100 text-orange-800";
-    case "moderate":
-      return "bg-yellow-100 text-yellow-800";
-    case "mild":
-      return "bg-green-100 text-green-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-}
-
 /** claim_scope 한글 변환 */
 export function getClaimScopeLabel(scope: string): string {
   const map: Record<string, string> = {

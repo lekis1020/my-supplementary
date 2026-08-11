@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeSourceLinks, getClaimMeta, getStudyPriority } from "@/lib/data/ingredient-detail";
+import { computeSummary, dedupeSourceLinks, getClaimMeta, getStudyPriority } from "@/lib/data/ingredient-detail";
 
 describe("getStudyPriority", () => {
   // Implementation (ingredient-detail.ts): meta_analysis=5, systematic_review=4,
@@ -136,5 +136,52 @@ describe("dedupeSourceLinks", () => {
     ];
 
     expect(dedupeSourceLinks(rows)).toHaveLength(1);
+  });
+});
+
+describe("computeSummary", () => {
+  // 2-2a/2-2b adjudications this guards: topEvidenceGrade reads the MERGED
+  // claim set (family-page coherence), approvedClaimCount stays on the
+  // ingredient's OWN claims only (never inflated by sibling/family
+  // approvals), and cautionCount sums all three safety-adjacent sources.
+  it("computes topEvidenceGrade from the merged claim set, not the own-claim set", () => {
+    const result = computeSummary({
+      ownClaims: [{ is_regulator_approved: false }],
+      mergedClaims: [{ evidence_grade: "C" }, { evidence_grade: "A" }, { evidence_grade: null }],
+      safetyItemCount: 0,
+      drugInteractionCount: 0,
+      vitaminSideEffectCount: 0,
+    });
+
+    expect(result.topEvidenceGrade).toBe("A");
+  });
+
+  it("counts approvedClaimCount from ownClaims only, ignoring merged/sibling claims", () => {
+    const result = computeSummary({
+      ownClaims: [{ is_regulator_approved: true }, { is_regulator_approved: false }],
+      // Merged set has more approved claims (from siblings) — must not leak into the count.
+      mergedClaims: [
+        { evidence_grade: "A" },
+        { evidence_grade: "B" },
+        { evidence_grade: "B" },
+      ],
+      safetyItemCount: 0,
+      drugInteractionCount: 0,
+      vitaminSideEffectCount: 0,
+    });
+
+    expect(result.approvedClaimCount).toBe(1);
+  });
+
+  it("sums cautionCount across safety items, drug interactions, and vitamin side effects", () => {
+    const result = computeSummary({
+      ownClaims: [],
+      mergedClaims: [],
+      safetyItemCount: 2,
+      drugInteractionCount: 3,
+      vitaminSideEffectCount: 1,
+    });
+
+    expect(result.cautionCount).toBe(6);
   });
 });

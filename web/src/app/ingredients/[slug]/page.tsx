@@ -88,6 +88,7 @@ export default async function IngredientDetailPage({ params }: Props) {
         displayIngredientName={displayIngredientName}
         summary={detail.summary}
         hasApprovedClaim={detail.summary.approvedClaimCount > 0}
+        approvalCountryCode={detail.approvalCountryCode}
         isProbiotic={isProbiotic}
         propolisFamilyRoot={propolisFamilyRoot}
         propolisFamilyChildren={propolisFamilyChildren}
