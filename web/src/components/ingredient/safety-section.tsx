@@ -22,7 +22,7 @@ export function SafetySection({
   return (
     <CollapsibleSection
       title="안전성 · 상호작용"
-      count={safetyItems.length + drugInteractions.length}
+      count={safetyItems.length + drugInteractions.length + vitaminSideEffectInfos.length}
     >
       <div className="space-y-6">
         {/* 안전성 */}
