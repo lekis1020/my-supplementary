@@ -5,17 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { IngredientHero } from "@/components/ingredient/ingredient-hero";
+import { ClaimsSection } from "@/components/ingredient/claims-section";
+import { EvidenceSection } from "@/components/ingredient/evidence-section";
+import { getSeverityColor } from "@/lib/utils";
 import {
-  getEvidenceGradeColor,
-  getSeverityColor,
-  getClaimScopeLabel,
-  getStudyDesignLabel,
-  getStudyDesignColor,
-  getEffectDirectionLabel,
-  getEffectDirectionBadgeColor,
-} from "@/lib/utils";
-import {
-  AlertTriangle, Pill, FlaskConical, Scale, BookOpen, ExternalLink,
+  AlertTriangle, Pill, Scale, ExternalLink,
 } from "lucide-react";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
 import { getIngredientDetail, getClaimMeta } from "@/lib/data/ingredient-detail";
@@ -112,273 +106,24 @@ export default async function IngredientDetailPage({ params }: Props) {
 
         {/* 기능성/효능 */}
         {mergedIngredientClaims.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <FlaskConical className="h-5 w-5 text-green-600" />
-                  기능성 · 효능
-                </span>
-              </CardTitle>
-              {includeFamilyEvidence && (
-                <p className="mt-1 text-sm text-gray-500">
-                  {isFamilyRootPage
-                    ? "프로바이오틱스는 균주별 연구가 많아, 이 페이지에는 하위 균주 근거까지 함께 반영했습니다."
-                    : "개별 균주 근거가 부족한 경우를 보완하기 위해 상위 프로바이오틱스 및 연관 균주 근거를 함께 반영했습니다."}
-                </p>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mergedIngredientClaims.map((ic) => {
-                  const claimMeta = getClaimMeta(ic.claims);
-                  const sourceIngredientName = relatedIngredientNameMap.get(ic.ingredient_id);
-                  const isRelatedStrainClaim = ic.ingredient_id !== ingredient.id && Boolean(sourceIngredientName);
-
-                  return (
-                  <div key={ic.id} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {claimMeta?.claim_name_ko}
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <Badge className="bg-blue-50 text-blue-700">
-                            {getClaimScopeLabel(claimMeta?.claim_scope ?? "")}
-                          </Badge>
-                          {isRelatedStrainClaim && (
-                            <Badge className="bg-violet-50 text-violet-700">
-                              연관 근거: {sourceIngredientName}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {ic.evidence_grade && (
-                        <Badge className={getEvidenceGradeColor(ic.evidence_grade)}>
-                          근거 {ic.evidence_grade}
-                        </Badge>
-                      )}
-                    </div>
-                    {ic.evidence_summary && (
-                      <p className="mt-2 text-sm text-gray-500">{ic.evidence_summary}</p>
-                    )}
-                    {ic.allowed_expression && (
-                      <p className="mt-2 text-xs text-green-700 bg-green-50 rounded px-2 py-1">
-                        허용 표현: {ic.allowed_expression}
-                      </p>
-                    )}
-                  </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <ClaimsSection
+            claims={mergedIngredientClaims}
+            ingredientId={ingredient.id}
+            relatedIngredientNameMap={relatedIngredientNameMap}
+            includeFamilyEvidence={includeFamilyEvidence}
+            isFamilyRootPage={isFamilyRootPage}
+          />
         )}
 
         {/* 연구 근거 */}
-        {prioritizedEvidenceStudies.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-purple-600" />
-                  연구 근거
-                </span>
-              </CardTitle>
-              <p className="mt-1 text-sm text-gray-500">
-                PubMed 등록 학술 연구 {prioritizedEvidenceStudies.length}건
-              </p>
-              {highlightedEvidenceStudies.length > 0 && (
-                <p className="mt-1 text-sm text-gray-500">
-                  메타분석, 체계적 문헌고찰, RCT 중심으로 우선 정렬했습니다.
-                </p>
-              )}
-            </CardHeader>
-            <CardContent>
-              {highlightedEvidenceStudies.length > 0 && (
-                <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-purple-100 bg-purple-50/60 p-3">
-                  <Badge className="bg-purple-100 text-purple-800">
-                    고근거 연구 {highlightedEvidenceStudies.length}건
-                  </Badge>
-                  {includeFamilyEvidence && (
-                    <span className="text-xs text-purple-800">
-                      {isFamilyRootPage
-                        ? "하위 균주 연구를 포함합니다."
-                        : "상위/연관 균주 연구를 포함합니다."}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className="space-y-4">
-                {prioritizedEvidenceStudies.map((study) => {
-                  const outcome = study.evidence_outcomes?.[0];
-                  const outcomeClaimMeta = getClaimMeta(outcome?.claims);
-                  const pubmedUrl =
-                    study.external_url ||
-                    (study.pmid
-                      ? `https://pubmed.ncbi.nlm.nih.gov/${study.pmid}/`
-                      : null);
-                  const firstAuthor = study.authors
-                    ?.split(",")[0]
-                    ?.trim();
-                  const hasMultipleAuthors =
-                    study.authors?.includes(",");
-                  const sourceIngredientName = relatedIngredientNameMap.get(study.ingredient_id);
-                  const isRelatedStrainStudy = study.ingredient_id !== ingredient.id && Boolean(sourceIngredientName);
-
-                  return (
-                    <div
-                      key={study.id}
-                      className="rounded-lg border border-gray-200 p-4"
-                    >
-                      {/* 배지 행 */}
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        {study.study_design && (
-                          <Badge
-                            className={getStudyDesignColor(
-                              study.study_design,
-                            )}
-                          >
-                            {getStudyDesignLabel(study.study_design)}
-                          </Badge>
-                        )}
-                        {isRelatedStrainStudy && (
-                          <Badge className="bg-violet-50 text-violet-700">
-                            연관 원료 {sourceIngredientName}
-                          </Badge>
-                        )}
-                        {study.publication_year && (
-                          <span className="text-xs text-gray-400">
-                            {study.publication_year}
-                          </span>
-                        )}
-                        {study.sample_size && (
-                          <span className="text-xs text-gray-400">
-                            n=
-                            {study.sample_size.toLocaleString()}
-                          </span>
-                        )}
-                        {outcome?.effect_direction && (
-                          <Badge
-                            className={getEffectDirectionBadgeColor(
-                              outcome.effect_direction,
-                            )}
-                          >
-                            {getEffectDirectionLabel(
-                              outcome.effect_direction,
-                            )}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* 제목 + PubMed 링크 */}
-                      {pubmedUrl ? (
-                        <a
-                          href={pubmedUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group flex items-start gap-2"
-                        >
-                          <h4 className="flex-1 text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600">
-                            {study.title}
-                          </h4>
-                          <ExternalLink className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-300 group-hover:text-blue-500" />
-                        </a>
-                      ) : (
-                        <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
-                          {study.title}
-                        </h4>
-                      )}
-
-                      {/* 저널 · 저자 */}
-                      <p className="mt-1 text-xs text-gray-400">
-                        {study.journal_name}
-                        {firstAuthor &&
-                          ` · ${firstAuthor}${hasMultipleAuthors ? " et al." : ""}`}
-                      </p>
-
-                      {/* 대상 · 기간 */}
-                      {(study.population_text ||
-                        study.duration_text) && (
-                        <p className="mt-1 text-xs text-gray-400">
-                          {study.population_text}
-                          {study.duration_text &&
-                            study.duration_text !== "-" &&
-                            ` · ${study.duration_text}`}
-                        </p>
-                      )}
-
-                      {/* 결과 요약 */}
-                      {outcome?.conclusion_summary && (
-                        <div className="mt-3 rounded-md bg-gray-50 p-3">
-                          {outcomeClaimMeta?.claim_name_ko && (
-                            <p className="mb-1 text-xs font-medium text-purple-600">
-                              {outcomeClaimMeta.claim_name_ko}
-                            </p>
-                          )}
-                          <p className="text-sm leading-relaxed text-gray-700">
-                            {outcome.conclusion_summary}
-                          </p>
-                          {(outcome.effect_size_text ||
-                            outcome.p_value_text) && (
-                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
-                              {outcome.effect_size_text && (
-                                <span>
-                                  효과크기:{" "}
-                                  {outcome.effect_size_text}
-                                </span>
-                              )}
-                              {outcome.p_value_text &&
-                                outcome.p_value_text !== "-" && (
-                                  <span>
-                                    {outcome.p_value_text}
-                                  </span>
-                                )}
-                              {outcome.confidence_interval_text &&
-                                outcome.confidence_interval_text !==
-                                  "-" && (
-                                  <span>
-                                    CI:{" "}
-                                    {
-                                      outcome.confidence_interval_text
-                                    }
-                                  </span>
-                                )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {prioritizedEvidenceStudies.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-purple-600" />
-                  연구 근거
-                </span>
-              </CardTitle>
-              <p className="mt-1 text-sm text-gray-500">
-                현재 이 원료에 대해 페이지에 노출 가능한 요약 논문이 충분히 준비되지 않았습니다.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-xl border border-dashed border-purple-200 bg-purple-50/50 p-4">
-                <p className="text-sm text-purple-900">
-                  근거 업데이트가 진행 중입니다. 아래 <strong>근거 출처 · 업데이트 현황</strong> 섹션에서
-                  현재 연결된 출처를 먼저 확인할 수 있습니다.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <EvidenceSection
+          studies={prioritizedEvidenceStudies}
+          highlightedStudies={highlightedEvidenceStudies}
+          ingredientId={ingredient.id}
+          relatedIngredientNameMap={relatedIngredientNameMap}
+          includeFamilyEvidence={includeFamilyEvidence}
+          isFamilyRootPage={isFamilyRootPage}
+        />
 
         {(ingredientSourceLinks.length > 0 ||
           claimSourceLinks.length > 0 ||
