@@ -15,6 +15,10 @@ interface CTAButtonProps {
   onClick?: () => void;
   variant?: CTAVariant;
   className?: string;
+  // For external hrefs (e.g. outbound sale links) — next/link renders a
+  // plain <a> for off-site URLs, so these pass straight through.
+  target?: string;
+  rel?: string;
 }
 
 export function CTAButton({
@@ -23,6 +27,8 @@ export function CTAButton({
   onClick,
   variant = "primary",
   className,
+  target,
+  rel,
 }: CTAButtonProps) {
   const classes = cn(
     "inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors",
@@ -31,7 +37,7 @@ export function CTAButton({
   );
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} target={target} rel={rel} className={classes}>
         {children}
       </Link>
     );
