@@ -376,7 +376,7 @@ async function fetchIngredientDetail(slug: string) {
     safetyItems,
     drugInteractions,
     dosageGuidelines,
-    products: productCount,
+    productCount,
     verifiedProducts,
     verifiedProductCount,
     sourceLinks: {

@@ -70,7 +70,7 @@ export default async function IngredientDetailPage({ params }: Props) {
     safetyItems,
     drugInteractions,
     dosageGuidelines,
-    products: productCount,
+    productCount,
     verifiedProducts,
     verifiedProductCount,
     sourceLinks: {

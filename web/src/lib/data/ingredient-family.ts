@@ -10,7 +10,7 @@ import type { Database } from "@/lib/types/supabase";
 import { getIngredientCategory, hasClearlyIdentifiedProbioticStrain } from "@/lib/utils";
 
 export interface FamilyResolution {
-  /** Family root id + siblings + self, deduped. Self only when no family applies. */
+  /** Family root id + siblings + self, deduped. Always includes the ingredient's own id. */
   relatedIngredientIds: number[];
   /** Resolved probiotic family root id, or null when this ingredient has no probiotic family. */
   familyRootId: number | null;
