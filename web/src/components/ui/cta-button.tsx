@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 type CTAVariant = "primary" | "outline";
 
 const CTA_CLASSES: Record<CTAVariant, string> = {
-  primary: "bg-brand text-white hover:bg-orange-600 shadow-card",
+  // WCAG AA: white text needs ≥4.5:1 — orange-700 passes; brand #f97316 (2.8:1) is reserved for non-text accents
+  primary: "bg-orange-700 text-white hover:bg-orange-800 shadow-card",
   outline: "border border-stone-300 text-ink hover:border-brand hover:text-orange-700 bg-surface",
 };
 
