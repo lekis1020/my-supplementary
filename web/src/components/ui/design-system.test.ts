@@ -25,14 +25,21 @@ describe("evidenceGradeClasses", () => {
     expect(evidenceGradeClasses("Z")).toBe(evidenceGradeClasses("I"));
     expect(evidenceGradeClasses(null)).toBe(evidenceGradeClasses("I"));
   });
+  it("is unaffected by the severity vocabulary change", () => {
+    expect(evidenceGradeClasses("C")).toContain("evidence-c");
+  });
 });
 
 describe("severityClasses", () => {
-  it("maps high to danger tokens", () => {
-    expect(severityClasses("high")).toContain("danger");
+  it("maps severe to danger tokens", () => {
+    expect(severityClasses("severe")).toContain("danger");
   });
-  it("falls back to low for unknown/null", () => {
-    expect(severityClasses(null)).toBe(severityClasses("low"));
-    expect(severityClasses("weird")).toBe(severityClasses("low"));
+  it("maps critical to danger tokens with a border", () => {
+    expect(severityClasses("critical")).toContain("danger");
+    expect(severityClasses("critical")).toContain("border");
+  });
+  it("falls back to moderate for unknown/null (never under-warns)", () => {
+    expect(severityClasses(null)).toBe(severityClasses("moderate"));
+    expect(severityClasses("weird")).toBe(severityClasses("moderate"));
   });
 });

@@ -47,7 +47,7 @@ const COLOR_SWATCHES: ColorSwatch[] = [
 
 const EVIDENCE_GRADES = ["A", "B", "C", "D", "I"] as const;
 
-const SEVERITY_LEVELS = ["high", "medium", "low"] as const;
+const SEVERITY_LEVELS = ["mild", "moderate", "severe", "critical"] as const;
 
 const CARD_TONES = ["surface", "highlight"] as const;
 const CARD_PADDINGS = ["none", "sm", "md"] as const;
@@ -121,6 +121,7 @@ export default function DesignSystemShowcasePage() {
               <div className="flex flex-wrap gap-2">
                 <RegulatoryBadge countryCode="KR" />
                 <RegulatoryBadge countryCode="US" />
+                <RegulatoryBadge />
               </div>
             </div>
             <div>

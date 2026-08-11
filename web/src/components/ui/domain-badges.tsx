@@ -11,7 +11,11 @@ export function RegulatoryBadge({
   countryCode?: string | null;
   className?: string;
 }) {
-  const label = countryCode === "US" ? "FDA 인정" : "식약처 인정";
+  const REGULATORY_LABELS: Record<string, string> = {
+    KR: "식약처 인정",
+    US: "FDA 인정",
+  };
+  const label = REGULATORY_LABELS[countryCode ?? ""] ?? "규제기관 인정";
   return (
     <span
       className={cn(
@@ -60,22 +64,26 @@ export function EvidenceGradeBadge({
   );
 }
 
-export type SeverityLevel = "high" | "medium" | "low";
+export type SeverityLevel = "mild" | "moderate" | "severe" | "critical";
 
-const SEVERITY_CLASSES: Record<SeverityLevel, string> = {
-  high: "bg-danger-bg text-danger",
-  medium: "bg-evidence-c-bg text-evidence-c",
-  low: "bg-stone-100 text-stone-600",
+const SEVERITY_CLASSES: Record<string, string> = {
+  mild: "bg-stone-100 text-stone-600",
+  moderate: "bg-evidence-c-bg text-evidence-c",
+  severe: "bg-danger-bg text-danger",
+  critical: "bg-danger-bg text-danger border border-red-300",
 };
 
 const SEVERITY_LABELS: Record<SeverityLevel, string> = {
-  high: "주의 높음",
-  medium: "주의",
-  low: "참고",
+  mild: "참고",
+  moderate: "주의",
+  severe: "주의 높음",
+  critical: "위험",
 };
 
+// Unknown/null severity must never under-warn, so the fallback is the
+// mid-tier "moderate" ("주의") rather than the lowest tier.
 export function severityClasses(level: string | null | undefined): string {
-  return SEVERITY_CLASSES[(level ?? "low") as SeverityLevel] ?? SEVERITY_CLASSES.low;
+  return SEVERITY_CLASSES[level ?? "moderate"] ?? SEVERITY_CLASSES.moderate;
 }
 
 export function SeverityBadge({
@@ -87,7 +95,7 @@ export function SeverityBadge({
   label?: string;
   className?: string;
 }) {
-  const key = (level ?? "low") as SeverityLevel;
+  const key = (level ?? "moderate") as SeverityLevel;
   return (
     <span
       className={cn(
@@ -96,7 +104,7 @@ export function SeverityBadge({
         className
       )}
     >
-      {label ?? SEVERITY_LABELS[key] ?? SEVERITY_LABELS.low}
+      {label ?? SEVERITY_LABELS[key] ?? SEVERITY_LABELS.moderate}
     </span>
   );
 }
