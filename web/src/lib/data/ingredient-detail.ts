@@ -96,6 +96,49 @@ function computeTopEvidenceGrade(claims: Array<{ evidence_grade: string | null }
   return best;
 }
 
+/**
+ * Pure summary computation, extracted for unit testing (see
+ * ingredient-detail.test.ts). Two claim sets are intentionally kept
+ * separate — `mergedClaims` (own + family, when a strain/family merge
+ * applies) drives `topEvidenceGrade`, while `ownClaims` (never merged)
+ * drives `approvedClaimCount` so sibling approvals never inflate a strain
+ * page's own count (2-2a adjudication). `cautionCount` sums all three
+ * safety-adjacent sources so it matches the safety-section badge count.
+ */
+export function computeSummary(input: {
+  ownClaims: Array<{ is_regulator_approved: boolean | null }>;
+  mergedClaims: Array<{ evidence_grade: string | null }>;
+  safetyItemCount: number;
+  drugInteractionCount: number;
+  vitaminSideEffectCount: number;
+}): { topEvidenceGrade: string | null; approvedClaimCount: number; cautionCount: number } {
+  return {
+    topEvidenceGrade: computeTopEvidenceGrade(input.mergedClaims),
+    approvedClaimCount: input.ownClaims.filter((claim) => claim.is_regulator_approved === true).length,
+    cautionCount: input.safetyItemCount + input.drugInteractionCount + input.vitaminSideEffectCount,
+  };
+}
+
+/**
+ * All of an ingredient's OWN approved claims (never family-merged) share one
+ * `approval_country_code` → that code; mixed codes or zero approved claims →
+ * `undefined` (RegulatoryBadge then falls back to its generic label).
+ */
+function computeApprovalCountryCode(
+  claims: Array<{ is_regulator_approved: boolean | null; approval_country_code?: string | null }>,
+): string | undefined {
+  const approvedCountryCodes = new Set(
+    claims
+      .filter((claim) => claim.is_regulator_approved === true)
+      .map((claim) => claim.approval_country_code ?? null),
+  );
+  if (approvedCountryCodes.size === 1) {
+    const [code] = approvedCountryCodes;
+    return code ?? undefined;
+  }
+  return undefined;
+}
+
 // ---- main fetch --------------------------------------------------------------
 
 async function fetchIngredientDetail(slug: string) {
@@ -232,7 +275,7 @@ async function fetchIngredientDetail(slug: string) {
     ? await Promise.all([
         supabase
           .from("ingredient_claims")
-          .select("id, ingredient_id, claim_id, evidence_grade, evidence_summary, allowed_expression, claims(claim_name_ko, claim_scope)")
+          .select("id, ingredient_id, claim_id, evidence_grade, evidence_summary, allowed_expression, is_regulator_approved, approval_country_code, claims(claim_name_ko, claim_scope)")
           .in("ingredient_id", relatedIngredientIds),
         supabase
           .from("evidence_studies")
@@ -346,14 +389,18 @@ async function fetchIngredientDetail(slug: string) {
   const benefitProfile = buildBenefitProfile(mergedIngredientClaims);
   const benefitClaimDetails = buildBenefitClaimDetails(mergedIngredientClaims);
 
-  // summary는 원료 자신의 ingredient_claims 기준으로 계산한다 — 균주 패밀리 병합용
-  // relatedClaimsRes select에는 is_regulator_approved가 없고(claims/evidence 병합은
-  // 표시 보완 목적), "이 원료의 승인 클레임 수"라는 의미도 병합 전 집합이 맞다.
-  const summary = {
-    topEvidenceGrade: computeTopEvidenceGrade(ingredientClaims),
-    approvedClaimCount: ingredientClaims.filter((claim) => claim.is_regulator_approved === true).length,
-    cautionCount: safetyItems.length + drugInteractions.length,
-  };
+  // topEvidenceGrade는 병합된 클레임 집합(mergedIngredientClaims) 기준 — 균주
+  // 패밀리 근거를 반영한다. approvedClaimCount는 원료 자신의 ingredient_claims
+  // 기준을 유지한다 — "이 원료의 승인 클레임 수"가 형제 승인으로 부풀려지면
+  // 안 되기 때문 (2-2a 판정, Step 1의 select 확장 이후에도 불변).
+  const summary = computeSummary({
+    ownClaims: ingredientClaims,
+    mergedClaims: mergedIngredientClaims,
+    safetyItemCount: safetyItems.length,
+    drugInteractionCount: drugInteractions.length,
+    vitaminSideEffectCount: vitaminSideEffectInfos.length,
+  });
+  const approvalCountryCode = computeApprovalCountryCode(ingredientClaims);
 
   return {
     ingredient,
@@ -385,6 +432,7 @@ async function fetchIngredientDetail(slug: string) {
       evidence: evidenceSourceLinks,
     },
     summary,
+    approvalCountryCode,
   };
 }
 

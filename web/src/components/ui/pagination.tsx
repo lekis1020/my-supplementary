@@ -26,10 +26,10 @@ export function PaginationLink({
       tabIndex={disabled ? -1 : undefined}
       className={cn(
         "inline-flex min-w-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-semibold transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
         active
-          ? "border-emerald-600 bg-emerald-600 text-white"
-          : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700",
+          ? "border-orange-700 bg-orange-700 text-white"
+          : "border-stone-200 bg-surface text-ink-muted hover:border-brand hover:text-orange-700",
         disabled && "pointer-events-none opacity-40",
       )}
     >

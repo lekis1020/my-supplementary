@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Sparkles } from "lucide-react";
 
 interface CompareSummaryProps {
@@ -79,22 +80,22 @@ export function CompareSummary({ productIds }: CompareSummaryProps) {
   if (productIds.length < 2) return null;
 
   return (
-    <Card className="mt-6 overflow-hidden border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white p-6">
+    <Card tone="highlight" className="mt-6 overflow-hidden p-6">
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 rounded-full bg-emerald-100 p-2 text-emerald-700">
+        <div className="mt-0.5 rounded-full bg-orange-100 p-2 text-orange-700">
           <Sparkles className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-bold tracking-tight text-slate-900">AI 비교 요약</h2>
-            <span className="rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+            <h2 className="text-lg font-bold tracking-tight text-ink">AI 비교 요약</h2>
+            <Badge variant="promo" className="text-[11px] uppercase tracking-wider">
               Beta
-            </span>
+            </Badge>
             {status === "success" && data?.cached && (
-              <span className="text-[11px] text-slate-400">캐시됨</span>
+              <span className="text-[11px] text-ink-faint">캐시됨</span>
             )}
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-ink-muted">
             선택한 제품의 공통·중복·고유 성분을 바탕으로 AI가 핵심을 요약합니다. 세부 비교는 아래에서 확인하세요.
           </p>
 
@@ -114,7 +115,7 @@ export function CompareSummary({ productIds }: CompareSummaryProps) {
             {status === "success" && data && (
               <>
                 <SummaryText text={data.summary} />
-                <p className="mt-3 text-[11px] text-slate-400">
+                <p className="mt-3 text-[11px] text-ink-faint">
                   {data.model} · AI가 생성한 요약으로, 의료 조언이 아닙니다. 복용 전 전문가와 상의하세요.
                 </p>
               </>
@@ -129,12 +130,12 @@ export function CompareSummary({ productIds }: CompareSummaryProps) {
 function SummarySkeleton() {
   return (
     <div className="space-y-2" aria-label="요약 생성 중">
-      <div className="h-3 w-4/5 animate-pulse rounded bg-slate-200" />
-      <div className="h-3 w-full animate-pulse rounded bg-slate-200" />
-      <div className="h-3 w-11/12 animate-pulse rounded bg-slate-200" />
-      <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200" />
-      <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-slate-100" />
-      <div className="h-3 w-1/2 animate-pulse rounded bg-slate-100" />
+      <div className="h-3 w-4/5 animate-pulse rounded bg-stone-200" />
+      <div className="h-3 w-full animate-pulse rounded bg-stone-200" />
+      <div className="h-3 w-11/12 animate-pulse rounded bg-stone-200" />
+      <div className="h-3 w-2/3 animate-pulse rounded bg-stone-200" />
+      <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-stone-100" />
+      <div className="h-3 w-1/2 animate-pulse rounded bg-stone-100" />
     </div>
   );
 }
@@ -146,7 +147,7 @@ function SummaryText({ text }: { text: string }) {
     .filter(Boolean);
 
   return (
-    <div className="space-y-3 text-sm leading-7 text-slate-700">
+    <div className="space-y-3 text-sm leading-7 text-ink">
       {paragraphs.map((block, index) => {
         const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
         const bulletCount = lines.filter((line) => /^[•\-\*·]/.test(line)).length;
@@ -157,7 +158,7 @@ function SummaryText({ text }: { text: string }) {
             <ul key={index} className="list-none space-y-1.5 pl-0">
               {lines.map((line, idx) => (
                 <li key={idx} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                   <span>{line.replace(/^[•\-\*·]\s*/, "")}</span>
                 </li>
               ))}
