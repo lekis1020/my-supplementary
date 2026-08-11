@@ -122,21 +122,6 @@ export default async function IngredientDetailPage({ params }: Props) {
           isFamilyRootPage={isFamilyRootPage}
         />
 
-        {(ingredientSourceLinks.length > 0 ||
-          claimSourceLinks.length > 0 ||
-          evidenceSourceLinks.length > 0 ||
-          hasEvidenceGap) && (
-          <SourcesSection
-            sourceLinks={{
-              ingredient: ingredientSourceLinks,
-              claim: claimSourceLinks,
-              evidence: evidenceSourceLinks,
-            }}
-            hasEvidenceGap={hasEvidenceGap}
-            claimsMissingDirectEvidence={claimsMissingDirectEvidence}
-          />
-        )}
-
         {/* 안전성 · 상호작용 */}
         {(safetyItems.length > 0 ||
           vitaminSideEffectInfos.length > 0 ||
@@ -151,6 +136,22 @@ export default async function IngredientDetailPage({ params }: Props) {
         {/* 권장 용량 */}
         {dosageGuidelines.length > 0 && (
           <DosageSection dosageGuidelines={dosageGuidelines} />
+        )}
+
+        {/* 근거 출처 · 업데이트 현황 */}
+        {(ingredientSourceLinks.length > 0 ||
+          claimSourceLinks.length > 0 ||
+          evidenceSourceLinks.length > 0 ||
+          hasEvidenceGap) && (
+          <SourcesSection
+            sourceLinks={{
+              ingredient: ingredientSourceLinks,
+              claim: claimSourceLinks,
+              evidence: evidenceSourceLinks,
+            }}
+            hasEvidenceGap={hasEvidenceGap}
+            claimsMissingDirectEvidence={claimsMissingDirectEvidence}
+          />
         )}
 
         {/* 판매중인 관련 제품 */}
