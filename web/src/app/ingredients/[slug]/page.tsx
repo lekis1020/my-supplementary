@@ -1,18 +1,19 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BenefitHexagon } from "@/components/benefit/benefit-hexagon";
 import { IngredientHero } from "@/components/ingredient/ingredient-hero";
 import { ClaimsSection } from "@/components/ingredient/claims-section";
 import { EvidenceSection } from "@/components/ingredient/evidence-section";
-import { getSeverityColor } from "@/lib/utils";
+import { SafetySection } from "@/components/ingredient/safety-section";
+import { DosageSection } from "@/components/ingredient/dosage-section";
+import { SourcesSection } from "@/components/ingredient/sources-section";
 import {
-  AlertTriangle, Pill, Scale, ExternalLink,
+  Pill, ExternalLink,
 } from "lucide-react";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
-import { getIngredientDetail, getClaimMeta } from "@/lib/data/ingredient-detail";
+import { getIngredientDetail } from "@/lib/data/ingredient-detail";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -129,189 +130,31 @@ export default async function IngredientDetailPage({ params }: Props) {
           claimSourceLinks.length > 0 ||
           evidenceSourceLinks.length > 0 ||
           hasEvidenceGap) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <ExternalLink className="h-5 w-5 text-indigo-600" />
-                  근거 출처 · 업데이트 현황
-                </span>
-              </CardTitle>
-              <p className="mt-1 text-sm text-gray-500">
-                원료·기능성·논문 출처를 한 곳에서 확인할 수 있습니다.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {hasEvidenceGap && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-semibold text-amber-900">
-                    일부 효능 항목은 근거 문헌 업데이트가 필요합니다.
-                  </p>
-                  {claimsMissingDirectEvidence.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {claimsMissingDirectEvidence.slice(0, 8).map((claimName) => (
-                        <span
-                          key={claimName}
-                          className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-800"
-                        >
-                          {claimName}
-                        </span>
-                      ))}
-                      {claimsMissingDirectEvidence.length > 8 && (
-                        <span className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-800">
-                          외 {claimsMissingDirectEvidence.length - 8}개
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <SourceLinkBlock title="원료/규제 출처" links={ingredientSourceLinks} />
-              <SourceLinkBlock title="기능성 클레임 출처" links={claimSourceLinks} />
-              <SourceLinkBlock title="연구 논문 출처" links={evidenceSourceLinks} />
-            </CardContent>
-          </Card>
+          <SourcesSection
+            sourceLinks={{
+              ingredient: ingredientSourceLinks,
+              claim: claimSourceLinks,
+              evidence: evidenceSourceLinks,
+            }}
+            hasEvidenceGap={hasEvidenceGap}
+            claimsMissingDirectEvidence={claimsMissingDirectEvidence}
+          />
         )}
 
-        {/* 안전성 */}
-        {(safetyItems.length > 0 || vitaminSideEffectInfos.length > 0) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  안전성 · 주의사항
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {safetyItems.map((si) => (
-                  <div key={si.id} className="rounded-lg border border-gray-100 p-4">
-                    <div className="flex items-start justify-between">
-                      <p className="font-medium text-gray-900">{si.title}</p>
-                      {si.severity_level && (
-                        <Badge className={getSeverityColor(si.severity_level)}>
-                          {si.severity_level}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm text-gray-600">{si.description}</p>
-                    {si.applies_to_population && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        대상: {si.applies_to_population}
-                      </p>
-                    )}
-                    {si.management_advice && (
-                      <p className="mt-1 text-xs text-blue-600">
-                        관리: {si.management_advice}
-                      </p>
-                    )}
-                  </div>
-                ))}
-
-                {vitaminSideEffectInfos.map((info) => (
-                  <div key={info.subgroup} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                    <p className="font-medium text-amber-900">{info.subgroup} 부작용 참고</p>
-                    <p className="mt-2 text-sm text-amber-900">{info.summary}</p>
-                    <p className="mt-1 text-xs text-amber-700">주의: {info.caution}</p>
-                    <a
-                      href={info.referenceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-block text-xs font-medium text-amber-800 underline decoration-amber-400 underline-offset-2"
-                    >
-                      NIH ODS 근거 보기
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 약물 상호작용 */}
-        {drugInteractions.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <Pill className="h-5 w-5 text-red-500" />
-                  약물 상호작용
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {drugInteractions.map((di) => (
-                  <div key={di.id} className="rounded-lg border border-gray-100 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-gray-900">{di.drug_name}</p>
-                      {di.severity_level && (
-                        <Badge className={getSeverityColor(di.severity_level)}>
-                          {di.severity_level}
-                        </Badge>
-                      )}
-                    </div>
-                    {di.clinical_effect && (
-                      <p className="mt-1 text-sm text-gray-600">{di.clinical_effect}</p>
-                    )}
-                    {di.recommendation && (
-                      <p className="mt-1 text-xs text-blue-600">{di.recommendation}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        {/* 안전성 · 상호작용 */}
+        {(safetyItems.length > 0 ||
+          vitaminSideEffectInfos.length > 0 ||
+          drugInteractions.length > 0) && (
+          <SafetySection
+            safetyItems={safetyItems}
+            drugInteractions={drugInteractions}
+            vitaminSideEffectInfos={vitaminSideEffectInfos}
+          />
         )}
 
         {/* 권장 용량 */}
         {dosageGuidelines.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                <span className="flex items-center gap-2">
-                  <Scale className="h-5 w-5 text-blue-500" />
-                  권장 용량
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-gray-500">
-                      <th className="pb-2 pr-4">대상</th>
-                      <th className="pb-2 pr-4">용량</th>
-                      <th className="pb-2 pr-4">빈도</th>
-                      <th className="pb-2 pr-4">유형</th>
-                      <th className="pb-2">비고</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {dosageGuidelines.map((dg) => (
-                      <tr key={dg.id} className="border-b border-gray-50">
-                        <td className="py-2 pr-4 font-medium">{dg.population_group}</td>
-                        <td className="py-2 pr-4">
-                          {dg.dose_min}
-                          {dg.dose_max ? `~${dg.dose_max}` : ""} {dg.dose_unit}
-                        </td>
-                        <td className="py-2 pr-4">{dg.frequency_text}</td>
-                        <td className="py-2 pr-4">
-                          <Badge className="bg-gray-100 text-gray-600">
-                            {dg.recommendation_type}
-                          </Badge>
-                        </td>
-                        <td className="py-2 text-xs text-gray-400">{dg.notes}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <DosageSection dosageGuidelines={dosageGuidelines} />
         )}
 
         {/* 판매중인 관련 제품 */}
@@ -400,74 +243,5 @@ export default async function IngredientDetailPage({ params }: Props) {
         </p>
       </div>
     </div>
-  );
-}
-
-function SourceLinkBlock<
-  T extends {
-    id: number;
-    entity_type: string;
-    entity_id: number;
-    source_reference: string | null;
-    source_excerpt: string | null;
-    retrieved_at: string | null;
-    sources?: { source_name: string; organization_name: string | null; source_url: string | null } | Array<{ source_name: string; organization_name: string | null; source_url: string | null }> | null;
-  },
->({ title, links }: { title: string; links: T[] }) {
-  return (
-    <section>
-      <p className="mb-2 text-sm font-semibold text-slate-800">{title}</p>
-
-      {links.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-          연결된 출처가 아직 없습니다.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {links.slice(0, 8).map((link) => {
-            const source = getClaimMeta(link.sources);
-            const href = link.source_reference || source?.source_url || null;
-            const retrievedDate = link.retrieved_at
-              ? new Date(link.retrieved_at).toLocaleDateString("ko-KR")
-              : null;
-
-            return (
-              <div key={`${link.id}-${link.entity_type}-${link.entity_id}`} className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-900">
-                    {source?.source_name ?? "출처"}
-                  </span>
-                  {source?.organization_name && (
-                    <span className="text-xs text-slate-400">· {source.organization_name}</span>
-                  )}
-                  {retrievedDate && (
-                    <span className="text-xs text-slate-400">· 수집일 {retrievedDate}</span>
-                  )}
-                </div>
-
-                {href && (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
-                  >
-                    출처 링크 보기
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-
-                {link.source_excerpt && (
-                  <p className="mt-1 text-xs text-slate-500">{link.source_excerpt}</p>
-                )}
-              </div>
-            );
-          })}
-          {links.length > 8 && (
-            <p className="text-xs text-slate-400">외 {links.length - 8}건의 출처가 더 있습니다.</p>
-          )}
-        </div>
-      )}
-    </section>
   );
 }
