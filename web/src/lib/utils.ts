@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export const INGREDIENT_CATEGORY_ORDER = [
   "vitamins",
@@ -27,7 +28,7 @@ const INGREDIENT_TYPE_LABELS: Record<string, string> = {
 };
 
 export function cn(...inputs: ClassValue[]) {
-  return clsx(inputs);
+  return twMerge(clsx(inputs));
 }
 
 export function formatProductName(name: string | null | undefined): string {
