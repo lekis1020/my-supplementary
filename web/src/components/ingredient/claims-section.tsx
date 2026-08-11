@@ -3,21 +3,32 @@
 // Card block) as part of the warm-commerce redesign. Server component,
 // display-only — claim merge logic stays in `@/lib/data/ingredient-detail`.
 //
-// Regulator-approval display is derived from `claim_scope` (approved_kr /
-// approved_us) rather than `is_regulator_approved`: the family-merged claim
-// query (`ingredient-detail.ts`) intentionally omits `is_regulator_approved`
-// for related-strain rows, so `claim_scope` is the one approval signal
-// available on every row in `claims`, merged or not.
+// `claims` is a union: default-path rows (`.select("*, claims(*)")` in
+// `ingredient-detail.ts`) carry `is_regulator_approved` /
+// `approval_country_code` on the `ingredient_claims` row itself; the
+// family-merged query (narrower select, for related-strain rows) omits both
+// fields entirely. `claim_scope` (approved_kr / approved_us) is claim
+// taxonomy, not per-ingredient approval, and seed data has rows with
+// `claim_scope = 'approved_kr'` but `is_regulator_approved = false` — so it
+// must never be used to decide the official badge.
 import { Badge } from "@/components/ui/badge";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { RegulatoryBadge, EvidenceGradeBadge } from "@/components/ui/domain-badges";
 import { getClaimMeta, type IngredientDetail } from "@/lib/data/ingredient-detail";
 import { getClaimScopeLabel } from "@/lib/utils";
 
-const APPROVED_COUNTRY_CODE: Record<string, string> = {
-  approved_kr: "KR",
-  approved_us: "US",
-};
+// `ingredient_claims` rows fetched via the default select ("*, claims(*)")
+// carry these two columns; the family-merged select (narrower, related-strain
+// rows) omits them. TS structurally collapses that union down to the
+// narrower shape (the wide row is assignable wherever the narrow row is
+// expected), so the wide-only fields aren't visible on `IngredientDetail["claims"][number]`
+// even though they're present on some rows at runtime. This local optional
+// shape lets the `in` guard below check for — and safely read — them without
+// ever assuming they exist.
+interface ApprovalFields {
+  is_regulator_approved?: boolean;
+  approval_country_code?: string | null;
+}
 
 interface ClaimsSectionProps {
   claims: IngredientDetail["claims"];
@@ -49,7 +60,13 @@ export function ClaimsSection({
           const sourceIngredientName = relatedIngredientNameMap.get(ic.ingredient_id);
           const isRelatedStrainClaim = ic.ingredient_id !== ingredientId && Boolean(sourceIngredientName);
           const claimScope = claimMeta?.claim_scope ?? "";
-          const approvalCountryCode = APPROVED_COUNTRY_CODE[claimScope] ?? null;
+          const approvalFields = ic as typeof ic & ApprovalFields;
+          // Official badge only on verified per-ingredient approval; unknown
+          // (field absent, family-merged) or unapproved rows must not
+          // display approval. `in` narrows the union so `approval_country_code`
+          // is only read once `is_regulator_approved` is known to exist.
+          const isVerifiedApproved =
+            "is_regulator_approved" in approvalFields && approvalFields.is_regulator_approved === true;
 
           return (
             <div key={ic.id} className="rounded-lg border border-stone-100 bg-stone-50 p-4">
@@ -57,12 +74,10 @@ export function ClaimsSection({
                 <div>
                   <p className="font-medium text-ink">{claimMeta?.claim_name_ko}</p>
                   <div className="mt-1 flex flex-wrap gap-2">
-                    {approvalCountryCode ? (
-                      <RegulatoryBadge countryCode={approvalCountryCode} />
+                    {isVerifiedApproved ? (
+                      <RegulatoryBadge countryCode={approvalFields.approval_country_code} />
                     ) : (
-                      <Badge className="bg-blue-50 text-blue-700">
-                        {getClaimScopeLabel(claimScope)}
-                      </Badge>
+                      <Badge variant="neutral">{getClaimScopeLabel(claimScope)}</Badge>
                     )}
                     {isRelatedStrainClaim && (
                       <Badge className="bg-violet-50 text-violet-700">
