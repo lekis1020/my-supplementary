@@ -1,6 +1,11 @@
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const REGULATORY_LABELS: Record<string, string> = {
+  KR: "식약처 인정",
+  US: "FDA 인정",
+};
+
 // Compliance rule: regulator-approved claims render ONLY through this badge —
 // blue + official icon + square-ish corners, visually distinct from evidence
 // badges regardless of brand palette. Do not restyle per page.
@@ -11,10 +16,6 @@ export function RegulatoryBadge({
   countryCode?: string | null;
   className?: string;
 }) {
-  const REGULATORY_LABELS: Record<string, string> = {
-    KR: "식약처 인정",
-    US: "FDA 인정",
-  };
   const label = REGULATORY_LABELS[countryCode ?? ""] ?? "규제기관 인정";
   return (
     <span
@@ -31,7 +32,7 @@ export function RegulatoryBadge({
 
 export type EvidenceGrade = "A" | "B" | "C" | "D" | "I";
 
-const EVIDENCE_CLASSES: Record<EvidenceGrade, string> = {
+const EVIDENCE_CLASSES: Record<string, string> = {
   A: "bg-evidence-a-bg text-evidence-a",
   B: "bg-evidence-b-bg text-evidence-b",
   C: "bg-evidence-c-bg text-evidence-c",
@@ -40,8 +41,7 @@ const EVIDENCE_CLASSES: Record<EvidenceGrade, string> = {
 };
 
 export function evidenceGradeClasses(grade: string | null | undefined): string {
-  const key = (grade ?? "").toUpperCase() as EvidenceGrade;
-  return EVIDENCE_CLASSES[key] ?? EVIDENCE_CLASSES.I;
+  return EVIDENCE_CLASSES[(grade ?? "").toUpperCase()] ?? EVIDENCE_CLASSES.I;
 }
 
 export function EvidenceGradeBadge({
