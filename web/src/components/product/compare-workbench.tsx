@@ -428,7 +428,7 @@ export function CompareWorkbench({
               label="공통 원료"
               value={comparison.commonRows.length}
               description="모든 선택 제품에 함께 들어있는 원료"
-              tone="emerald"
+              tone="brand"
             />
             <SummaryCard
               label="중복 위험"
@@ -440,13 +440,13 @@ export function CompareWorkbench({
               label="고유 원료"
               value={comparison.uniqueRows.length}
               description="한 제품에만 단독으로 들어있는 원료"
-              tone="blue"
+              tone="neutral"
             />
             <SummaryCard
               label="총 비교 원료"
               value={comparison.rows.length}
               description="선택 제품 전체에서 비교 가능한 원료"
-              tone="slate"
+              tone="muted"
             />
           </div>
 
