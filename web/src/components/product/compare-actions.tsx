@@ -1,37 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { ArrowRightLeft, Check, Plus } from "lucide-react";
-import {
-  buildCompareHref,
-  COMPARE_MAX_PRODUCTS,
-  COMPARE_STORAGE_KEY,
-  normalizeCompareIds,
-} from "@/lib/compare";
+import { buildCompareHref, COMPARE_MAX_PRODUCTS } from "@/lib/compare";
+import { useCompareStorage } from "@/lib/compare/use-compare-storage";
 
 interface CompareActionsProps {
   productId: number;
 }
 
 export function CompareActions({ productId }: CompareActionsProps) {
-  const [storedIds, setStoredIds] = useState<number[]>(() => {
-    if (typeof window === "undefined") return [];
-
-    const rawValue = window.localStorage.getItem(COMPARE_STORAGE_KEY);
-    if (!rawValue) return [];
-
-    try {
-      const parsed = JSON.parse(rawValue);
-      return Array.isArray(parsed)
-        ? normalizeCompareIds(parsed.map((value) => Number(value)))
-        : [];
-    } catch {
-      window.localStorage.removeItem(COMPARE_STORAGE_KEY);
-      return [];
-    }
-  });
+  const { ids: storedIds, setIds: setStoredIds } = useCompareStorage();
 
   const isSelected = storedIds.includes(productId);
   const compareHref = useMemo(
@@ -40,11 +21,7 @@ export function CompareActions({ productId }: CompareActionsProps) {
   );
 
   const addToCompare = () => {
-    if (typeof window === "undefined") return;
-
-    const nextIds = normalizeCompareIds([...storedIds, productId]);
-    window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(nextIds));
-    setStoredIds(nextIds);
+    setStoredIds([...storedIds, productId]);
   };
 
   const helperText = isSelected

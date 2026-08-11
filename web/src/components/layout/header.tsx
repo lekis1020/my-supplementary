@@ -4,54 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Search, Menu, X, GitCompare } from "lucide-react";
-import { useEffect, useState } from "react";
-import {
-  COMPARE_STORAGE_KEY,
-  COMPARE_MAX_PRODUCTS,
-  parseCompareIds,
-} from "@/lib/compare";
+import { useState } from "react";
+import { COMPARE_MAX_PRODUCTS } from "@/lib/compare";
+import { useCompareStorage } from "@/lib/compare/use-compare-storage";
 
 const navItems = [
   { href: "/ingredients", label: "원료 사전" },
   { href: "/products", label: "제품 데이터베이스" },
 ];
 
-function useCompareCount() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const read = () => {
-      try {
-        const raw = window.localStorage.getItem(COMPARE_STORAGE_KEY);
-        setCount(parseCompareIds(raw).length);
-      } catch {
-        setCount(0);
-      }
-    };
-
-    read();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === COMPARE_STORAGE_KEY) read();
-    };
-    const onFocus = () => read();
-
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, []);
-
-  return count;
-}
-
 export function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const compareCount = useCompareCount();
+  const { ids: compareIds } = useCompareStorage();
+  const compareCount = compareIds.length;
   const showCompareBadge = compareCount > 0;
 
   return (

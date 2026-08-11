@@ -8,10 +8,10 @@ import { CompareSummary } from "@/components/product/compare-summary";
 import { cn, formatProductName, getIngredientHref, getIngredientRoleLabel } from "@/lib/utils";
 import {
   COMPARE_MAX_PRODUCTS,
-  COMPARE_STORAGE_KEY,
   normalizeCompareIds,
   parseCompareIds,
 } from "@/lib/compare";
+import { useCompareStorage } from "@/lib/compare/use-compare-storage";
 import {
   buildComparisonRow,
   buildProbioticStrainGroups,
@@ -63,30 +63,30 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
       return rawUrl;
     }
   })();
-  const [selectedIds, setSelectedIds] = useState<number[]>(() => {
-    if (typeof window === "undefined") return [];
+  const {
+    ids: storedIds,
+    setIds: setStoredIds,
+    isLoaded: storageLoaded,
+  } = useCompareStorage();
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [storageHydrated, setStorageHydrated] = useState(false);
+
+  // URL `?compare=`/`?ids=` take priority over the stored basket; this
+  // hydration order is workbench-specific and stays out of the shared hook,
+  // which owns storage only. Runs once, after the hook's initial read
+  // completes (SSR-safe: first client render matches the server's `[]`).
+  useEffect(() => {
+    if (!storageLoaded || storageHydrated) return;
 
     const params = new URLSearchParams(window.location.search);
     const queryIds = normalizeCompareIds([
       ...parseCompareIds(params.get("compare")),
       ...parseCompareIds(params.get("ids")),
     ]);
-    let storedIds: number[] = [];
 
-    try {
-      const rawValue = window.localStorage.getItem(COMPARE_STORAGE_KEY);
-      if (rawValue) {
-        const parsed = JSON.parse(rawValue);
-        if (Array.isArray(parsed)) {
-          storedIds = normalizeCompareIds(parsed.map((value) => Number(value)));
-        }
-      }
-    } catch {
-      window.localStorage.removeItem(COMPARE_STORAGE_KEY);
-    }
-
-    return normalizeCompareIds([...queryIds, ...storedIds]);
-  });
+    setSelectedIds(normalizeCompareIds([...queryIds, ...storedIds]));
+    setStorageHydrated(true);
+  }, [storageLoaded, storedIds, storageHydrated]);
   const [productIngredients, setProductIngredients] = useState<Record<number, ProductIngredient[]>>(
     {},
   );
@@ -183,12 +183,12 @@ export function CompareWorkbench({ embedded = false }: { embedded?: boolean }) {
   }, [missingSelectedIds, productsLoaded]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!storageHydrated) return;
     if (!productsLoaded) return;
     if (selectedIds.length > 0 && effectiveSelectedIds.length === 0) return;
 
-    window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(effectiveSelectedIds));
-  }, [effectiveSelectedIds, productsLoaded, selectedIds]);
+    setStoredIds(effectiveSelectedIds);
+  }, [storageHydrated, effectiveSelectedIds, productsLoaded, selectedIds, setStoredIds]);
 
   useEffect(() => {
     async function loadIngredients() {
