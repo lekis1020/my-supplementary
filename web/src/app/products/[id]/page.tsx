@@ -211,7 +211,7 @@ export default async function ProductDetailPage({ params }: Props) {
     <div className="mx-auto max-w-6xl px-4 py-12">
       <Link
         href="/products"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-orange-700"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-orange-700"
       >
         <ArrowLeft className="h-4 w-4" />
         제품 데이터베이스
@@ -224,22 +224,22 @@ export default async function ProductDetailPage({ params }: Props) {
               src={product.product_image_url}
               alt={displayProductName}
               loading="lazy"
-              className="h-40 w-40 rounded-xl border border-gray-200 object-contain bg-white p-2 shadow-sm sm:h-48 sm:w-48"
+              className="h-40 w-40 rounded-xl border border-stone-200 object-contain bg-white p-2 shadow-sm sm:h-48 sm:w-48"
             />
           </div>
         )}
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">{displayProductName}</h1>
-          <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500">
+          <h1 className="text-3xl font-bold text-ink">{displayProductName}</h1>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm text-ink-muted">
             {product.brand_name && <span>브랜드: {product.brand_name}</span>}
             {product.manufacturer_name && (
               <>
-                <span className="text-gray-300">·</span>
+                <span className="text-stone-300">·</span>
                 <span>제조: {product.manufacturer_name}</span>
               </>
             )}
             {product.country_code && (
-              <Badge className="bg-gray-100 text-gray-600">
+              <Badge className="bg-stone-100 text-ink-muted">
                 {product.country_code === "KR" ? "🇰🇷 한국" : "🇺🇸 미국"}
               </Badge>
             )}
@@ -259,9 +259,9 @@ export default async function ProductDetailPage({ params }: Props) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
         <div className="space-y-8 lg:col-span-2">
-          <Card className="overflow-hidden border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-              <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+          <Card className="overflow-hidden border-stone-200 shadow-sm">
+            <CardHeader className="border-b border-stone-100 bg-stone-50/50">
+              <CardTitle className="flex items-center gap-2 text-lg font-black text-ink">
                 <Tag className="h-5 w-5 text-orange-700" />
                 원료 조성 ({visibleIngredientCount}종)
               </CardTitle>
@@ -272,8 +272,8 @@ export default async function ProductDetailPage({ params }: Props) {
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-bg text-orange-500">
                     <Clock className="h-6 w-6 animate-pulse" />
                   </div>
-                  <p className="text-sm font-bold text-slate-900">원료 조성 분석 준비 중</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="text-sm font-bold text-ink">원료 조성 분석 준비 중</p>
+                  <p className="mt-1 text-xs text-ink-muted">
                     {hasUnclearActiveProbiotic
                       ? "프로바이오틱스 주성분의 균주명이 명확히 확인되지 않아 라벨 원문과 원료 매핑을 다시 검수하고 있습니다."
                       : "라벨 이미지로부터 성분을 추출하고 전문가 검수를 진행하고 있습니다."}
@@ -283,13 +283,13 @@ export default async function ProductDetailPage({ params }: Props) {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/30 text-left text-slate-500">
+                      <tr className="border-b border-stone-100 bg-stone-50/30 text-left text-ink-muted">
                         <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider">원료명</th>
                         <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider">함량 (1회)</th>
                         <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider">역할</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50 text-slate-700">
+                    <tbody className="divide-y divide-stone-50 text-ink-muted">
                       {displayIngredientMetas.map((meta) => {
                         const { row: pi, ingredient } = meta;
 
@@ -299,7 +299,7 @@ export default async function ProductDetailPage({ params }: Props) {
                         });
 
                         return (
-                        <tr key={pi.id} className="transition-colors hover:bg-slate-50/50">
+                        <tr key={pi.id} className="transition-colors hover:bg-stone-50/50">
                           <td className="px-6 py-4">
                             <Link
                               href={ingredientHref}
@@ -307,13 +307,13 @@ export default async function ProductDetailPage({ params }: Props) {
                             >
                               <span>{meta.displayName}</span>
                               {pi.raw_label_name && (
-                                <span className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                <span className="mt-0.5 text-[10px] font-medium text-ink-faint">
                                   {pi.raw_label_name}
                                 </span>
                               )}
                             </Link>
                           </td>
-                          <td className="px-6 py-4 font-bold text-slate-900">
+                          <td className="px-6 py-4 font-bold text-ink">
                             {pi.amount_per_serving} {pi.amount_unit}
                           </td>
                           <td className="px-6 py-4">
@@ -322,7 +322,7 @@ export default async function ProductDetailPage({ params }: Props) {
                                 "rounded-md border-none px-2 py-0.5 text-[10px] font-black",
                                 pi.ingredient_role === "active"
                                   ? "bg-brand-bg text-orange-700"
-                                  : "bg-slate-100 text-slate-500",
+                                  : "bg-stone-100 text-ink-muted",
                               )}
                             >
                               {getIngredientRoleLabel(pi.ingredient_role)}
@@ -338,9 +338,9 @@ export default async function ProductDetailPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden border-slate-200 shadow-sm">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-              <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+          <Card className="overflow-hidden border-stone-200 shadow-sm">
+            <CardHeader className="border-b border-stone-100 bg-stone-50/50">
+              <CardTitle className="flex items-center gap-2 text-lg font-black text-ink">
                 <FileText className="h-5 w-5 text-blue-500" />
                 제품 상세 정보
               </CardTitle>
@@ -376,8 +376,8 @@ export default async function ProductDetailPage({ params }: Props) {
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-500">
                     <FileText className="h-5 w-5 opacity-50" />
                   </div>
-                  <p className="text-sm font-bold text-slate-900">라벨 상세 정보 수집 중</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="text-sm font-bold text-ink">라벨 상세 정보 수집 중</p>
+                  <p className="mt-1 text-xs text-ink-muted">
                     이 제품의 최신 라벨 스냅샷을 확인하고 있습니다.
                   </p>
                 </div>
@@ -386,9 +386,9 @@ export default async function ProductDetailPage({ params }: Props) {
           </Card>
 
           {labelImages.length > 0 && (
-            <Card className="overflow-hidden border-slate-200 shadow-sm">
-              <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-                <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+            <Card className="overflow-hidden border-stone-200 shadow-sm">
+              <CardHeader className="border-b border-stone-100 bg-stone-50/50">
+                <CardTitle className="flex items-center gap-2 text-lg font-black text-ink">
                   <FileText className="h-5 w-5 text-orange-700" />
                   영양정보 라벨
                 </CardTitle>
@@ -400,7 +400,7 @@ export default async function ProductDetailPage({ params }: Props) {
                     src={url}
                     alt={`${displayProductName} 영양정보 라벨 ${i + 1}`}
                     loading="lazy"
-                    className="w-full rounded-lg border border-gray-200 bg-white"
+                    className="w-full rounded-lg border border-stone-200 bg-white"
                   />
                 ))}
               </CardContent>
@@ -424,8 +424,8 @@ export default async function ProductDetailPage({ params }: Props) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-4">
-      <span className="w-24 shrink-0 font-medium text-gray-500">{label}</span>
-      <span className="text-gray-700">{value}</span>
+      <span className="w-24 shrink-0 font-medium text-ink-muted">{label}</span>
+      <span className="text-ink-muted">{value}</span>
     </div>
   );
 }

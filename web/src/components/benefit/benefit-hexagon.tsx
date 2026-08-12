@@ -34,8 +34,8 @@ const CATEGORY_META: Record<
     icon: ShieldPlus,
     colorClass: "text-orange-700",
     tintClass: "bg-brand-bg border-orange-200",
-    activeFill: "rgb(249 115 22)",
-    activeStroke: "rgb(254 215 170)",
+    activeFill: "var(--chart-immune-fill)",
+    activeStroke: "var(--chart-immune-stroke)",
   },
   gut_digestive: {
     shortLabel: "장·소화",
@@ -43,8 +43,8 @@ const CATEGORY_META: Record<
     icon: Stethoscope,
     colorClass: "text-teal-700",
     tintClass: "bg-teal-50 border-teal-200",
-    activeFill: "rgb(20 184 166)",
-    activeStroke: "rgb(153 246 228)",
+    activeFill: "var(--chart-gut-fill)",
+    activeStroke: "var(--chart-gut-stroke)",
   },
   cardiometabolic: {
     shortLabel: "혈행·대사",
@@ -52,8 +52,8 @@ const CATEGORY_META: Record<
     icon: Activity,
     colorClass: "text-rose-700",
     tintClass: "bg-rose-50 border-rose-200",
-    activeFill: "rgb(244 63 94)",
-    activeStroke: "rgb(254 205 211)",
+    activeFill: "var(--chart-cardio-fill)",
+    activeStroke: "var(--chart-cardio-stroke)",
   },
   bone_joint_mobility: {
     shortLabel: "뼈·관절·운동",
@@ -61,8 +61,8 @@ const CATEGORY_META: Record<
     icon: Bone,
     colorClass: "text-amber-700",
     tintClass: "bg-amber-50 border-amber-200",
-    activeFill: "rgb(245 158 11)",
-    activeStroke: "rgb(253 230 138)",
+    activeFill: "var(--chart-bone-fill)",
+    activeStroke: "var(--chart-bone-stroke)",
   },
   beauty_vision: {
     shortLabel: "피부·눈·미용",
@@ -70,8 +70,8 @@ const CATEGORY_META: Record<
     icon: Eye,
     colorClass: "text-fuchsia-700",
     tintClass: "bg-fuchsia-50 border-fuchsia-200",
-    activeFill: "rgb(217 70 239)",
-    activeStroke: "rgb(245 208 254)",
+    activeFill: "var(--chart-beauty-fill)",
+    activeStroke: "var(--chart-beauty-stroke)",
   },
   liver_cognitive_vitality: {
     shortLabel: "간·인지·활력",
@@ -79,8 +79,8 @@ const CATEGORY_META: Record<
     icon: Brain,
     colorClass: "text-violet-700",
     tintClass: "bg-violet-50 border-violet-200",
-    activeFill: "rgb(139 92 246)",
-    activeStroke: "rgb(221 214 254)",
+    activeFill: "var(--chart-liver-fill)",
+    activeStroke: "var(--chart-liver-stroke)",
   },
 };
 
@@ -196,16 +196,16 @@ export function BenefitHexagon({
   return (
     <Card
       className={cn(
-        "overflow-hidden border-slate-200 bg-white/70 shadow-md backdrop-blur-sm",
+        "overflow-hidden border-stone-200 bg-white/70 shadow-md backdrop-blur-sm",
         className,
       )}
     >
-      <CardHeader className="border-b border-slate-100 bg-slate-50/60 p-5">
-        <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+      <CardHeader className="border-b border-stone-100 bg-stone-50/60 p-5">
+        <CardTitle className="flex items-center gap-2 text-lg font-black text-ink">
           <Sparkles className="h-5 w-5 fill-orange-100 text-orange-700" />
           {title}
         </CardTitle>
-        <p className="text-xs font-medium leading-relaxed text-slate-500">{description}</p>
+        <p className="text-xs font-medium leading-relaxed text-ink-muted">{description}</p>
       </CardHeader>
       <CardContent className="space-y-6 p-5">
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
@@ -219,7 +219,7 @@ export function BenefitHexagon({
                 <polygon
                   points="128,16 220,68 220,180 128,232 36,180 36,68"
                   fill="none"
-                  stroke="rgb(226 232 240)"
+                  stroke="var(--chart-grid)"
                   strokeWidth="1.5"
                   strokeDasharray="4 4"
                 />
@@ -232,7 +232,7 @@ export function BenefitHexagon({
                       y1="124"
                       x2={layout.x}
                       y2={layout.y}
-                      stroke="rgb(226 232 240)"
+                      stroke="var(--chart-grid)"
                       strokeWidth="1"
                     />
                   );
@@ -248,8 +248,8 @@ export function BenefitHexagon({
                       return `${targetX},${targetY}`;
                     })
                     .join(" ")}
-                  fill="rgba(249, 115, 22, 0.15)"
-                  stroke="rgb(249 115 22)"
+                  fill="var(--chart-active-fill)"
+                  stroke="var(--chart-active-stroke)"
                   strokeWidth="2.5"
                   strokeLinejoin="round"
                 />
@@ -258,7 +258,7 @@ export function BenefitHexagon({
                   cy="124"
                   r="28"
                   fill="white"
-                  stroke="rgb(226 232 240)"
+                  stroke="var(--chart-grid)"
                   strokeWidth="1"
                 />
                 <text
@@ -267,7 +267,7 @@ export function BenefitHexagon({
                   textAnchor="middle"
                   className={cn(
                     "text-[10px] font-black tracking-tight",
-                    activeItems.length > 0 ? "fill-slate-900" : "fill-orange-700"
+                    activeItems.length > 0 ? "fill-ink" : "fill-orange-700"
                   )}
                 >
                   {activeItems.length > 0 ? "BENEFITS" : "PREPARING"}
@@ -276,7 +276,7 @@ export function BenefitHexagon({
                   x="128"
                   y="134"
                   textAnchor="middle"
-                  className="fill-slate-400 text-[8px]"
+                  className="fill-ink-faint text-[8px]"
                 >
                   {activeItems.length > 0 ? "강도 비교 아님" : "데이터 분석 중"}
                 </text>
@@ -308,8 +308,8 @@ export function BenefitHexagon({
                         isActive
                           ? `${meta.tintClass} ${meta.colorClass} border-current ring-4 ring-white`
                           : isPossible
-                            ? "border-slate-200 bg-white text-slate-600"
-                            : "border-slate-100 bg-slate-50 text-slate-300",
+                            ? "border-stone-200 bg-white text-ink-muted"
+                            : "border-stone-100 bg-stone-50 text-stone-300",
                       )}
                     >
                       <Icon className="h-5 w-5" />
@@ -320,8 +320,8 @@ export function BenefitHexagon({
                         isActive
                           ? `${meta.tintClass} ${meta.colorClass} border-current`
                           : isPossible
-                            ? "border-slate-200 bg-white text-slate-600"
-                            : "border-slate-50 bg-slate-50 text-slate-400",
+                            ? "border-stone-200 bg-white text-ink-muted"
+                            : "border-stone-50 bg-stone-50 text-ink-faint",
                       )}
                     >
                       {meta.shortLabel}
@@ -344,7 +344,7 @@ export function BenefitHexagon({
                         "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
                         item.state === "active"
                           ? `${meta.tintClass} ${meta.colorClass}`
-                          : "border-slate-200 bg-white text-slate-600",
+                          : "border-stone-200 bg-white text-ink-muted",
                       )}
                     >
                       {meta.shortLabel}
@@ -362,16 +362,16 @@ export function BenefitHexagon({
               )}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <p className="text-xs font-semibold text-slate-600">텍스트 효능 요약</p>
+            <div className="rounded-2xl border border-stone-200 bg-stone-50/70 px-4 py-3">
+              <p className="text-xs font-semibold text-ink-muted">텍스트 효능 요약</p>
               {textBenefitLines.length > 0 ? (
-                <div className="mt-2 space-y-1 text-xs leading-5 text-slate-700">
+                <div className="mt-2 space-y-1 text-xs leading-5 text-ink-muted">
                   {textBenefitLines.map((benefitText, index) => (
                     <p key={`${benefitText}-${index}`}>{benefitText}</p>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs leading-6 font-medium text-slate-500">
+                <p className="mt-2 text-xs leading-6 font-medium text-ink-muted">
                   이 제품의 성분-기능성 매핑 데이터가 수집 및 검수 과정에 있습니다. 완료 시 텍스트 요약이 자동으로 생성됩니다.
                 </p>
               )}
@@ -394,15 +394,15 @@ export function BenefitHexagon({
                   item.state === "active"
                     ? meta.tintClass
                     : item.state === "possible"
-                      ? "border-slate-200 bg-white"
-                      : "border-slate-100 bg-slate-50",
+                      ? "border-stone-200 bg-white"
+                      : "border-stone-100 bg-stone-50",
                 )}
               >
                 <div className="flex items-center justify-between gap-3">
                   <p
                     className={cn(
                       "text-sm font-semibold",
-                      item.state === "inactive" ? "text-slate-400" : meta.colorClass,
+                      item.state === "inactive" ? "text-ink-faint" : meta.colorClass,
                     )}
                   >
                     {meta.shortLabel}
@@ -411,33 +411,33 @@ export function BenefitHexagon({
                     className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-bold",
                       item.state === "active"
-                        ? "bg-white/80 text-slate-700"
+                        ? "bg-white/80 text-ink-muted"
                         : item.state === "possible"
-                          ? "bg-slate-100 text-slate-600"
-                          : "bg-white text-slate-400",
+                          ? "bg-stone-100 text-ink-muted"
+                          : "bg-white text-ink-faint",
                     )}
                   >
                     {item.state === "active" ? "해당" : item.state === "possible" ? "가능성" : "없음"}
                   </span>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-slate-500">{meta.fullLabel}</p>
-                <p className="mt-2 text-[11px] font-semibold text-slate-600">
+                <p className="mt-2 text-xs leading-5 text-ink-muted">{meta.fullLabel}</p>
+                <p className="mt-2 text-[11px] font-semibold text-ink-muted">
                   근거: {details.length > 0 ? getEvidenceLabel(details) : "근거 없음"}
                 </p>
                 {detailPreview.length > 0 ? (
                   <div className="mt-1 space-y-1">
                     {detailPreview.map((detail, idx) => (
-                      <p key={`${detail.claimNameKo}-${idx}`} className="text-[11px] leading-4 text-slate-600">
+                      <p key={`${detail.claimNameKo}-${idx}`} className="text-[11px] leading-4 text-ink-muted">
                         · {detail.claimNameKo}
                         {detail.claimScope ? ` (${getClaimScopeLabel(detail.claimScope)})` : ""}
                       </p>
                     ))}
                     {details.length > detailPreview.length && (
-                      <p className="text-[11px] text-slate-400">외 {details.length - detailPreview.length}건</p>
+                      <p className="text-[11px] text-ink-faint">외 {details.length - detailPreview.length}건</p>
                     )}
                   </div>
                 ) : (
-                  <p className="mt-1 text-[11px] text-slate-400">구체 효능 데이터 없음</p>
+                  <p className="mt-1 text-[11px] text-ink-faint">구체 효능 데이터 없음</p>
                 )}
               </div>
             );

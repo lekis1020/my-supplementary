@@ -17,9 +17,9 @@ const variantStyles: Record<
   { container: string; title: string; description: string }
 > = {
   empty: {
-    container: "border-dashed border-slate-200 bg-slate-50",
-    title: "text-slate-900",
-    description: "text-slate-500",
+    container: "border-dashed border-stone-200 bg-stone-50",
+    title: "text-stone-900",
+    description: "text-stone-500",
   },
   error: {
     container: "border-amber-200 bg-amber-50",
@@ -27,9 +27,9 @@ const variantStyles: Record<
     description: "text-amber-800",
   },
   loading: {
-    container: "border-slate-200 bg-white",
-    title: "text-slate-900",
-    description: "text-slate-500",
+    container: "border-stone-200 bg-white",
+    title: "text-stone-900",
+    description: "text-stone-500",
   },
 };
 

@@ -17,20 +17,20 @@ export function IngredientCategoryCard({
   return (
     <Link
       href={`/ingredients/category/${category}`}
-      className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
+      className="group rounded-2xl border border-stone-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700">
             Ingredient Category
           </p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 group-hover:text-orange-700">
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-ink group-hover:text-orange-700">
             {getIngredientCategoryLabel(category)}
           </h2>
         </div>
-        <Badge className="bg-slate-100 text-slate-600">{count.toLocaleString()}개</Badge>
+        <Badge className="bg-stone-100 text-ink-muted">{count.toLocaleString()}개</Badge>
       </div>
-      <p className="mt-4 text-sm leading-6 text-slate-500">
+      <p className="mt-4 text-sm leading-6 text-ink-muted">
         {getIngredientCategoryDescription(category)}
       </p>
       {examples.length > 0 && (
@@ -38,7 +38,7 @@ export function IngredientCategoryCard({
           {examples.slice(0, 4).map((example) => (
             <span
               key={example}
-              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500"
+              className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs text-ink-muted"
             >
               {example}
             </span>
