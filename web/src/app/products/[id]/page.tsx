@@ -425,7 +425,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-4">
       <span className="w-24 shrink-0 font-medium text-ink-muted">{label}</span>
-      <span className="text-ink-muted">{value}</span>
+      <span className="text-ink">{value}</span>
     </div>
   );
 }

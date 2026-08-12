@@ -8,7 +8,7 @@
      so they read as one system; values unchanged from their prior inline rgb()/rgba(). */
   --chart-grid: #e2e8f0;
   --chart-active-fill: rgba(249, 115, 22, 0.15);
-  --chart-active-stroke: var(--chart-immune-fill);
+  --chart-active-stroke: #f97316;
   --chart-immune-fill: #f97316;
   --chart-immune-stroke: #fed7aa;
   --chart-gut-fill: #14b8a6;
@@ -47,6 +47,7 @@
   --color-regulatory-bg: #eff6ff;
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
+  /* Status semantics (not compliance-reserved): positive-confirmation states */
   --color-success: #15803d;
   --color-success-bg: #f0fdf4;
   --color-evidence-a: #047857;

@@ -15,22 +15,22 @@ export function Footer() {
           </div>
           <div className="flex gap-8 text-sm text-ink-muted">
             <div className="flex flex-col gap-2">
-              <Link href="/ingredients" className="hover:text-ink-muted">
+              <Link href="/ingredients" className="hover:text-ink">
                 원료 사전
               </Link>
-              <Link href="/products" className="hover:text-ink-muted">
+              <Link href="/products" className="hover:text-ink">
                 제품 데이터베이스
               </Link>
             </div>
             <div className="flex flex-col gap-2">
-              <Link href="/disclaimer" className="hover:text-ink-muted">
+              <Link href="/disclaimer" className="hover:text-ink">
                 의료 면책 조항
               </Link>
               <a
                 href={projectReadmeHref}
                 target="_blank"
                 rel="noreferrer"
-                className="hover:text-ink-muted"
+                className="hover:text-ink"
               >
                 서비스 소개
               </a>
