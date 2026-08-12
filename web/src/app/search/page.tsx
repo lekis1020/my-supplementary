@@ -4,68 +4,37 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/state-message";
-import { HighlightMatch } from "@/components/ui/highlight";
+import { SectionHeader } from "@/components/ui/section-header";
 import { SearchCombobox } from "@/components/search/search-combobox";
 import { LiveSearchFallback } from "@/components/product/live-search-fallback";
+import { IngredientResultSection } from "@/components/search/ingredient-result-section";
 import {
-  formatProductName,
-  getIngredientHref,
-  getIngredientRoleLabel,
-  getIngredientTypeLabel,
-  hasClearlyIdentifiedProbioticStrain,
-  normalizeIngredientNameForDisplay,
-} from "@/lib/utils";
+  ProductResultSection,
+  type ProductSearchResult,
+} from "@/components/search/product-result-section";
+import { formatProductName, normalizeIngredientNameForDisplay } from "@/lib/utils";
+import { getPaginationPages, parsePage } from "@/lib/pagination";
+import {
+  buildIngredientSearchResult,
+  getIngredientMatchKind,
+  getIngredientMatchScore,
+  normalizeSearchToken,
+  type IngredientSearchResult,
+} from "@/lib/search/ingredient-ranking";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
-const PAGINATION_VISIBLE_COUNT = 10;
 
 interface SearchPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
-
-interface IngredientSearchResult {
-  id: number;
-  title: string;
-  subtitle: string | null;
-  href: string;
-  badge: string;
-}
-
-type IngredientMatchKind = "direct" | "probiotic-strain-category";
-
-interface ProductSearchResult {
-  id: number;
-  title: string;
-  subtitle: string | null;
-  href: string;
-  directNameMatch: boolean;
-  saleVerified: boolean;
-  activeMatches: string[];
-  supportingMatches: string[];
-}
-
-const PROBIOTIC_QUERY_KEYWORDS = [
-  "프로바이오틱스",
-  "프로바이오틱",
-  "유산균",
-  "probiotic",
-  "probiotics",
-  "lactic acid bacteria",
-  "lab",
-] as const;
 
 function getSearchParam(
   value: string | string[] | undefined,
   fallback = "",
 ): string {
   return Array.isArray(value) ? value[0] ?? fallback : value ?? fallback;
-}
-
-function parsePage(value: string | string[] | undefined): number {
-  const parsed = Number(getSearchParam(value, "1"));
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
 function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
@@ -77,171 +46,6 @@ function buildSearchHref(query: string, includeSupporting: boolean, page = 1) {
 
   const queryString = params.toString();
   return queryString ? `/search?${queryString}` : "/search";
-}
-
-function getPaginationPages(
-  currentPage: number,
-  totalPages: number,
-  visibleCount = PAGINATION_VISIBLE_COUNT,
-) {
-  if (totalPages <= visibleCount) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  const half = Math.floor(visibleCount / 2);
-  let start = Math.max(1, currentPage - half);
-  let end = start + visibleCount - 1;
-
-  if (end > totalPages) {
-    end = totalPages;
-    start = end - visibleCount + 1;
-  }
-
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-}
-
-function normalizeSearchToken(value: string | null | undefined): string {
-  if (!value) return "";
-  return value.toLowerCase().replace(/\s+/g, "").trim();
-}
-
-function isGenericProbioticQuery(queryToken: string): boolean {
-  if (!queryToken) return false;
-  return PROBIOTIC_QUERY_KEYWORDS.some(
-    (keyword) => normalizeSearchToken(keyword) === queryToken,
-  );
-}
-
-function includesProbioticKeyword(value: string | null | undefined): boolean {
-  const token = normalizeSearchToken(value);
-  if (!token) return false;
-
-  return PROBIOTIC_QUERY_KEYWORDS.some((keyword) =>
-    token.includes(normalizeSearchToken(keyword)),
-  );
-}
-
-function getIngredientMatchKind<
-  T extends {
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    display_name: string | null;
-  },
->(ingredient: T, queryToken: string): IngredientMatchKind {
-  if (!isGenericProbioticQuery(queryToken)) {
-    return "direct";
-  }
-
-  const isStrain = hasClearlyIdentifiedProbioticStrain({
-    canonicalNameKo: ingredient.canonical_name_ko,
-    canonicalNameEn: ingredient.canonical_name_en,
-    rawLabelName: ingredient.display_name,
-  });
-
-  if (!isStrain) {
-    return "direct";
-  }
-
-  if (
-    includesProbioticKeyword(ingredient.canonical_name_ko) ||
-    includesProbioticKeyword(ingredient.canonical_name_en) ||
-    includesProbioticKeyword(ingredient.display_name)
-  ) {
-    return "probiotic-strain-category";
-  }
-
-  return "direct";
-}
-
-function buildIngredientSearchResult<
-  T extends {
-    id: number;
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    display_name: string | null;
-    slug: string | null;
-    ingredient_type: string;
-  },
->(ingredient: T): IngredientSearchResult {
-  const normalizedTitle = normalizeIngredientNameForDisplay(ingredient.canonical_name_ko);
-  const subtitleParts: string[] = [];
-  const isClearlyStrain = hasClearlyIdentifiedProbioticStrain({
-    canonicalNameKo: ingredient.canonical_name_ko,
-    canonicalNameEn: ingredient.canonical_name_en,
-    rawLabelName: ingredient.display_name,
-  });
-
-  if (
-    normalizedTitle !== ingredient.canonical_name_ko &&
-    ingredient.canonical_name_ko &&
-    !isClearlyStrain
-  ) {
-    subtitleParts.push(ingredient.canonical_name_ko);
-  }
-
-  if (ingredient.canonical_name_en) {
-    subtitleParts.push(ingredient.canonical_name_en);
-  }
-
-  return {
-    id: ingredient.id,
-    title: normalizedTitle,
-    subtitle: subtitleParts.length > 0 ? subtitleParts.join(" · ") : null,
-    href: getIngredientHref({ id: ingredient.id, slug: ingredient.slug }),
-    badge: getIngredientTypeLabel(ingredient.ingredient_type),
-  };
-}
-
-function getIngredientMatchScore<
-  T extends {
-    canonical_name_ko: string;
-    canonical_name_en: string | null;
-    display_name: string | null;
-    slug: string | null;
-  },
->(ingredient: T, queryToken: string): number {
-  const fields = [
-    ingredient.canonical_name_ko,
-    ingredient.display_name,
-    ingredient.canonical_name_en,
-  ];
-  let score = 0;
-
-  for (const field of fields) {
-    const token = normalizeSearchToken(field);
-    if (!token) continue;
-
-    if (token === queryToken) {
-      score = Math.max(score, 120);
-      continue;
-    }
-
-    if (token.startsWith(queryToken)) {
-      score = Math.max(score, 100);
-      continue;
-    }
-
-    if (token.includes(queryToken)) {
-      score = Math.max(score, 80);
-      continue;
-    }
-
-    if (queryToken.includes(token)) {
-      score = Math.max(score, 70);
-    }
-  }
-
-  if (queryToken === "프로바이오틱스" || queryToken === "유산균") {
-    if (ingredient.slug === "probiotics" || normalizeSearchToken(ingredient.canonical_name_ko) === "프로바이오틱스") {
-      score += 40;
-    }
-
-    if (hasClearlyIdentifiedProbioticStrain(ingredient.canonical_name_ko)) {
-      score -= 5;
-    }
-  }
-
-  return score;
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
@@ -426,17 +230,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   ).length;
 
   return (
-    <div className="min-h-screen bg-white">
-      <section className="border-b border-slate-200 bg-[radial-gradient(circle_at_top,#ecfdf5,transparent_55%)] px-4 py-14">
+    <div className="min-h-screen bg-canvas">
+      <section className="border-b border-stone-200 bg-gradient-to-br from-brand-bg via-canvas to-surface px-4 py-14">
         <div className="mx-auto max-w-5xl">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700">
               Search
             </p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-3 text-4xl font-black tracking-tight text-ink">
               통합 검색
             </h1>
-            <p className="mt-3 text-base leading-7 text-slate-600">
+            <p className="mt-3 text-base leading-7 text-ink-muted">
               원료 사전과 제품 데이터를 함께 탐색합니다. 제품 결과는 검색한 원료가
               주성분인지, 부원료인지 구분해서 확인할 수 있습니다.
             </p>
@@ -445,30 +249,30 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <form
             action="/search"
             role="search"
-            className="mt-8 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="mt-8 rounded-3xl border border-stone-200 bg-surface p-4 shadow-card"
           >
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
               <SearchCombobox initialQuery={query} />
 
               <label
                 htmlFor="include-supporting"
-                className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700"
+                className="flex min-h-14 items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 text-sm text-ink"
               >
-                <SlidersHorizontal className="h-4 w-4 text-slate-400" />
+                <SlidersHorizontal className="h-4 w-4 text-ink-faint" />
                 <input
                   id="include-supporting"
                   name="includeSupporting"
                   type="checkbox"
                   value="true"
                   defaultChecked={includeSupporting}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-4 w-4 rounded border-stone-300 text-orange-700 focus:ring-brand"
                 />
                 부원료 포함
               </label>
 
               <button
                 type="submit"
-                className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                className="rounded-2xl bg-orange-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-800"
               >
                 검색
               </button>
@@ -481,7 +285,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 <Link
                   key={keyword}
                   href={buildSearchHref(keyword, false)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-emerald-200 hover:text-emerald-700"
+                  className="rounded-full border border-stone-200 bg-surface px-4 py-2 text-sm text-ink-muted transition-colors hover:border-brand hover:text-orange-700"
                 >
                   {keyword}
                 </Link>
@@ -505,7 +309,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               title="원료 직접 일치"
               description="검색어 자체와 직접 일치하는 원료입니다."
               results={directIngredientResults}
-              countToneClassName="bg-emerald-50 text-emerald-700"
               query={query}
             />
 
@@ -513,23 +316,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               title="프로바이오틱스 균주 일치"
               description="검색어가 프로바이오틱스 계열(유산균)일 때, 균주명에 포함된 일반 키워드 일치를 별도로 분류한 결과입니다."
               results={probioticStrainIngredientResults}
-              countToneClassName="bg-violet-50 text-violet-700"
               query={query}
             />
 
             <section>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">제품 결과</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    총 {productResults.length.toLocaleString()}개 제품 중{" "}
-                    {productResults.length === 0 ? 0 : pageStart + 1}-
-                    {Math.min(pageStart + PAGE_SIZE, productResults.length)}개를 표시합니다.
-                  </p>
-                </div>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                <SectionHeader
+                  title="제품 결과"
+                  description={`총 ${productResults.length.toLocaleString()}개 제품 중 ${
+                    productResults.length === 0 ? 0 : pageStart + 1
+                  }-${Math.min(pageStart + PAGE_SIZE, productResults.length)}개를 표시합니다.`}
+                  className="mb-0"
+                />
+                <Badge variant="tag">
                   {includeSupporting ? "부원료 포함 검색" : "주성분 우선 검색"}
-                </div>
+                </Badge>
               </div>
 
               {productResults.length === 0 ? (
@@ -569,7 +370,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     buildHref={(page) =>
                       buildSearchHref(query, includeSupporting, page)
                     }
-                    className="border-t border-slate-200 pt-8"
+                    className="border-t border-stone-200 pt-8"
                   />
                 </div>
               )}
@@ -586,140 +387,3 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     </div>
   );
 }
-
-function IngredientResultSection({
-  title,
-  description,
-  results,
-  countToneClassName,
-  query,
-}: {
-  title: string;
-  description: string;
-  results: IngredientSearchResult[];
-  countToneClassName: string;
-  query: string;
-}) {
-  if (results.length === 0) return null;
-
-  return (
-    <section>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
-        </div>
-        <Badge className={countToneClassName}>{results.length}개</Badge>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {results.map((result) => (
-          <Link
-            key={result.id}
-            href={result.href}
-            className="rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-emerald-200 hover:bg-emerald-50/40"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-semibold text-slate-900">
-                  <HighlightMatch text={result.title} query={query} />
-                </p>
-                {result.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">
-                    <HighlightMatch text={result.subtitle} query={query} />
-                  </p>
-                )}
-              </div>
-              <Badge className="bg-emerald-50 text-emerald-700">{result.badge}</Badge>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProductResultSection({
-  title,
-  description,
-  products,
-  query,
-}: {
-  title: string;
-  description: string;
-  products: ProductSearchResult[];
-  query: string;
-}) {
-  if (products.length === 0) return null;
-
-  return (
-    <section>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
-        </div>
-        <Badge className="bg-slate-100 text-slate-700">{products.length}개</Badge>
-      </div>
-
-      <div className="space-y-3">
-        {products.map((product) => (
-          <Link
-            key={product.id}
-            href={product.href}
-            className="block rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-emerald-200 hover:bg-emerald-50/30"
-          >
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-lg font-semibold text-slate-900">
-                  <HighlightMatch text={product.title} query={query} />
-                </p>
-                {product.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">
-                    <HighlightMatch text={product.subtitle} query={query} />
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {product.saleVerified ? (
-                  <Badge className="bg-emerald-50 text-emerald-700">판매 확인</Badge>
-                ) : (
-                  <Badge className="bg-slate-100 text-slate-500">식약처 신고 정보</Badge>
-                )}
-                {product.directNameMatch && (
-                  <Badge className="bg-blue-50 text-blue-700">제품명 일치</Badge>
-                )}
-                {product.activeMatches.length > 0 && (
-                  <Badge className="bg-emerald-50 text-emerald-700">
-                    {getIngredientRoleLabel("active")} {product.activeMatches.length}개
-                  </Badge>
-                )}
-                {product.supportingMatches.length > 0 && (
-                  <Badge className="bg-amber-50 text-amber-700">
-                    {getIngredientRoleLabel("supporting")} {product.supportingMatches.length}개
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {product.activeMatches.length > 0 && (
-              <p className="mt-3 text-sm text-slate-600">
-                <span className="font-medium text-slate-900">주성분:</span>{" "}
-                {product.activeMatches.join(", ")}
-              </p>
-            )}
-
-            {product.supportingMatches.length > 0 && (
-              <p className="mt-2 text-sm text-slate-500">
-                <span className="font-medium text-slate-800">부원료:</span>{" "}
-                {product.supportingMatches.join(", ")}
-              </p>
-            )}
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-

@@ -103,8 +103,8 @@ export default async function IngredientCategoryPage({ params }: CategoryPagePro
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                 item === category
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-stone-200 bg-stone-50 text-ink-muted hover:border-emerald-200 hover:text-emerald-700",
+                  ? "border-orange-700 bg-orange-700 text-white"
+                  : "border-stone-200 bg-stone-50 text-ink-muted hover:border-orange-200 hover:text-orange-700",
               )}
             >
               {getIngredientCategoryLabel(item)}

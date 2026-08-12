@@ -221,7 +221,7 @@ export function SearchCombobox({
     <div ref={containerRef} className={cn("relative", className)}>
       <label htmlFor={inputId} className="relative block">
         <span className="sr-only">검색어</span>
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-faint" />
         <input
           ref={inputRef}
           id={inputId}
@@ -246,7 +246,7 @@ export function SearchCombobox({
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           className={cn(
-            "w-full rounded-2xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100",
+            "w-full rounded-2xl border border-stone-300 bg-white py-3 pl-12 pr-4 text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand",
             inputClassName,
           )}
         />
@@ -257,14 +257,14 @@ export function SearchCombobox({
           id={listboxId}
           role="listbox"
           aria-label="검색 제안"
-          className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+          className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl"
         >
           {loading && suggestions.length === 0 && (
-            <p className="px-4 py-3 text-sm text-slate-500">검색 중…</p>
+            <p className="px-4 py-3 text-sm text-ink-muted">검색 중…</p>
           )}
 
           {!loading && suggestions.length === 0 && (
-            <p className="px-4 py-3 text-sm text-slate-500">
+            <p className="px-4 py-3 text-sm text-ink-muted">
               제안이 없습니다. Enter로 전체 검색을 실행하세요.
             </p>
           )}
@@ -304,7 +304,7 @@ export function SearchCombobox({
           <Link
             href={buildSearchHref(trimmed)}
             onClick={() => setOpen(false)}
-            className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+            className="flex items-center justify-between border-t border-stone-100 bg-stone-50 px-4 py-2.5 text-xs font-semibold text-orange-700 hover:bg-brand-bg"
           >
             <span>&ldquo;{trimmed}&rdquo; 전체 검색 결과 보기</span>
             <span aria-hidden>→</span>
@@ -334,7 +334,7 @@ function SuggestionGroup({
 }) {
   return (
     <div className="py-1">
-      <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+      <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-faint">
         {label}
       </p>
       <ul>
@@ -352,8 +352,8 @@ function SuggestionGroup({
                 className={cn(
                   "flex items-center justify-between gap-3 px-4 py-2 text-sm",
                   active
-                    ? "bg-emerald-50 text-emerald-900"
-                    : "text-slate-700 hover:bg-slate-50",
+                    ? "bg-brand-bg text-orange-700"
+                    : "text-ink-muted hover:bg-stone-50",
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -361,7 +361,7 @@ function SuggestionGroup({
                     <HighlightMatch text={item.title} query={query} />
                   </p>
                   {item.subtitle && (
-                    <p className="truncate text-xs text-slate-500">
+                    <p className="truncate text-xs text-ink-muted">
                       <HighlightMatch text={item.subtitle} query={query} />
                     </p>
                   )}

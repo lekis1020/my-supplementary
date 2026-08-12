@@ -53,7 +53,7 @@ export function Header() {
             className={cn(
               "relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
               pathname.startsWith("/compare")
-                ? "bg-emerald-50 text-emerald-700"
+                ? "bg-brand-bg text-orange-700"
                 : "text-gray-600 hover:bg-gray-100"
             )}
           >
@@ -62,7 +62,7 @@ export function Header() {
             {showCompareBadge && (
               <span
                 aria-hidden
-                className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-bold text-white"
+                className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-700 px-1.5 text-[11px] font-bold text-white"
               >
                 {compareCount}
               </span>
@@ -111,7 +111,7 @@ export function Header() {
                 type="search"
                 name="q"
                 placeholder="원료·제품명을 검색하세요"
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           </form>
@@ -136,7 +136,7 @@ export function Header() {
             onClick={() => setMenuOpen(false)}
             className={cn(
               "flex items-center justify-between py-3 text-sm font-medium",
-              pathname.startsWith("/compare") ? "text-green-600" : "text-gray-600"
+              pathname.startsWith("/compare") ? "text-orange-700" : "text-ink-muted"
             )}
           >
             <span className="inline-flex items-center gap-2">
@@ -144,7 +144,7 @@ export function Header() {
               비교 도구
             </span>
             {showCompareBadge && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-bold text-white">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-700 px-1.5 text-[11px] font-bold text-white">
                 {compareCount}
               </span>
             )}

@@ -144,24 +144,6 @@ export function hasClearlyIdentifiedProbioticStrain(
   );
 }
 
-/** 근거 등급 배지 색상 */
-export function getEvidenceGradeColor(grade: string | null): string {
-  switch (grade) {
-    case "A":
-      return "bg-green-100 text-green-800";
-    case "B":
-      return "bg-blue-100 text-blue-800";
-    case "C":
-      return "bg-yellow-100 text-yellow-800";
-    case "D":
-      return "bg-orange-100 text-orange-800";
-    case "F":
-      return "bg-red-100 text-red-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-}
-
 /** claim_scope 한글 변환 */
 export function getClaimScopeLabel(scope: string): string {
   const map: Record<string, string> = {
@@ -413,21 +395,6 @@ export function getStudyDesignLabel(design: string | null): string {
     animal: "동물 연구",
   };
   return map[design ?? ""] ?? design ?? "";
-}
-
-/** 연구 설계 배지 색상 */
-export function getStudyDesignColor(design: string | null): string {
-  switch (design) {
-    case "meta_analysis":
-    case "systematic_review":
-      return "bg-purple-100 text-purple-800";
-    case "rct":
-      return "bg-blue-100 text-blue-800";
-    case "guideline":
-      return "bg-teal-100 text-teal-800";
-    default:
-      return "bg-gray-100 text-gray-600";
-  }
 }
 
 /** 효과 방향 한글 변환 */

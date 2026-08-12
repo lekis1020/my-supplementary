@@ -17,14 +17,14 @@ export function IngredientCategoryCard({
   return (
     <Link
       href={`/ingredients/category/${category}`}
-      className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-lg"
+      className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-700">
             Ingredient Category
           </p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 group-hover:text-emerald-700">
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 group-hover:text-orange-700">
             {getIngredientCategoryLabel(category)}
           </h2>
         </div>
@@ -45,7 +45,7 @@ export function IngredientCategoryCard({
           ))}
         </div>
       )}
-      <div className="mt-6 text-sm font-semibold text-emerald-700">카테고리 열기</div>
+      <div className="mt-6 text-sm font-semibold text-orange-700">카테고리 열기</div>
     </Link>
   );
 }
