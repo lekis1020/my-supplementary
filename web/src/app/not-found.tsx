@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="mt-4 text-lg text-gray-600">페이지를 찾을 수 없습니다.</p>
       <Link
         href="/"
-        className="mt-6 rounded-lg bg-green-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+        className="mt-6 rounded-lg bg-orange-700 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-800"
       >
         홈으로 돌아가기
       </Link>

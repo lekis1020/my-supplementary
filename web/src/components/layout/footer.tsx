@@ -8,7 +8,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex flex-col gap-6 md:flex-row md:justify-between">
           <div>
-            <p className="font-bold text-green-600">NutriCompare</p>
+            <p className="font-bold text-orange-700">NutriCompare</p>
             <p className="mt-1 text-sm text-gray-500">
               신뢰할 수 있는 영양제 비교 분석 플랫폼
             </p>

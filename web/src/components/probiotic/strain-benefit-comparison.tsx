@@ -12,7 +12,7 @@ function StrainRowCard({ row }: { row: StrainRow }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           {row.href ? (
-            <Link href={row.href} className="font-medium text-gray-900 hover:text-green-700">
+            <Link href={row.href} className="font-medium text-gray-900 hover:text-orange-700">
               {row.strainName}
             </Link>
           ) : (
@@ -34,7 +34,7 @@ function StrainRowCard({ row }: { row: StrainRow }) {
         <p className="mt-2 text-sm text-gray-600">{row.evidenceSummary}</p>
       )}
       {row.isRegulatorApproved && row.allowedExpression && (
-        <p className="mt-2 inline-block rounded bg-green-50 px-2 py-1 text-xs text-green-700">
+        <p className="mt-2 inline-block rounded bg-success-bg px-2 py-1 text-xs text-success">
           허용 표현: {row.allowedExpression}
         </p>
       )}
@@ -68,8 +68,8 @@ export function StrainBenefitComparison({ groups }: { groups: BenefitGroup[] }) 
             className={[
               "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
               group.claimCode === activeGroup.claimCode
-                ? "border-green-600 bg-green-600 text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:border-green-200 hover:text-green-700",
+                ? "border-orange-700 bg-orange-700 text-white"
+                : "border-gray-200 bg-white text-gray-600 hover:border-orange-200 hover:text-orange-700",
             ].join(" ")}
           >
             {group.label}

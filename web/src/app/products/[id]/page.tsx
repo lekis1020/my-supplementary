@@ -211,7 +211,7 @@ export default async function ProductDetailPage({ params }: Props) {
     <div className="mx-auto max-w-6xl px-4 py-12">
       <Link
         href="/products"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-600"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-orange-700"
       >
         <ArrowLeft className="h-4 w-4" />
         제품 데이터베이스
@@ -389,7 +389,7 @@ export default async function ProductDetailPage({ params }: Props) {
             <Card className="overflow-hidden border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/50">
                 <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
-                  <FileText className="h-5 w-5 text-green-500" />
+                  <FileText className="h-5 w-5 text-orange-700" />
                   영양정보 라벨
                 </CardTitle>
               </CardHeader>

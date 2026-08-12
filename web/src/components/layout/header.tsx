@@ -24,7 +24,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-          <span className="text-green-600">NutriCompare</span>
+          <span className="text-orange-700">NutriCompare</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -34,9 +34,9 @@ export function Header() {
               key={item.href}
               href={item.href}
               className={cn(
-                "text-sm font-medium transition-colors hover:text-green-600",
+                "text-sm font-medium transition-colors hover:text-orange-700",
                 pathname.startsWith(item.href)
-                  ? "text-green-600"
+                  ? "text-orange-700"
                   : "text-gray-600"
               )}
             >
@@ -124,7 +124,7 @@ export function Header() {
               className={cn(
                 "block py-3 text-sm font-medium",
                 pathname.startsWith(item.href)
-                  ? "text-green-600"
+                  ? "text-orange-700"
                   : "text-gray-600"
               )}
             >

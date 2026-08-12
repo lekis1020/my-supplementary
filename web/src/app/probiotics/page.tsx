@@ -100,7 +100,7 @@ export default async function ProbioticsComparePage() {
         <CardHeader>
           <CardTitle>
             <span className="flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-green-600" />
+              <FlaskConical className="h-5 w-5 text-orange-700" />
               균주별 효능 비교
             </span>
           </CardTitle>
