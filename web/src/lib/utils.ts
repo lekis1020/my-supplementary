@@ -417,15 +417,15 @@ export function getEffectDirectionLabel(direction: string | null): string {
 export function getEffectDirectionBadgeColor(direction: string | null): string {
   switch (direction) {
     case "positive":
-      return "bg-green-50 text-green-700";
+      return "bg-success-bg text-success";
     case "negative":
       return "bg-red-50 text-red-700";
     case "neutral":
-      return "bg-gray-100 text-gray-600";
+      return "bg-stone-100 text-stone-600";
     case "mixed":
       return "bg-yellow-50 text-yellow-700";
     default:
-      return "bg-gray-50 text-gray-500";
+      return "bg-stone-50 text-ink-muted";
   }
 }
 

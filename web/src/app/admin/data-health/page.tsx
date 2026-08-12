@@ -1,6 +1,14 @@
-import { adminDb } from "@/lib/db/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  getFreshness,
+  getTableCounts,
+  getRecentVerifications,
+  getDiscrepancySummary,
+  FRESHNESS_CONFIG,
+  ENTITY_LABELS,
+  SEVERITY_CONFIG,
+} from "@/lib/admin/data-health";
 
 export const dynamic = "force-dynamic";
 
@@ -9,205 +17,8 @@ export const metadata = {
 };
 
 // ============================================================================
-// Data fetching
-// ============================================================================
-
-interface FreshnessRow {
-  entity_type: string;
-  staleness_days: number;
-  refresh_mode: string;
-  last_fetched_at: string | null;
-  last_refresh_status: string | null;
-  records_processed: string | null;
-  freshness: string;
-  days_since_fetch: number | null;
-}
-
-async function getFreshness(): Promise<FreshnessRow[]> {
-  try {
-    return await adminDb<FreshnessRow[]>`
-      SELECT
-        rp.entity_type,
-        rp.staleness_days,
-        rp.refresh_mode,
-        ers.last_fetched_at::text,
-        ers.last_refresh_status,
-        ers.last_checksum AS records_processed,
-        CASE
-          WHEN ers.last_fetched_at IS NULL THEN 'never'
-          WHEN ers.last_fetched_at < NOW() - (rp.staleness_days || ' days')::interval THEN 'stale'
-          WHEN ers.last_fetched_at < NOW() - (rp.staleness_days * 0.7 || ' days')::interval THEN 'aging'
-          ELSE 'fresh'
-        END AS freshness,
-        CASE
-          WHEN ers.last_fetched_at IS NOT NULL
-          THEN EXTRACT(DAY FROM NOW() - ers.last_fetched_at)::int
-          ELSE NULL
-        END AS days_since_fetch
-      FROM refresh_policies rp
-      LEFT JOIN entity_refresh_states ers
-        ON rp.entity_type = ers.entity_type
-        AND ers.entity_id = 0
-        AND ers.source_connector_id IS NULL
-      WHERE rp.is_active = TRUE
-      ORDER BY
-        CASE
-          WHEN ers.last_fetched_at IS NULL THEN 0
-          WHEN ers.last_fetched_at < NOW() - (rp.staleness_days || ' days')::interval THEN 1
-          WHEN ers.last_fetched_at < NOW() - (rp.staleness_days * 0.7 || ' days')::interval THEN 2
-          ELSE 3
-        END,
-        rp.staleness_days ASC
-    `;
-  } catch {
-    return [];
-  }
-}
-
-interface TableCount {
-  table_name: string;
-  row_count: number;
-}
-
-async function getTableCounts(): Promise<TableCount[]> {
-  const tables = [
-    "products",
-    "ingredients",
-    "product_ingredients",
-    "claims",
-    "ingredient_claims",
-    "safety_items",
-    "dosage_guidelines",
-    "label_snapshots",
-    "evidence_studies",
-    "evidence_outcomes",
-  ];
-
-  const results: TableCount[] = [];
-
-  for (const table of tables) {
-    try {
-      const [row] = await adminDb`
-        SELECT count(*)::int AS cnt FROM ${adminDb(table)}
-      `;
-      results.push({ table_name: table, row_count: row.cnt });
-    } catch {
-      results.push({ table_name: table, row_count: -1 });
-    }
-  }
-
-  return results;
-}
-
-interface VerificationRun {
-  id: number;
-  run_mode: string;
-  layers_checked: string;
-  total_checked: number;
-  total_passed: number;
-  total_warnings: number;
-  total_failures: number;
-  started_at: string;
-  finished_at: string | null;
-}
-
-async function getRecentVerifications(): Promise<VerificationRun[]> {
-  try {
-    return await adminDb<VerificationRun[]>`
-      SELECT
-        id, run_mode, layers_checked,
-        total_checked, total_passed, total_warnings, total_failures,
-        started_at::text, finished_at::text
-      FROM verification_runs
-      ORDER BY started_at DESC
-      LIMIT 10
-    `;
-  } catch {
-    return [];
-  }
-}
-
-interface DiscrepancySummary {
-  severity: string;
-  count: number;
-}
-
-async function getDiscrepancySummary(): Promise<DiscrepancySummary[]> {
-  try {
-    return await adminDb<DiscrepancySummary[]>`
-      SELECT severity, count(*)::int AS count
-      FROM verification_discrepancies
-      WHERE is_resolved = FALSE
-      GROUP BY severity
-      ORDER BY
-        CASE severity
-          WHEN 'critical' THEN 0
-          WHEN 'high' THEN 1
-          WHEN 'medium' THEN 2
-          WHEN 'low' THEN 3
-          ELSE 4
-        END
-    `;
-  } catch {
-    return [];
-  }
-}
-
-// ============================================================================
 // UI helpers
 // ============================================================================
-
-const FRESHNESS_CONFIG: Record<
-  string,
-  { label: string; bg: string; text: string; dot: string }
-> = {
-  fresh: {
-    label: "정상",
-    bg: "bg-brand-bg",
-    text: "text-orange-700",
-    dot: "bg-brand",
-  },
-  aging: {
-    label: "주의",
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    dot: "bg-amber-500",
-  },
-  stale: {
-    label: "갱신 필요",
-    bg: "bg-red-50",
-    text: "text-red-700",
-    dot: "bg-red-500",
-  },
-  never: {
-    label: "미수집",
-    bg: "bg-gray-100",
-    text: "text-gray-500",
-    dot: "bg-gray-400",
-  },
-};
-
-const ENTITY_LABELS: Record<string, string> = {
-  product: "제품",
-  ingredient: "원료",
-  product_ingredient: "제품-원료",
-  claim: "기능성",
-  ingredient_claim: "원료-기능성",
-  dosage_guideline: "용량 가이드",
-  label_snapshot: "라벨",
-  safety_item: "안전성",
-  evidence_study: "근거문헌",
-};
-
-const SEVERITY_CONFIG: Record<
-  string,
-  { bg: string; text: string }
-> = {
-  critical: { bg: "bg-red-100", text: "text-red-800" },
-  high: { bg: "bg-orange-100", text: "text-orange-800" },
-  medium: { bg: "bg-amber-100", text: "text-amber-800" },
-  low: { bg: "bg-gray-100", text: "text-gray-600" },
-};
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "-";
@@ -236,10 +47,7 @@ export default async function DataHealthPage() {
       getDiscrepancySummary(),
     ]);
 
-  const totalDiscrepancies = discrepancies.reduce(
-    (sum, d) => sum + d.count,
-    0,
-  );
+  const totalDiscrepancies = discrepancies.reduce((sum, d) => sum + d.count, 0);
 
   const freshCounts = {
     fresh: freshness.filter((r) => r.freshness === "fresh").length,
@@ -251,10 +59,8 @@ export default async function DataHealthPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          데이터 건강 현황
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-ink">데이터 건강 현황</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           파이프라인 갱신 상태, 테이블 현황, 검증 결과를 한 눈에 확인합니다.
         </p>
       </div>
@@ -264,8 +70,8 @@ export default async function DataHealthPage() {
         <SummaryCard
           label="정상"
           value={freshCounts.fresh}
-          color="text-orange-700"
-          bg="bg-brand-bg"
+          color="text-success"
+          bg="bg-success-bg"
         />
         <SummaryCard
           label="주의"
@@ -276,8 +82,8 @@ export default async function DataHealthPage() {
         <SummaryCard
           label="갱신 필요"
           value={freshCounts.stale + freshCounts.never}
-          color="text-red-600"
-          bg="bg-red-50"
+          color="text-danger"
+          bg="bg-danger-bg"
         />
         <SummaryCard
           label="미해결 불일치"
@@ -294,9 +100,9 @@ export default async function DataHealthPage() {
         </CardHeader>
         <CardContent>
           {freshness.length === 0 ? (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-muted">
               refresh_policies 데이터 없음 —{" "}
-              <code className="rounded bg-gray-100 px-1 text-xs">
+              <code className="rounded bg-stone-100 px-1 text-xs">
                 db/022_seed_refresh_policies.sql
               </code>{" "}
               실행 필요
@@ -305,10 +111,8 @@ export default async function DataHealthPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {freshness.map((row) => {
                 const config =
-                  FRESHNESS_CONFIG[row.freshness] ??
-                  FRESHNESS_CONFIG.never;
-                const label =
-                  ENTITY_LABELS[row.entity_type] ?? row.entity_type;
+                  FRESHNESS_CONFIG[row.freshness] ?? FRESHNESS_CONFIG.never;
+                const label = ENTITY_LABELS[row.entity_type] ?? row.entity_type;
 
                 return (
                   <div
@@ -316,7 +120,7 @@ export default async function DataHealthPage() {
                     className={`rounded-lg border p-4 ${config.bg}`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-ink">
                         {label}
                       </span>
                       <Badge className={`${config.bg} ${config.text}`}>
@@ -326,10 +130,8 @@ export default async function DataHealthPage() {
                         {config.label}
                       </Badge>
                     </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      <span className="font-mono">
-                        {row.entity_type}
-                      </span>
+                    <div className="mt-2 text-xs text-ink-muted">
+                      <span className="font-mono">{row.entity_type}</span>
                     </div>
                     <div className="mt-1 flex items-baseline gap-2">
                       <span className={`text-lg font-semibold ${config.text}`}>
@@ -337,12 +139,12 @@ export default async function DataHealthPage() {
                           ? `${row.days_since_fetch}일 전`
                           : "미갱신"}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-ink-faint">
                         / {row.staleness_days}일 기준
                       </span>
                     </div>
                     {row.records_processed && (
-                      <div className="mt-1 text-xs text-gray-400">
+                      <div className="mt-1 text-xs text-ink-faint">
                         {formatNumber(Number(row.records_processed))}건 처리
                       </div>
                     )}
@@ -366,15 +168,11 @@ export default async function DataHealthPage() {
               {tableCounts.map((t) => (
                 <div
                   key={t.table_name}
-                  className="flex items-center justify-between border-b border-gray-100 pb-2 last:border-0"
+                  className="flex items-center justify-between border-b border-stone-100 pb-2 last:border-0"
                 >
-                  <span className="text-sm text-gray-600">
-                    {t.table_name}
-                  </span>
-                  <span className="font-mono text-sm font-medium text-gray-900">
-                    {t.row_count >= 0
-                      ? formatNumber(t.row_count)
-                      : "-"}
+                  <span className="text-sm text-ink-muted">{t.table_name}</span>
+                  <span className="font-mono text-sm font-medium text-ink">
+                    {t.row_count >= 0 ? formatNumber(t.row_count) : "-"}
                   </span>
                 </div>
               ))}
@@ -389,15 +187,12 @@ export default async function DataHealthPage() {
           </CardHeader>
           <CardContent>
             {discrepancies.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                미해결 불일치 없음
-              </p>
+              <p className="text-sm text-ink-muted">미해결 불일치 없음</p>
             ) : (
               <div className="space-y-3">
                 {discrepancies.map((d) => {
                   const config =
-                    SEVERITY_CONFIG[d.severity] ??
-                    SEVERITY_CONFIG.low;
+                    SEVERITY_CONFIG[d.severity] ?? SEVERITY_CONFIG.low;
                   return (
                     <div
                       key={d.severity}
@@ -412,12 +207,12 @@ export default async function DataHealthPage() {
                     </div>
                   );
                 })}
-                <div className="border-t border-gray-200 pt-2">
+                <div className="border-t border-stone-200 pt-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-ink-muted">
                       합계
                     </span>
-                    <span className="font-mono text-sm font-bold text-gray-900">
+                    <span className="font-mono text-sm font-bold text-ink">
                       {totalDiscrepancies}건
                     </span>
                   </div>
@@ -435,9 +230,9 @@ export default async function DataHealthPage() {
         </CardHeader>
         <CardContent>
           {verifications.length === 0 ? (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-muted">
               검증 이력 없음 —{" "}
-              <code className="rounded bg-gray-100 px-1 text-xs">
+              <code className="rounded bg-stone-100 px-1 text-xs">
                 npm run verify
               </code>{" "}
               실행 후 확인
@@ -446,7 +241,7 @@ export default async function DataHealthPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
+                  <tr className="border-b border-stone-200 text-left text-xs text-ink-muted">
                     <th className="pb-2 pr-4">ID</th>
                     <th className="pb-2 pr-4">모드</th>
                     <th className="pb-2 pr-4">레이어</th>
@@ -460,40 +255,30 @@ export default async function DataHealthPage() {
                   {verifications.map((v) => {
                     const passRate =
                       v.total_checked > 0
-                        ? (
-                            (v.total_passed / v.total_checked) *
-                            100
-                          ).toFixed(0)
+                        ? ((v.total_passed / v.total_checked) * 100).toFixed(0)
                         : "-";
                     return (
-                      <tr
-                        key={v.id}
-                        className="border-b border-gray-50"
-                      >
-                        <td className="py-2 pr-4 font-mono text-gray-400">
+                      <tr key={v.id} className="border-b border-stone-50">
+                        <td className="py-2 pr-4 font-mono text-ink-faint">
                           #{v.id}
                         </td>
                         <td className="py-2 pr-4">
-                          <Badge className="bg-gray-100 text-gray-700">
-                            {v.run_mode}
-                          </Badge>
+                          <Badge variant="neutral">{v.run_mode}</Badge>
                         </td>
-                        <td className="py-2 pr-4 font-mono text-gray-600">
+                        <td className="py-2 pr-4 font-mono text-ink-muted">
                           L{v.layers_checked}
                         </td>
-                        <td className="py-2 pr-4 text-orange-700">
+                        <td className="py-2 pr-4 text-success">
                           {v.total_passed}/{v.total_checked}{" "}
-                          <span className="text-gray-400">
-                            ({passRate}%)
-                          </span>
+                          <span className="text-ink-faint">({passRate}%)</span>
                         </td>
                         <td className="py-2 pr-4 text-amber-600">
                           {v.total_warnings}
                         </td>
-                        <td className="py-2 pr-4 text-red-600">
+                        <td className="py-2 pr-4 text-danger">
                           {v.total_failures}
                         </td>
-                        <td className="py-2 text-gray-500">
+                        <td className="py-2 text-ink-muted">
                           {formatDate(v.started_at)}
                         </td>
                       </tr>
@@ -507,27 +292,25 @@ export default async function DataHealthPage() {
       </Card>
 
       {/* CLI commands reference */}
-      <div className="mt-8 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-        <h3 className="mb-2 text-sm font-medium text-gray-700">
-          CLI 명령어
-        </h3>
+      <div className="mt-8 rounded-lg border border-dashed border-stone-300 bg-stone-50 p-4">
+        <h3 className="mb-2 text-sm font-medium text-ink-muted">CLI 명령어</h3>
         <div className="grid gap-2 text-xs sm:grid-cols-2">
-          <code className="rounded bg-white px-2 py-1 text-gray-600">
+          <code className="rounded bg-white px-2 py-1 text-ink-muted">
             npm run freshness
           </code>
-          <span className="text-gray-500">갱신 상태 점검</span>
-          <code className="rounded bg-white px-2 py-1 text-gray-600">
+          <span className="text-ink-muted">갱신 상태 점검</span>
+          <code className="rounded bg-white px-2 py-1 text-ink-muted">
             npm run verify
           </code>
-          <span className="text-gray-500">데이터 무결성 검증</span>
-          <code className="rounded bg-white px-2 py-1 text-gray-600">
+          <span className="text-ink-muted">데이터 무결성 검증</span>
+          <code className="rounded bg-white px-2 py-1 text-ink-muted">
             npm run verify:source
           </code>
-          <span className="text-gray-500">소스 API 대조 검증</span>
-          <code className="rounded bg-white px-2 py-1 text-gray-600">
+          <span className="text-ink-muted">소스 API 대조 검증</span>
+          <code className="rounded bg-white px-2 py-1 text-ink-muted">
             npm run verify:full
           </code>
-          <span className="text-gray-500">전수조사</span>
+          <span className="text-ink-muted">전수조사</span>
         </div>
       </div>
     </div>
@@ -551,7 +334,7 @@ function SummaryCard({
 }) {
   return (
     <div className={`rounded-lg border p-4 ${bg}`}>
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xs text-ink-muted">{label}</div>
       <div className={`mt-1 text-2xl font-bold ${color}`}>{value}</div>
     </div>
   );

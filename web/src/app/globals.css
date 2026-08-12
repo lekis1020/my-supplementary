@@ -3,6 +3,24 @@
 :root {
   --background: #fffbf5;
   --foreground: #292524;
+
+  /* Benefit hexagon chart colors — raw SVG fill/stroke values tokenized here
+     so they read as one system; values unchanged from their prior inline rgb()/rgba(). */
+  --chart-grid: #e2e8f0;
+  --chart-active-fill: rgba(249, 115, 22, 0.15);
+  --chart-active-stroke: #f97316;
+  --chart-immune-fill: #f97316;
+  --chart-immune-stroke: #fed7aa;
+  --chart-gut-fill: #14b8a6;
+  --chart-gut-stroke: #99f6e4;
+  --chart-cardio-fill: #f43f5e;
+  --chart-cardio-stroke: #fecdd3;
+  --chart-bone-fill: #f59e0b;
+  --chart-bone-stroke: #fde68a;
+  --chart-beauty-fill: #d946ef;
+  --chart-beauty-stroke: #f5d0fe;
+  --chart-liver-fill: #8b5cf6;
+  --chart-liver-stroke: #ddd6fe;
 }
 
 @theme inline {
@@ -29,6 +47,9 @@
   --color-regulatory-bg: #eff6ff;
   --color-danger: #dc2626;
   --color-danger-bg: #fef2f2;
+  /* Status semantics (not compliance-reserved): positive-confirmation states */
+  --color-success: #15803d;
+  --color-success-bg: #f0fdf4;
   --color-evidence-a: #047857;
   --color-evidence-a-bg: #ecfdf5;
   --color-evidence-b: #4d7c0f;

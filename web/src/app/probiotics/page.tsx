@@ -84,15 +84,15 @@ export default async function ProbioticsComparePage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">유산균, 균주에 따라 효과가 다릅니다</h1>
-        <p className="mt-3 text-gray-600">
+        <h1 className="text-3xl font-bold text-ink">유산균, 균주에 따라 효과가 다릅니다</h1>
+        <p className="mt-3 text-ink-muted">
           같은 &ldquo;유산균&rdquo;이라도 균주(strain)마다 입증된 효능과 근거 수준이 다릅니다.
           효능을 먼저 고르면, 그 효능에 강한 균주가 근거 순으로 나열됩니다.
         </p>
         {/* 범례: 규제 vs 학술 분리(법적 요구) */}
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-600">
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-stone-100 bg-stone-50 p-4 text-xs text-ink-muted">
           <span><strong className="text-regulatory">식약처 인정</strong> — 규제기관이 기능성을 인정한 균주</span>
-          <span><strong className="text-gray-700">근거 A~C</strong> — 학술 연구의 근거 수준(A가 가장 강함)</span>
+          <span><strong className="text-ink">근거 A~C</strong> — 학술 연구의 근거 수준(A가 가장 강함)</span>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export default async function ProbioticsComparePage() {
         <CardHeader>
           <CardTitle>
             <span className="flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-green-600" />
+              <FlaskConical className="h-5 w-5 text-orange-700" />
               균주별 효능 비교
             </span>
           </CardTitle>
@@ -109,7 +109,7 @@ export default async function ProbioticsComparePage() {
           {groups.length > 0 ? (
             <StrainBenefitComparison groups={groups} />
           ) : (
-            <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+            <p className="rounded-lg border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-ink-muted">
               비교할 균주 데이터가 아직 준비되지 않았습니다.
             </p>
           )}

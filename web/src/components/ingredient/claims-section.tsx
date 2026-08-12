@@ -92,7 +92,7 @@ export function ClaimsSection({
                 <p className="mt-2 text-sm text-ink-muted">{ic.evidence_summary}</p>
               )}
               {ic.allowed_expression && (
-                <p className="mt-2 text-xs text-green-700 bg-green-50 rounded px-2 py-1">
+                <p className="mt-2 text-xs text-success bg-success-bg rounded px-2 py-1">
                   허용 표현: {ic.allowed_expression}
                 </p>
               )}

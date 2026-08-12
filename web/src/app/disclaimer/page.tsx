@@ -8,11 +8,11 @@ export const metadata: Metadata = {
 export default function DisclaimerPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-8 text-3xl font-bold text-gray-900">의료 면책 조항</h1>
+      <h1 className="mb-8 text-3xl font-bold text-ink">의료 면책 조항</h1>
 
-      <div className="space-y-8 text-gray-600 leading-relaxed">
+      <div className="space-y-8 text-ink-muted leading-relaxed">
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             1. 정보 제공 목적
           </h2>
           <p>
@@ -24,7 +24,7 @@ export default function DisclaimerPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             2. 의료 전문가 상담
           </h2>
           <p>
@@ -45,7 +45,7 @@ export default function DisclaimerPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             3. 데이터 정확성
           </h2>
           <p>
@@ -61,7 +61,7 @@ export default function DisclaimerPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             4. 규제 정보와 학술 근거의 구분
           </h2>
           <p>
@@ -83,7 +83,7 @@ export default function DisclaimerPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             5. 근거 등급 안내
           </h2>
           <p>본 서비스에서 사용하는 근거 등급은 다음과 같은 의미입니다:</p>
@@ -97,30 +97,30 @@ export default function DisclaimerPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-stone-100">
                   <td className="py-2 pr-4 font-medium">A</td>
                   <td className="py-2 pr-4">매우 강함</td>
-                  <td className="py-2 text-sm text-gray-500">다수의 대규모 RCT, 메타분석</td>
+                  <td className="py-2 text-sm text-ink-muted">다수의 대규모 RCT, 메타분석</td>
                 </tr>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-stone-100">
                   <td className="py-2 pr-4 font-medium">B</td>
                   <td className="py-2 pr-4">강함</td>
-                  <td className="py-2 text-sm text-gray-500">다수의 소규모 RCT 또는 일부 대규모 연구</td>
+                  <td className="py-2 text-sm text-ink-muted">다수의 소규모 RCT 또는 일부 대규모 연구</td>
                 </tr>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-stone-100">
                   <td className="py-2 pr-4 font-medium">C</td>
                   <td className="py-2 pr-4">보통</td>
-                  <td className="py-2 text-sm text-gray-500">제한적 임상 연구 또는 관찰 연구</td>
+                  <td className="py-2 text-sm text-ink-muted">제한적 임상 연구 또는 관찰 연구</td>
                 </tr>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-stone-100">
                   <td className="py-2 pr-4 font-medium">D</td>
                   <td className="py-2 pr-4">약함</td>
-                  <td className="py-2 text-sm text-gray-500">사례 보고 또는 전문가 의견</td>
+                  <td className="py-2 text-sm text-ink-muted">사례 보고 또는 전문가 의견</td>
                 </tr>
                 <tr>
                   <td className="py-2 pr-4 font-medium">F</td>
                   <td className="py-2 pr-4">불충분</td>
-                  <td className="py-2 text-sm text-gray-500">근거 불충분 또는 상충하는 결과</td>
+                  <td className="py-2 text-sm text-ink-muted">근거 불충분 또는 상충하는 결과</td>
                 </tr>
               </tbody>
             </table>
@@ -128,7 +128,7 @@ export default function DisclaimerPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             6. 면책 사항
           </h2>
           <p>
@@ -139,7 +139,7 @@ export default function DisclaimerPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold text-gray-800">
+          <h2 className="mb-3 text-xl font-semibold text-ink">
             7. 건강기능식품 관련 법적 고지
           </h2>
           <p>
@@ -150,7 +150,7 @@ export default function DisclaimerPage() {
           </p>
         </section>
 
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm text-ink-muted">
           <p>
             본 면책 조항은 2026년 3월 12일에 최종 업데이트되었습니다.
           </p>

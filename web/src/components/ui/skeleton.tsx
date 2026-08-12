@@ -11,7 +11,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
       aria-live="polite"
       aria-busy="true"
       className={cn(
-        "animate-pulse rounded-xl bg-slate-200/70 motion-reduce:animate-none",
+        "animate-pulse rounded-xl bg-stone-200/70 motion-reduce:animate-none",
         className,
       )}
       {...props}
@@ -42,7 +42,7 @@ export function CardSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm",
+        "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm",
         className,
       )}
     >
