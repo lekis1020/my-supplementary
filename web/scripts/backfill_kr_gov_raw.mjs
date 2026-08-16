@@ -1,65 +1,18 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import postgres from "postgres";
+import { loadEnv } from "./lib/env.mjs";
+import { fetchJson, sleep } from "./lib/http.mjs";
+import { appendJsonl } from "./lib/jsonl.mjs";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
 const rootDir = path.resolve(webDir, "..");
 
-const envCandidates = [
-  path.join(webDir, ".env.local"),
-  path.join(rootDir, ".env.local"),
-  path.join(webDir, ".env"),
-  path.join(rootDir, ".env"),
-];
-
-function parseEnvFile(filePath) {
-  const values = {};
-  const content = readFileSync(filePath, "utf8");
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    let value = line.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    values[key] = value;
-  }
-
-  return values;
-}
-
-for (const envPath of envCandidates) {
-  if (!existsSync(envPath)) {
-    continue;
-  }
-
-  const values = parseEnvFile(envPath);
-  for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) {
-      process.env[key] = value;
-    }
-  }
-}
+loadEnv();
 
 function parseArgs(argv) {
   const args = {
@@ -372,28 +325,6 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function fetchJson(url) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
-  const text = await response.text();
-  let payload;
-
-  try {
-    payload = JSON.parse(text);
-  } catch (error) {
-    throw new Error(`Non-JSON response for ${url}\n${text}`);
-  }
-
-  return payload;
-}
-
 async function ensureSourceConnector(sql, connector) {
   const sourceRows = await sql`
     select id
@@ -604,14 +535,8 @@ async function loadExistingChecksums(sql, connectorId, externalIds) {
 }
 
 function writeJsonl(outDir, connector, records) {
-  if (!outDir || records.length === 0) {
-    return;
-  }
-
-  mkdirSync(outDir, { recursive: true });
-  const filePath = path.join(outDir, `${connector.key}.jsonl`);
-  const lines = records.map((record) => JSON.stringify(record)).join("\n") + "\n";
-  writeFileSync(filePath, lines, { flag: "a" });
+  if (!outDir || records.length === 0) return;
+  appendJsonl(path.join(outDir, `${connector.key}.jsonl`), records);
 }
 
 async function processConnector(sql, connector) {
