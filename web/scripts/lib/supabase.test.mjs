@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchAllRows, resolveServiceRoleKey, resolveSupabaseUrl } from "./supabase.mjs";
+import { fetchAllRows, getServiceRoleClient, resolveProjectRef, resolveServiceRoleKey, resolveSupabaseUrl } from "./supabase.mjs";
 
 const ENV_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -17,6 +17,13 @@ afterEach(() => {
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
   }
+});
+
+describe("resolveProjectRef", () => {
+  it("prefers the env var", () => {
+    process.env.SUPABASE_PROJECT_REF = "envref";
+    expect(resolveProjectRef()).toBe("envref");
+  });
 });
 
 describe("resolveSupabaseUrl", () => {
@@ -54,6 +61,23 @@ describe("resolveServiceRoleKey", () => {
     const exec = vi.fn();
     expect(resolveServiceRoleKey("abc", { cliFallback: false, exec })).toBeNull();
     expect(exec).not.toHaveBeenCalled();
+  });
+});
+
+describe("getServiceRoleClient", () => {
+  it("throws a clear message when the service-role key is missing", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://real.supabase.co";
+    expect(() => getServiceRoleClient({ cliFallback: false })).toThrow(
+      "Missing SUPABASE_SERVICE_ROLE_KEY",
+    );
+  });
+
+  it("returns a client when URL and key are present", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://real.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "svc-key";
+    const client = getServiceRoleClient({ cliFallback: false });
+    expect(client).toBeTruthy();
+    expect(typeof client.from).toBe("function");
   });
 });
 
