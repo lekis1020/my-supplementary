@@ -14,7 +14,6 @@
  *   --json         JSON 형식 출력
  */
 
-import path from "node:path";
 import process from "node:process";
 import postgres from "postgres";
 import { loadEnv } from "./lib/env.mjs";
@@ -22,10 +21,6 @@ import { loadEnv } from "./lib/env.mjs";
 // ============================================================================
 // Environment
 // ============================================================================
-
-const scriptDir = path.dirname(new URL(import.meta.url).pathname);
-const webDir = path.resolve(scriptDir, "..");
-const rootDir = path.resolve(webDir, "..");
 
 loadEnv();
 
