@@ -826,7 +826,7 @@ Expected: 전부 통과 (스크립트는 tsc 대상이 아니지만 게이트는
 - [ ] **Step 2: backfill_kr_gov_raw.mjs**
 
 - 인라인 env 블록(L13–62) 제거(경로 상수 유지), loadEnv 추가
-- 로컬 `fetchJson`(L378 부근)과 `sleep` 제거 → `import { fetchJson, sleep } from "./lib/http.mjs";` — 시그니처 호환(`fetchJson(url)`), 비JSON 에러 메시지가 전문(全文)에서 500자 절단으로 바뀌는 것은 의도된 변경
+- 로컬 `fetchJson`(L378 부근)과 `sleep` 제거 → `import { fetchJson, sleep } from "./lib/http.mjs";` — 시그니처 호환(`fetchJson(url)`), 비JSON 에러 메시지가 전문(全文)에서 500자 절단으로 바뀌는 것은 의도된 변경. **의도된 변경(추가)**: 구 로컬 fetchJson은 HTTP 상태를 검사하지 않고 JSON 파싱 가능한 응답을 전부 수용했으나, lib 버전은 비-ok 상태에서 throw(429/5xx는 재시도 후) — 오류 페이로드의 원본 적재를 막는 교정이며, 실제 backfill 첫 실행(사용자 승인 후) 시 관찰할 것
 - `function writeJsonl(outDir, connector, records)`(L606–615) 를 lib 위임으로 축약:
 
 ```js
