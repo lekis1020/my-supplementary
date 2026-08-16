@@ -1,53 +1,19 @@
 #!/usr/bin/env node
 
-import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import readline from "node:readline";
-import { execFileSync } from "node:child_process";
-import { createClient } from "@supabase/supabase-js";
 import { trackRefresh } from "./lib/track-refresh.mjs";
+import { loadEnv } from "./lib/env.mjs";
+import { getServiceRoleClient, fetchAllRows } from "./lib/supabase.mjs";
+import { chunk } from "./lib/batch.mjs";
+import { readJsonl } from "./lib/jsonl.mjs";
+
+loadEnv();
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
 const rootDir = path.resolve(webDir, "..");
-const supabaseTempDir = path.join(rootDir, "supabase", ".temp");
-
-const envCandidates = [
-  path.join(webDir, ".env.local"),
-  path.join(rootDir, ".env.local"),
-  path.join(webDir, ".env"),
-  path.join(rootDir, ".env"),
-];
-
-function parseEnvFile(filePath) {
-  const values = {};
-  const content = readFileSync(filePath, "utf8");
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) continue;
-    const key = line.slice(0, separatorIndex).trim();
-    let value = line.slice(separatorIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values[key] = value;
-  }
-  return values;
-}
-
-for (const envPath of envCandidates) {
-  if (!existsSync(envPath)) continue;
-  const values = parseEnvFile(envPath);
-  for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) process.env[key] = value;
-  }
-}
 
 function parseArgs(argv) {
   const args = {
@@ -67,71 +33,6 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-
-function readTempValue(filename) {
-  const filePath = path.join(supabaseTempDir, filename);
-  if (!existsSync(filePath)) return null;
-  return readFileSync(filePath, "utf8").trim() || null;
-}
-
-function resolveProjectRef() {
-  return process.env.SUPABASE_PROJECT_REF ?? readTempValue("project-ref");
-}
-
-function resolveSupabaseUrl(projectRef) {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  if (envUrl && !envUrl.includes("placeholder.supabase.co")) return envUrl;
-  return projectRef ? `https://${projectRef}.supabase.co` : envUrl ?? null;
-}
-
-function resolveServiceRoleKey(projectRef) {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) return process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!projectRef) return null;
-  const output = execFileSync(
-    "supabase",
-    ["projects", "api-keys", "list", "--project-ref", projectRef, "--output", "json"],
-    { cwd: rootDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-  );
-  const keys = JSON.parse(output);
-  return keys.find((item) => item.id === "service_role")?.api_key ?? null;
-}
-
-async function* readJsonl(filePath) {
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    yield JSON.parse(trimmed);
-  }
-}
-
-function chunk(array, size) {
-  const output = [];
-  for (let index = 0; index < array.length; index += size) {
-    output.push(array.slice(index, index + size));
-  }
-  return output;
-}
-
-async function fetchAllRows(supabase, tableName, columns, batchSize) {
-  const rows = [];
-  let from = 0;
-  while (true) {
-    const to = from + batchSize - 1;
-    const { data, error } = await supabase
-      .from(tableName)
-      .select(columns)
-      .order("id", { ascending: true })
-      .range(from, to);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    rows.push(...data);
-    if (data.length < batchSize) break;
-    from += batchSize;
-  }
-  return rows;
-}
 
 function cleanText(value) {
   return String(value ?? "")
@@ -205,18 +106,10 @@ function dedupeSafetyRows(rows) {
 }
 
 async function main() {
-  const projectRef = resolveProjectRef();
-  const supabaseUrl = resolveSupabaseUrl(projectRef);
-  const serviceRoleKey = resolveServiceRoleKey(projectRef);
-  if (!supabaseUrl) throw new Error("Missing Supabase URL");
-  if (!serviceRoleKey) throw new Error("Missing service role key");
-
   const inputPath = path.join(rootDir, "tmp", "kr-gov-clean", "ingredient_profiles.normalized.jsonl");
   if (!existsSync(inputPath)) throw new Error(`Missing input file: ${inputPath}`);
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = getServiceRoleClient();
 
   const ingredients = await fetchAllRows(
     supabase,
@@ -257,7 +150,6 @@ async function main() {
     console.log(
       JSON.stringify(
         {
-          projectRef,
           rawSafetyRows: safetyRows.length,
           dedupedSafetyRows: dedupedRows.length,
           examples: dedupedRows.slice(0, 12),
@@ -288,7 +180,6 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        projectRef,
         insertedSafetyItems: dedupedRows.length,
         counts: {
           safety_items: count ?? null,
