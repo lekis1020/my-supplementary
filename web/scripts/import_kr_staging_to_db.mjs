@@ -1,65 +1,18 @@
 #!/usr/bin/env node
 
-import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import readline from "node:readline";
 import postgres from "postgres";
+import { loadEnv } from "./lib/env.mjs";
+import { chunk } from "./lib/batch.mjs";
+import { readJsonl } from "./lib/jsonl.mjs";
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
 const rootDir = path.resolve(webDir, "..");
 
-const envCandidates = [
-  path.join(webDir, ".env.local"),
-  path.join(rootDir, ".env.local"),
-  path.join(webDir, ".env"),
-  path.join(rootDir, ".env"),
-];
-
-function parseEnvFile(filePath) {
-  const values = {};
-  const content = readFileSync(filePath, "utf8");
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    let value = line.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    values[key] = value;
-  }
-
-  return values;
-}
-
-for (const envPath of envCandidates) {
-  if (!existsSync(envPath)) {
-    continue;
-  }
-
-  const values = parseEnvFile(envPath);
-  for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) {
-      process.env[key] = value;
-    }
-  }
-}
+loadEnv();
 
 function parseArgs(argv) {
   const args = {
@@ -391,31 +344,6 @@ for (const dataset of selectedDatasets) {
   }
 }
 
-async function* readRows(filePath) {
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
-
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    yield JSON.parse(trimmed);
-  }
-}
-
-function chunk(array, size) {
-  const output = [];
-  for (let index = 0; index < array.length; index += size) {
-    output.push(array.slice(index, index + size));
-  }
-  return output;
-}
-
 function toInsertTuple(dataset, row, importBatch) {
   const mapped = dataset.mapRow(row);
   mapped.import_batch = importBatch;
@@ -466,7 +394,7 @@ async function importDataset(sql, dataset, options) {
   let totalRows = 0;
   const rows = [];
 
-  for await (const row of readRows(dataset.filePath)) {
+  for await (const row of readJsonl(dataset.filePath)) {
     rows.push(row);
     totalRows += 1;
   }
