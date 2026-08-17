@@ -40,6 +40,7 @@ supabase-js(REST) 기반 스크립트는 프로토콜상 트랜잭션이 불가�
 - 스크립트는 `web/scripts/`에서 실행 위치와 무관하게 동작해야 한다:
   `rootDir`는 `import.meta.url` 기준으로 계산하고 `process.cwd()`를 쓰지 않는다.
 - 입출력 데이터는 repo 루트의 `tmp/` 아래 (`tmp/kr-gov/`, `tmp/kr-gov-clean/`).
+- `archive/` 하위는 동결된 구 스크립트로 이 규약(및 공유 lib) 적용 대상이 아니다.
 
 ## 전처리·수집 (DB 접근 없음/생성물)
 

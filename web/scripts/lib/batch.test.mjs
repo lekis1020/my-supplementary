@@ -17,4 +17,10 @@ describe("chunk", () => {
   it("splits exactly on multiples", () => {
     expect(chunk([1, 2, 3, 4], 2)).toEqual([[1, 2], [3, 4]]);
   });
+
+  it("throws on zero, negative, or non-integer size", () => {
+    expect(() => chunk([1], 0)).toThrow(RangeError);
+    expect(() => chunk([1], -2)).toThrow(RangeError);
+    expect(() => chunk([1], 1.5)).toThrow(RangeError);
+  });
 });
