@@ -30,6 +30,9 @@ supabase-js(REST) 기반 스크립트는 프로토콜상 트랜잭션이 불가�
 | `enrich_products_from_staging` | supabase-js | row별 update/insert (`--limit`, 기본 50) | ✅ 점진·재실행 안전 | 다음 실행이 이어서 처리 |
 | `classify_ingredient_types` | supabase-js | row별 update | ✅ 재실행 안전 | 상동 |
 
+> 주의: staging의 트랜잭션 래핑(2026-08 Phase 3)은 아직 실 DB에서 실행 검증되지 않음 —
+> 첫 실 import는 사용자 감독 하에 실행하고 롤백/커밋 동작을 확인할 것.
+
 ## 경로 규약
 
 - 스크립트는 `web/scripts/`에서 실행 위치와 무관하게 동작해야 한다:
