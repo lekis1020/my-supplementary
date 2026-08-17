@@ -279,7 +279,6 @@ async function main() {
     sqlLines.push("");
 
     for (const r of results) {
-      const productNameEscaped = escapeSQL(r.product.dbName);
       // LIKE 패턴: 처음 10자 사용
       const likePattern = escapeSQL(
         r.product.dbName.length > 15

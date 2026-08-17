@@ -103,7 +103,7 @@ async function run() {
     let payload;
     try {
       payload = JSON.parse(raw);
-    } catch (error) {
+    } catch {
       throw new Error(`${test.name}: non-JSON response\n${raw}`);
     }
 

@@ -62,37 +62,6 @@ function uniquePush(list, value) {
   }
 }
 
-function normalizeNameVariants(rawName) {
-  const full = cleanInlineText(rawName);
-  if (!full) {
-    return {
-      canonicalName: null,
-      displayName: null,
-      aliases: [],
-    };
-  }
-
-  const parenMatches = [...full.matchAll(/\(([^)]+)\)/g)]
-    .map((match) => cleanInlineText(match[1]))
-    .filter(Boolean);
-  const base = cleanInlineText(full.replace(/\([^)]+\)/g, " "));
-  const aliases = [full];
-
-  if (base) {
-    uniquePush(aliases, base);
-  }
-
-  for (const item of parenMatches) {
-    uniquePush(aliases, item);
-  }
-
-  return {
-    canonicalName: base || full,
-    displayName: full,
-    aliases,
-  };
-}
-
 function parseSqlString(value) {
   return value.replace(/''/g, "'");
 }
