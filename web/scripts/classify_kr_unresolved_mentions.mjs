@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import process from "node:process";
-import readline from "node:readline";
+import { fileURLToPath } from "node:url";
+import { readJsonl, createJsonlWriter } from "./lib/jsonl.mjs";
 
-const rootDir = process.cwd();
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "..", "..");
 const mappedDir = path.join(rootDir, "tmp", "kr-gov-clean", "mapped");
 const unresolvedFile = path.join(mappedDir, "ingredient_name_unresolved.normalized.jsonl");
 const catalogFile = path.join(mappedDir, "ingredient_catalog.merged.jsonl");
 
 if (!existsSync(unresolvedFile) || !existsSync(catalogFile)) {
-  console.error("Mapped ingredient files not found. Run scripts/map_kr_ingredient_mentions.mjs first.");
+  console.error("Mapped ingredient files not found. Run npm run gov:map:kr first.");
   process.exit(1);
 }
 
@@ -52,22 +53,6 @@ function normalizeKey(value) {
   }
 
   return text.toLowerCase().replace(/[^a-z0-9가-힣]/g, "");
-}
-
-async function readJsonl(filePath, onRecord) {
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
-
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    onRecord(JSON.parse(trimmed));
-  }
 }
 
 function includesAny(text, patterns) {
@@ -201,9 +186,9 @@ const strainPatterns = [
 ];
 
 const catalog = [];
-await readJsonl(catalogFile, (row) => {
+for await (const row of readJsonl(catalogFile)) {
   catalog.push(row);
-});
+}
 
 const aliasTokens = [];
 for (const row of catalog) {
@@ -367,13 +352,13 @@ function classifyRow(row) {
 }
 
 const rows = [];
-await readJsonl(unresolvedFile, (row) => {
+for await (const row of readJsonl(unresolvedFile)) {
   const classified = classifyRow(row);
   rows.push({
     ...row,
     ...classified,
   });
-});
+}
 
 rows.sort((a, b) => b.mentionCount - a.mentionCount || a.rawLabelName.localeCompare(b.rawLabelName, "ko"));
 
@@ -390,24 +375,24 @@ for (const row of rows) {
     (mentionCountsByClass[row.classification] ?? 0) + row.mentionCount;
 }
 
-function writeJsonl(filePath, items) {
-  const stream = createWriteStream(filePath, { encoding: "utf8" });
+async function writeJsonl(filePath, items) {
+  const writer = createJsonlWriter(filePath);
   for (const item of items) {
-    stream.write(`${JSON.stringify(item)}\n`);
+    writer.write(item);
   }
-  stream.end();
+  await writer.close();
 }
 
-writeJsonl(path.join(outputDir, "ingredient_name_unresolved.classified.jsonl"), rows);
-writeJsonl(
+await writeJsonl(path.join(outputDir, "ingredient_name_unresolved.classified.jsonl"), rows);
+await writeJsonl(
   path.join(outputDir, "ingredient_name_active_candidates.jsonl"),
   rows.filter((row) => row.classification.startsWith("active_candidate")),
 );
-writeJsonl(
+await writeJsonl(
   path.join(outputDir, "ingredient_name_excipients.jsonl"),
   rows.filter((row) => row.classification.startsWith("excipient") || row.classification === "capsule_shell_or_coating"),
 );
-writeJsonl(
+await writeJsonl(
   path.join(outputDir, "ingredient_name_formula_blobs.jsonl"),
   rows.filter((row) => row.classification === "formula_blob"),
 );

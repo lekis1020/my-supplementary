@@ -26,11 +26,10 @@
   - `src/app/`: App Router pages (ingredients, products, compare, search).
   - `src/components/`: Shared UI components.
   - `src/lib/`: Supabase client and utility functions.
-  - `scripts/`: Data import scripts for KR government data.
+  - `scripts/`: Single-tree pipeline/collection scripts — KR gov import, preprocessing, DailyMed/PubMed fetchers (shared lib in `scripts/lib/`).
 - `db/`: Database migrations and schema.
   - `drizzle/schema/`: TypeScript definitions of the database schema.
   - `RUN_THIS_ONLY.sql`: Consolidated script for full DB initialization.
-- `scripts/`: Data collection scripts (Python-based PubMed fetchers, etc.).
 - `docs/`: Technical and product documentation (PRD, Claim Normalization, etc.).
 - `supabase/`: Supabase configuration and remote schema migrations.
 
@@ -64,7 +63,7 @@ npm run gov:import-core:kr    # Normalize into core tables
 
 ### 4. Evidence Fetching (PubMed)
 ```bash
-python3 scripts/fetch_pubmed_evidence.py
+python3 web/scripts/fetch_pubmed_evidence.py
 # Generates db/009_seed_evidence.sql
 ```
 
@@ -86,7 +85,7 @@ python3 scripts/fetch_pubmed_evidence.py
 
 ### Testing & Validation
 - Use `web/npm run lint` for frontend checks.
-- Use `npm run gov:smoke:kr` (mapped to `scripts/test_korean_gov_apis.mjs`) to verify KR Gov API connectivity.
+- Use `npm run gov:smoke:kr` (mapped to `web/scripts/test_korean_gov_apis.mjs`) to verify KR Gov API connectivity.
 - **Validation Mandate**: Any schema change must be reflected in `db/drizzle/schema/` and documented in `db/`.
 
 ---
