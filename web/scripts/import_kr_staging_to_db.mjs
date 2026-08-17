@@ -406,13 +406,15 @@ async function importDataset(sql, dataset, options) {
     return { key: dataset.key, totalRows };
   }
 
-  if (options.truncate) {
-    await truncateTable(sql, dataset.tableName);
-  }
+  await sql.begin(async (tx) => {
+    if (options.truncate) {
+      await truncateTable(tx, dataset.tableName);
+    }
 
-  for (const batch of chunk(rows, options.batchSize)) {
-    await upsertBatch(sql, dataset, batch, options.importBatch);
-  }
+    for (const batch of chunk(rows, options.batchSize)) {
+      await upsertBatch(tx, dataset, batch, options.importBatch);
+    }
+  });
 
   console.log(
     `${dataset.key} rows=${totalRows} imported batchSize=${options.batchSize} importBatch=${options.importBatch}`,
