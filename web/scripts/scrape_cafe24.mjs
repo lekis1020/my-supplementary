@@ -8,8 +8,8 @@
  *   node scripts/scrape_cafe24.mjs --store=gnmart.co.kr --cate=328 --dry-run
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
 import { fetchImage, buildKey, uploadToR2, getPublicUrl } from "./lib/r2-mirror.mjs";
 import { cropNutritionLabel } from "./lib/image-crop.mjs";
 import pkg from "@mendable/firecrawl-js";
@@ -35,11 +35,7 @@ loadEnv();
 requireEnv("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "FIRECRAWL_API_KEY");
 if (!DRY_RUN) requireEnv("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET");
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabase = getServiceRoleClient({ cliFallback: false });
 const fc = new FirecrawlApp({ apiKey: process.env.FIRECRAWL_API_KEY });
 
 // ── Bigram 매칭 (ckdhc와 동일) ─────────────────────────────────────────────
