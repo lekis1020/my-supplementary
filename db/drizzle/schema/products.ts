@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   boolean,
@@ -54,10 +55,10 @@ export const productIngredients = pgTable(
   "product_ingredients",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    productId: bigserial("product_id", { mode: "number" })
+    productId: bigint("product_id", { mode: "number" })
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id),
     amountPerServing: numeric("amount_per_serving", {
@@ -92,7 +93,7 @@ export const labelSnapshots = pgTable(
   "label_snapshots",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    productId: bigserial("product_id", { mode: "number" })
+    productId: bigint("product_id", { mode: "number" })
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     labelVersion: varchar("label_version", { length: 100 }),

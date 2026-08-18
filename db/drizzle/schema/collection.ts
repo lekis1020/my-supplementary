@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   boolean,
@@ -22,7 +23,7 @@ export const sourceConnectors = pgTable(
   "source_connectors",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    sourceId: bigserial("source_id", { mode: "number" })
+    sourceId: bigint("source_id", { mode: "number" })
       .notNull()
       .references(() => sources.id, { onDelete: "cascade" }),
     connectorName: varchar("connector_name", { length: 255 }).notNull(),
@@ -52,7 +53,7 @@ export const collectionJobs = pgTable(
   "collection_jobs",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    sourceConnectorId: bigserial("source_connector_id", { mode: "number" })
+    sourceConnectorId: bigint("source_connector_id", { mode: "number" })
       .notNull()
       .references(() => sourceConnectors.id),
     jobType: varchar("job_type", { length: 50 }).notNull(),
@@ -84,7 +85,7 @@ export const collectionRuns = pgTable(
   "collection_runs",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    collectionJobId: bigserial("collection_job_id", { mode: "number" })
+    collectionJobId: bigint("collection_job_id", { mode: "number" })
       .notNull()
       .references(() => collectionJobs.id, { onDelete: "cascade" }),
     runStatus: varchar("run_status", { length: 50 }).notNull(),
@@ -112,7 +113,7 @@ export const rawDocuments = pgTable(
   "raw_documents",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    sourceConnectorId: bigserial("source_connector_id", { mode: "number" })
+    sourceConnectorId: bigint("source_connector_id", { mode: "number" })
       .notNull()
       .references(() => sourceConnectors.id),
     entityType: varchar("entity_type", { length: 50 }).notNull(),
@@ -144,7 +145,7 @@ export const extractionResults = pgTable(
   "extraction_results",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    rawDocumentId: bigserial("raw_document_id", { mode: "number" })
+    rawDocumentId: bigint("raw_document_id", { mode: "number" })
       .notNull()
       .references(() => rawDocuments.id, { onDelete: "cascade" }),
     extractionVersion: varchar("extraction_version", { length: 50 }).notNull(),
@@ -171,7 +172,7 @@ export const refreshPolicies = pgTable(
   {
     id: bigserial({ mode: "number" }).primaryKey(),
     entityType: varchar("entity_type", { length: 50 }).notNull(),
-    sourceConnectorId: bigserial("source_connector_id", {
+    sourceConnectorId: bigint("source_connector_id", {
       mode: "number",
     }).references(() => sourceConnectors.id),
     refreshMode: varchar("refresh_mode", { length: 50 }).notNull(),
@@ -198,8 +199,8 @@ export const entityRefreshStates = pgTable(
   {
     id: bigserial({ mode: "number" }).primaryKey(),
     entityType: varchar("entity_type", { length: 50 }).notNull(),
-    entityId: bigserial("entity_id", { mode: "number" }).notNull(),
-    sourceConnectorId: bigserial("source_connector_id", {
+    entityId: bigint("entity_id", { mode: "number" }).notNull(),
+    sourceConnectorId: bigint("source_connector_id", {
       mode: "number",
     }).references(() => sourceConnectors.id),
     externalId: varchar("external_id", { length: 255 }),

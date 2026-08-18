@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   timestamp,
@@ -39,11 +40,11 @@ export const sourceLinks = pgTable(
   "source_links",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    sourceId: bigserial("source_id", { mode: "number" })
+    sourceId: bigint("source_id", { mode: "number" })
       .notNull()
       .references(() => sources.id, { onDelete: "cascade" }),
     entityType: varchar("entity_type", { length: 50 }).notNull(),
-    entityId: bigserial("entity_id", { mode: "number" }).notNull(),
+    entityId: bigint("entity_id", { mode: "number" }).notNull(),
     sourceReference: text("source_reference"),
     sourceExcerpt: text("source_excerpt"),
     retrievedAt: timestamp("retrieved_at"),

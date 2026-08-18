@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   boolean,
@@ -47,10 +48,10 @@ export const ingredientClaims = pgTable(
   "ingredient_claims",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
-    claimId: bigserial("claim_id", { mode: "number" })
+    claimId: bigint("claim_id", { mode: "number" })
       .notNull()
       .references(() => claims.id, { onDelete: "cascade" }),
     evidenceGrade: varchar("evidence_grade", { length: 10 }),

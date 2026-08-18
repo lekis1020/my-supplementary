@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   boolean,
@@ -22,7 +23,7 @@ export const evidenceStudies = pgTable(
   "evidence_studies",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     sourceType: varchar("source_type", { length: 50 }).notNull(),
@@ -73,10 +74,10 @@ export const evidenceOutcomes = pgTable(
   "evidence_outcomes",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    evidenceStudyId: bigserial("evidence_study_id", { mode: "number" })
+    evidenceStudyId: bigint("evidence_study_id", { mode: "number" })
       .notNull()
       .references(() => evidenceStudies.id, { onDelete: "cascade" }),
-    claimId: bigserial("claim_id", { mode: "number" }).references(
+    claimId: bigint("claim_id", { mode: "number" }).references(
       () => claims.id
     ),
     outcomeName: varchar("outcome_name", { length: 255 }).notNull(),
@@ -106,10 +107,10 @@ export const evidenceGradeHistory = pgTable(
   "evidence_grade_history",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
-    claimId: bigserial("claim_id", { mode: "number" })
+    claimId: bigint("claim_id", { mode: "number" })
       .notNull()
       .references(() => claims.id, { onDelete: "cascade" }),
     oldGrade: varchar("old_grade", { length: 10 }),
