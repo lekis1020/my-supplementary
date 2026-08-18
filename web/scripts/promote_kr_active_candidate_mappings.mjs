@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import process from "node:process";
-import readline from "node:readline";
+import { fileURLToPath } from "node:url";
+import { readJsonl, createJsonlWriter } from "./lib/jsonl.mjs";
 
-const rootDir = process.cwd();
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "..", "..");
 const mappedDir = path.join(rootDir, "tmp", "kr-gov-clean", "mapped");
 const classifiedDir = path.join(mappedDir, "classified");
 
@@ -14,7 +15,7 @@ const mentionFile = path.join(rootDir, "tmp", "kr-gov-clean", "product_ingredien
 const classifiedFile = path.join(classifiedDir, "ingredient_name_unresolved.classified.jsonl");
 
 if (!existsSync(baseMappingFile) || !existsSync(classifiedFile) || !existsSync(mentionFile)) {
-  console.error("Required mapped/classified files not found. Run mapping and classification scripts first.");
+  console.error("Required mapped/classified files not found. Run npm run gov:map:kr and npm run gov:classify-mentions:kr first.");
   process.exit(1);
 }
 
@@ -46,37 +47,21 @@ function cleanInlineText(value) {
   return text ? text.replace(/\s+/g, " ").trim() : null;
 }
 
-async function readJsonl(filePath, onRecord) {
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
-
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    onRecord(JSON.parse(trimmed));
-  }
-}
-
-function writeJsonl(filePath, rows) {
-  const stream = createWriteStream(filePath, { encoding: "utf8" });
+async function writeJsonl(filePath, rows) {
+  const writer = createJsonlWriter(filePath);
   for (const row of rows) {
-    stream.write(`${JSON.stringify(row)}\n`);
+    writer.write(row);
   }
-  stream.end();
+  await writer.close();
 }
 
 const baseMappings = [];
 const mappingIndex = new Map();
 
-await readJsonl(baseMappingFile, (row) => {
+for await (const row of readJsonl(baseMappingFile)) {
   baseMappings.push(row);
   mappingIndex.set(row.rawLabelName, row);
-});
+}
 
 function promoteClassification(row) {
   const candidates = Array.isArray(row.candidateCanonicals)
@@ -129,20 +114,20 @@ function promoteClassification(row) {
 }
 
 const promotedRows = [];
-await readJsonl(classifiedFile, (row) => {
+for await (const row of readJsonl(classifiedFile)) {
   const promoted = promoteClassification(row);
   if (!promoted) {
-    return;
+    continue;
   }
 
   const existing = mappingIndex.get(promoted.rawLabelName);
   if (existing?.canonicalNameKo) {
-    return;
+    continue;
   }
 
   promotedRows.push(promoted);
   mappingIndex.set(promoted.rawLabelName, promoted);
-});
+}
 
 const mergedMappings = baseMappings
   .map((row) => mappingIndex.get(row.rawLabelName) ?? row)
@@ -156,15 +141,15 @@ const mergedMappings = baseMappings
 const promotedIndex = new Map(promotedRows.map((row) => [row.rawLabelName, row]));
 const resolvedMentions = [];
 
-await readJsonl(mentionFile, (row) => {
+for await (const row of readJsonl(mentionFile)) {
   const rawLabelName = cleanInlineText(row.rawLabelName);
   if (!rawLabelName) {
-    return;
+    continue;
   }
 
   const promoted = promotedIndex.get(rawLabelName);
   if (!promoted) {
-    return;
+    continue;
   }
 
   resolvedMentions.push({
@@ -176,11 +161,11 @@ await readJsonl(mentionFile, (row) => {
     confidence: promoted.confidence,
     promotionReason: promoted.promotionReason,
   });
-});
+}
 
-writeJsonl(path.join(outputDir, "ingredient_name_mapping.promoted.jsonl"), mergedMappings);
-writeJsonl(path.join(outputDir, "ingredient_name_promoted_only.jsonl"), promotedRows);
-writeJsonl(path.join(outputDir, "product_ingredient_mentions.promoted.jsonl"), resolvedMentions);
+await writeJsonl(path.join(outputDir, "ingredient_name_mapping.promoted.jsonl"), mergedMappings);
+await writeJsonl(path.join(outputDir, "ingredient_name_promoted_only.jsonl"), promotedRows);
+await writeJsonl(path.join(outputDir, "product_ingredient_mentions.promoted.jsonl"), resolvedMentions);
 
 const summary = {
   generatedAt: new Date().toISOString(),

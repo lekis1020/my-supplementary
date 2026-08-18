@@ -11,6 +11,9 @@ import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
 
 API_KEY = os.environ.get("NCBI_API_KEY", "")
 if not API_KEY:
@@ -294,7 +297,7 @@ ON CONFLICT DO NOTHING;""")
     lines.append(f"-- ============================================================================")
 
     sql = "\n".join(lines)
-    with open("db/009_seed_evidence.sql", "w", encoding="utf-8") as f:
+    with open(ROOT / "db" / "009_seed_evidence.sql", "w", encoding="utf-8") as f:
         f.write(sql)
 
     print(f"\n총 {study_count} studies, {len(outcome_data)} outcomes")

@@ -1,60 +1,9 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync } from "node:fs";
-import path from "node:path";
 import process from "node:process";
+import { loadEnv } from "./lib/env.mjs";
 
-const rootDir = process.cwd();
-const envCandidates = [
-  path.join(rootDir, ".env.local"),
-  path.join(rootDir, "web", ".env.local"),
-  path.join(rootDir, ".env"),
-  path.join(rootDir, "web", ".env"),
-];
-
-function parseEnvFile(filePath) {
-  const values = {};
-  const content = readFileSync(filePath, "utf8");
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    let value = line.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    values[key] = value;
-  }
-
-  return values;
-}
-
-for (const envPath of envCandidates) {
-  if (!existsSync(envPath)) {
-    continue;
-  }
-
-  const values = parseEnvFile(envPath);
-  for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) {
-      process.env[key] = value;
-    }
-  }
-}
+loadEnv();
 
 const foodsafetyKey = process.env.FOODSAFETY_KOREA_API_KEY;
 const dataGoKey =
@@ -154,7 +103,7 @@ async function run() {
     let payload;
     try {
       payload = JSON.parse(raw);
-    } catch (error) {
+    } catch {
       throw new Error(`${test.name}: non-JSON response\n${raw}`);
     }
 

@@ -3,7 +3,7 @@
  * DailyMed API v2를 사용하여 US 보충제 라벨 데이터 수집
  * → label_snapshots SQL 생성 + 콘솔 리포트
  *
- * 사용법: node scripts/fetch_dailymed_labels.mjs
+ * 사용법: node web/scripts/fetch_dailymed_labels.mjs
  * 출력:   db/011_seed_dailymed_labels.sql
  */
 
@@ -11,8 +11,9 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = path.join(__dirname, "..", "db", "011_seed_dailymed_labels.sql");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "..", "..");
+const OUTPUT_PATH = path.join(rootDir, "db", "011_seed_dailymed_labels.sql");
 
 const BASE_URL = "https://dailymed.nlm.nih.gov/dailymed/services/v2";
 
@@ -278,7 +279,6 @@ async function main() {
     sqlLines.push("");
 
     for (const r of results) {
-      const productNameEscaped = escapeSQL(r.product.dbName);
       // LIKE 패턴: 처음 10자 사용
       const likePattern = escapeSQL(
         r.product.dbName.length > 15

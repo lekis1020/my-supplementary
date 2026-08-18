@@ -1,68 +1,19 @@
 #!/usr/bin/env node
 
-import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import readline from "node:readline";
-import { execFileSync } from "node:child_process";
-import { createClient } from "@supabase/supabase-js";
 import { trackRefresh } from "./lib/track-refresh.mjs";
+import { loadEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
+import { chunk } from "./lib/batch.mjs";
+import { readAllJsonl } from "./lib/jsonl.mjs";
+
+loadEnv();
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const webDir = path.resolve(scriptDir, "..");
 const rootDir = path.resolve(webDir, "..");
-const supabaseTempDir = path.join(rootDir, "supabase", ".temp");
-
-const envCandidates = [
-  path.join(webDir, ".env.local"),
-  path.join(rootDir, ".env.local"),
-  path.join(webDir, ".env"),
-  path.join(rootDir, ".env"),
-];
-
-function parseEnvFile(filePath) {
-  const values = {};
-  const content = readFileSync(filePath, "utf8");
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    let value = line.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    values[key] = value;
-  }
-
-  return values;
-}
-
-for (const envPath of envCandidates) {
-  if (!existsSync(envPath)) {
-    continue;
-  }
-
-  const values = parseEnvFile(envPath);
-  for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) {
-      process.env[key] = value;
-    }
-  }
-}
 
 function parseArgs(argv) {
   const args = {
@@ -124,78 +75,6 @@ const supplementalIngredients = [
     standardizationInfo: "총 (-)-HCA 기준 관리",
   },
 ];
-
-function readTempValue(filename) {
-  const filePath = path.join(supabaseTempDir, filename);
-  if (!existsSync(filePath)) {
-    return null;
-  }
-
-  return readFileSync(filePath, "utf8").trim() || null;
-}
-
-function resolveProjectRef() {
-  return process.env.SUPABASE_PROJECT_REF ?? readTempValue("project-ref");
-}
-
-function resolveSupabaseUrl(projectRef) {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
-
-  if (envUrl && !envUrl.includes("placeholder.supabase.co")) {
-    return envUrl;
-  }
-
-  return projectRef ? `https://${projectRef}.supabase.co` : envUrl ?? null;
-}
-
-function resolveServiceRoleKey(projectRef) {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return process.env.SUPABASE_SERVICE_ROLE_KEY;
-  }
-
-  if (!projectRef) {
-    return null;
-  }
-
-  const output = execFileSync(
-    "supabase",
-    ["projects", "api-keys", "list", "--project-ref", projectRef, "--output", "json"],
-    {
-      cwd: rootDir,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-
-  const keys = JSON.parse(output);
-  const serviceRole = keys.find((item) => item.id === "service_role");
-  return serviceRole?.api_key ?? null;
-}
-
-async function* readJsonl(filePath) {
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
-
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    yield JSON.parse(trimmed);
-  }
-}
-
-function chunk(array, size) {
-  const output = [];
-  for (let index = 0; index < array.length; index += size) {
-    output.push(array.slice(index, index + size));
-  }
-  return output;
-}
 
 function isClearlyProbioticStrainName(name) {
   const text = String(name ?? "").replace(/\s+/g, " ").trim();
@@ -460,14 +339,6 @@ function dedupeProductIngredientRows(rows, productMap, ingredientMap) {
     unresolved,
     deduped: rows.length - unresolved - bestByPair.size,
   };
-}
-
-async function readAllRows(filePath) {
-  const rows = [];
-  for await (const row of readJsonl(filePath)) {
-    rows.push(row);
-  }
-  return rows;
 }
 
 async function fetchExistingIngredientNames(supabase, batchSize) {
@@ -739,18 +610,6 @@ async function countRows(supabase, tableName) {
 }
 
 async function main() {
-  const projectRef = resolveProjectRef();
-  const supabaseUrl = resolveSupabaseUrl(projectRef);
-  const serviceRoleKey = resolveServiceRoleKey(projectRef);
-
-  if (!supabaseUrl) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or linked project ref");
-  }
-
-  if (!serviceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY and could not resolve via Supabase CLI");
-  }
-
   const inputDir = path.join(rootDir, "tmp", "kr-gov-clean", "staging");
   const productsPath = path.join(inputDir, "products.staging.jsonl");
   const ingredientsPath = path.join(inputDir, "ingredients.staging.jsonl");
@@ -769,26 +628,22 @@ async function main() {
     }
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = getServiceRoleClient();
 
   const ingredientsRows = selected.has("ingredients") || selected.has("product_ingredients")
-    ? await readAllRows(ingredientsPath)
+    ? await readAllJsonl(ingredientsPath)
     : [];
   const productRows = selected.has("products") || selected.has("product_ingredients")
-    ? await readAllRows(productsPath)
+    ? await readAllJsonl(productsPath)
     : [];
   const productIngredientRows = selected.has("product_ingredients")
-    ? await readAllRows(productIngredientsPath)
+    ? await readAllJsonl(productIngredientsPath)
     : [];
 
   if (args.dryRun) {
     console.log(
       JSON.stringify(
         {
-          projectRef,
-          supabaseUrl,
           selected: Array.from(selected),
           counts: {
             ingredients: ingredientsRows.length,
@@ -850,7 +705,7 @@ async function main() {
     product_ingredients: await countRows(supabase, "product_ingredients"),
   };
 
-  console.log(JSON.stringify({ projectRef, counts }, null, 2));
+  console.log(JSON.stringify({ counts }, null, 2));
 
   await Promise.all([
     selected.has("ingredients") &&

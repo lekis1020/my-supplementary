@@ -18,6 +18,10 @@ npm run lint         # ESLint
 ### KR Government Data Pipeline (run from `web/`)
 ```bash
 npm run gov:smoke:kr              # Test KR government API connectivity
+npm run gov:normalize:kr          # Normalize raw KR gov dumps (tmp/kr-gov -> tmp/kr-gov-clean)
+npm run gov:map:kr                # Map raw ingredient mentions to canonical ingredients
+npm run gov:classify-mentions:kr  # Classify unresolved ingredient mentions
+npm run gov:promote:kr            # Promote high-confidence active-candidate mappings
 npm run gov:backfill:kr           # Fetch raw data from KR gov APIs
 npm run gov:import-staging:kr     # Load raw data into staging tables
 npm run gov:import-core:kr        # Normalize ingredients & products into main tables
@@ -26,6 +30,8 @@ npm run gov:import-dosage:kr      # Import dosage guidelines
 npm run gov:import-labels:kr      # Import label snapshots
 npm run gov:import-safety:kr      # Import safety warnings
 ```
+
+Scripts live in a single tree at `web/scripts/` (shared lib in `web/scripts/lib/`).
 
 ### Database
 - **Schema DDL**: `db/001_schema.sql` (28+ tables, canonical source of truth)

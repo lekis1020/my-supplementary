@@ -18,8 +18,8 @@
  *   node scripts/enrich_products_from_staging.mjs --dry-run
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
 import {
   normalize,
   cleanSearchQuery,
@@ -41,11 +41,7 @@ const FUZZY_MIN_JACCARD = 0.5;
 loadEnv();
 requireEnv("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY");
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabase = getServiceRoleClient({ cliFallback: false });
 
 /** 수량·회분 suffix 제거한 매칭용 핵심 이름 */
 function coreName(name) {

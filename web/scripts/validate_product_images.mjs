@@ -8,9 +8,9 @@
  *   node scripts/validate_product_images.mjs --limit=50              # 마케팅 이미지 삭제
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -25,11 +25,7 @@ const DRY_RUN = args["dry-run"] === true;
 loadEnv();
 requireEnv("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GOOGLE_GENERATIVE_AI_API_KEY");
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabase = getServiceRoleClient({ cliFallback: false });
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });

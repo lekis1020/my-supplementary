@@ -16,8 +16,8 @@
  */
 
 import * as cheerio from "cheerio";
-import { createClient } from "@supabase/supabase-js";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
 import { fetchImage, buildKey, uploadToR2, getPublicUrl } from "./lib/r2-mirror.mjs";
 import { cropNutritionLabel } from "./lib/image-crop.mjs";
 import { throttle } from "./lib/naver-client.mjs";
@@ -41,11 +41,7 @@ loadEnv();
 requireEnv("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY");
 if (!DRY_RUN) requireEnv("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET");
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabase = getServiceRoleClient({ cliFallback: false });
 
 // ── 종근당 사이트 크롤링 ───────────────────────────────────────────────────
 async function fetchHtml(url) {

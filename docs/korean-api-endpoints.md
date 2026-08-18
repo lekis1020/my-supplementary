@@ -41,7 +41,7 @@
 로컬에서 실제 호출을 다시 확인하려면 아래 스크립트를 사용한다.
 
 ```bash
-node scripts/test_korean_gov_apis.mjs
+cd web && npm run gov:smoke:kr
 ```
 
 필수 환경변수:

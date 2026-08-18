@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import process from "node:process";
-import readline from "node:readline";
+import { fileURLToPath } from "node:url";
+import { readJsonl, createJsonlWriter } from "./lib/jsonl.mjs";
 
-const rootDir = process.cwd();
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "..", "..");
 const cleanDir = path.join(rootDir, "tmp", "kr-gov-clean");
 const mentionFile = path.join(cleanDir, "product_ingredient_mentions.normalized.jsonl");
 const profileFile = path.join(cleanDir, "ingredient_profiles.normalized.jsonl");
 
 if (!existsSync(mentionFile) || !existsSync(profileFile)) {
-  console.error("Normalized KR government files not found. Run scripts/normalize_kr_gov_dump.mjs first.");
+  console.error("Normalized KR government files not found. Run npm run gov:normalize:kr first.");
   process.exit(1);
 }
 
@@ -59,37 +60,6 @@ function uniquePush(list, value) {
   if (!list.includes(value)) {
     list.push(value);
   }
-}
-
-function normalizeNameVariants(rawName) {
-  const full = cleanInlineText(rawName);
-  if (!full) {
-    return {
-      canonicalName: null,
-      displayName: null,
-      aliases: [],
-    };
-  }
-
-  const parenMatches = [...full.matchAll(/\(([^)]+)\)/g)]
-    .map((match) => cleanInlineText(match[1]))
-    .filter(Boolean);
-  const base = cleanInlineText(full.replace(/\([^)]+\)/g, " "));
-  const aliases = [full];
-
-  if (base) {
-    uniquePush(aliases, base);
-  }
-
-  for (const item of parenMatches) {
-    uniquePush(aliases, item);
-  }
-
-  return {
-    canonicalName: base || full,
-    displayName: full,
-    aliases,
-  };
 }
 
 function parseSqlString(value) {
@@ -280,22 +250,6 @@ function variantStrings(value) {
   return results;
 }
 
-async function readJsonl(filePath, onRecord) {
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
-
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    onRecord(JSON.parse(trimmed));
-  }
-}
-
 const seedCatalog = parseSeedCatalog();
 const mergedCatalog = new Map();
 
@@ -314,7 +268,7 @@ for (const seed of seedCatalog) {
   });
 }
 
-await readJsonl(profileFile, (row) => {
+for await (const row of readJsonl(profileFile)) {
   const names = [
     row.canonicalNameKo,
     row.displayName,
@@ -336,7 +290,7 @@ await readJsonl(profileFile, (row) => {
   if (!catalogEntry) {
     const key = normalizeKey(row.canonicalNameKo);
     if (!key) {
-      return;
+      continue;
     }
     catalogEntry = {
       canonicalNameKo: cleanInlineText(row.canonicalNameKo),
@@ -355,7 +309,7 @@ await readJsonl(profileFile, (row) => {
   for (const value of names) {
     uniquePush(catalogEntry.aliases, value);
   }
-});
+}
 
 const aliasIndex = new Map();
 
@@ -425,10 +379,10 @@ function resolveMention(rawLabelName) {
 
 const distinctMentions = new Map();
 
-await readJsonl(mentionFile, (row) => {
+for await (const row of readJsonl(mentionFile)) {
   const rawLabelName = cleanInlineText(row.rawLabelName);
   if (!rawLabelName) {
-    return;
+    continue;
   }
 
   const existing =
@@ -443,7 +397,7 @@ await readJsonl(mentionFile, (row) => {
 
   existing.mentionCount += 1;
   distinctMentions.set(rawLabelName, existing);
-});
+}
 
 const mappingRows = [];
 const unresolvedRows = [];
@@ -482,43 +436,40 @@ const mappingIndex = new Map(
   mappingRows.map((row) => [row.rawLabelName, row]),
 );
 
-const resolvedMentionsStream = createWriteStream(
+const resolvedMentionsWriter = createJsonlWriter(
   path.join(outputDir, "product_ingredient_mentions.resolved.jsonl"),
-  { encoding: "utf8" },
 );
 
-await readJsonl(mentionFile, (row) => {
+for await (const row of readJsonl(mentionFile)) {
   const rawLabelName = cleanInlineText(row.rawLabelName);
   const mapping = rawLabelName ? mappingIndex.get(rawLabelName) : null;
   if (!mapping || !mapping.canonicalNameKo) {
-    return;
+    continue;
   }
 
-  resolvedMentionsStream.write(
-    `${JSON.stringify({
-      ...row,
-      canonicalNameKo: mapping.canonicalNameKo,
-      canonicalSlug: mapping.canonicalSlug,
-      matchStrategy: mapping.matchStrategy,
-      matchedVariant: mapping.matchedVariant,
-      confidence: mapping.confidence,
-    })}\n`,
-  );
-});
-
-resolvedMentionsStream.end();
-
-function writeJsonl(filePath, rows) {
-  const stream = createWriteStream(filePath, { encoding: "utf8" });
-  for (const row of rows) {
-    stream.write(`${JSON.stringify(row)}\n`);
-  }
-  stream.end();
+  resolvedMentionsWriter.write({
+    ...row,
+    canonicalNameKo: mapping.canonicalNameKo,
+    canonicalSlug: mapping.canonicalSlug,
+    matchStrategy: mapping.matchStrategy,
+    matchedVariant: mapping.matchedVariant,
+    confidence: mapping.confidence,
+  });
 }
 
-writeJsonl(path.join(outputDir, "ingredient_catalog.merged.jsonl"), [...mergedCatalog.values()].sort((a, b) => a.canonicalNameKo.localeCompare(b.canonicalNameKo, "ko")));
-writeJsonl(path.join(outputDir, "ingredient_name_mapping.normalized.jsonl"), mappingRows);
-writeJsonl(path.join(outputDir, "ingredient_name_unresolved.normalized.jsonl"), unresolvedRows);
+await resolvedMentionsWriter.close();
+
+async function writeJsonl(filePath, rows) {
+  const writer = createJsonlWriter(filePath);
+  for (const row of rows) {
+    writer.write(row);
+  }
+  await writer.close();
+}
+
+await writeJsonl(path.join(outputDir, "ingredient_catalog.merged.jsonl"), [...mergedCatalog.values()].sort((a, b) => a.canonicalNameKo.localeCompare(b.canonicalNameKo, "ko")));
+await writeJsonl(path.join(outputDir, "ingredient_name_mapping.normalized.jsonl"), mappingRows);
+await writeJsonl(path.join(outputDir, "ingredient_name_unresolved.normalized.jsonl"), unresolvedRows);
 
 const summary = {
   generatedAt: new Date().toISOString(),

@@ -14,61 +14,15 @@
  *   --json         JSON 형식 출력
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import process from "node:process";
 import postgres from "postgres";
+import { loadEnv } from "./lib/env.mjs";
 
 // ============================================================================
 // Environment
 // ============================================================================
 
-const scriptDir = path.dirname(new URL(import.meta.url).pathname);
-const webDir = path.resolve(scriptDir, "..");
-const rootDir = path.resolve(webDir, "..");
-
-const envCandidates = [
-  path.join(webDir, ".env.local"),
-  path.join(rootDir, ".env.local"),
-  path.join(webDir, ".env"),
-  path.join(rootDir, ".env"),
-];
-
-function parseEnvFile(filePath) {
-  const values = {};
-  const content = readFileSync(filePath, "utf8");
-
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-
-    const sep = line.indexOf("=");
-    if (sep === -1) continue;
-
-    const key = line.slice(0, sep).trim();
-    let value = line.slice(sep + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    values[key] = value;
-  }
-
-  return values;
-}
-
-for (const envPath of envCandidates) {
-  if (!existsSync(envPath)) continue;
-
-  const values = parseEnvFile(envPath);
-  for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) process.env[key] = value;
-  }
-}
+loadEnv();
 
 // ============================================================================
 // Args

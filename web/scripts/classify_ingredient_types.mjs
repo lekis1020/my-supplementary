@@ -13,8 +13,8 @@
  *   node scripts/classify_ingredient_types.mjs             # 실제 적용
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
 
 // ── CLI 인자 ────────────────────────────────────────────────────────────────
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -24,11 +24,7 @@ const SKIP_LLM = process.argv.includes("--skip-llm");
 loadEnv();
 requireEnv("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY");
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabase = getServiceRoleClient({ cliFallback: false });
 
 // ── 규칙 기반 분류 ──────────────────────────────────────────────────────────
 const RULES = [

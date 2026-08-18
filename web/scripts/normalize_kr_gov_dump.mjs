@@ -1,17 +1,12 @@
 #!/usr/bin/env node
 
-import {
-  createReadStream,
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import process from "node:process";
-import readline from "node:readline";
+import { fileURLToPath } from "node:url";
+import { readJsonl, createJsonlWriter } from "./lib/jsonl.mjs";
 
-const rootDir = process.cwd();
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "..", "..");
 const inputDir = path.join(rootDir, "tmp", "kr-gov");
 const outputDir = path.join(rootDir, "tmp", "kr-gov-clean");
 
@@ -185,25 +180,13 @@ function parseNumeric(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-async function readJsonl(fileName, onRecord) {
+async function* readJsonlIfExists(fileName) {
   const filePath = path.join(inputDir, fileName);
   if (!existsSync(filePath)) {
     return;
   }
 
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = readline.createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  });
-
-  for await (const line of lineReader) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    onRecord(JSON.parse(trimmed));
-  }
+  yield* readJsonl(filePath);
 }
 
 function createProductRecord(reportNo) {
@@ -252,12 +235,12 @@ function mergeScalar(target, key, value) {
   target[key] = value ?? null;
 }
 
-function writeJsonl(filePath, rows) {
-  const stream = createWriteStream(filePath, { encoding: "utf8" });
+async function writeJsonl(filePath, rows) {
+  const writer = createJsonlWriter(filePath);
   for (const row of rows) {
-    stream.write(`${JSON.stringify(row)}\n`);
+    writer.write(row);
   }
-  stream.end();
+  await writer.close();
 }
 
 const products = new Map();
@@ -333,10 +316,10 @@ function upsertIngredientProfile(rawName, patch) {
   ingredientProfiles.set(key, existing);
 }
 
-await readJsonl("foodsafety-i0030.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-i0030.jsonl")) {
   const reportNo = cleanInlineText(row.PRDLST_REPORT_NO);
   if (!reportNo) {
-    return;
+    continue;
   }
 
   const product = products.get(reportNo) ?? createProductRecord(reportNo);
@@ -400,12 +383,12 @@ await readJsonl("foodsafety-i0030.jsonl", (row) => {
   }
 
   products.set(reportNo, product);
-});
+}
 
-await readJsonl("foodsafety-c003.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-c003.jsonl")) {
   const reportNo = cleanInlineText(row.PRDLST_REPORT_NO);
   if (!reportNo) {
-    return;
+    continue;
   }
 
   const product = products.get(reportNo) ?? createProductRecord(reportNo);
@@ -446,12 +429,12 @@ await readJsonl("foodsafety-c003.jsonl", (row) => {
   });
 
   products.set(reportNo, product);
-});
+}
 
-await readJsonl("data-go-15056760.jsonl", (row) => {
+for await (const row of readJsonlIfExists("data-go-15056760.jsonl")) {
   const reportNo = cleanInlineText(row.STTEMNT_NO);
   if (!reportNo) {
-    return;
+    continue;
   }
 
   const product = products.get(reportNo) ?? createProductRecord(reportNo);
@@ -466,9 +449,9 @@ await readJsonl("data-go-15056760.jsonl", (row) => {
   mergeScalar(product, "registrationDate", cleanInlineText(row.REGIST_DT));
 
   products.set(reportNo, product);
-});
+}
 
-await readJsonl("foodsafety-i2710.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-i2710.jsonl")) {
   const rawName = row.PRDCT_NM;
   upsertIngredientProfile(rawName, {
     dataset: "foodsafety-i2710",
@@ -485,9 +468,9 @@ await readJsonl("foodsafety-i2710.jsonl", (row) => {
       },
     ],
   });
-});
+}
 
-await readJsonl("foodsafety-i0040.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-i0040.jsonl")) {
   const rawName = row.APLC_RAWMTRL_NM;
   upsertIngredientProfile(rawName, {
     dataset: "foodsafety-i0040",
@@ -502,9 +485,9 @@ await readJsonl("foodsafety-i0040.jsonl", (row) => {
     ],
     recognitionNos: [cleanInlineText(row.HF_FNCLTY_MTRAL_RCOGN_NO)],
   });
-});
+}
 
-await readJsonl("foodsafety-i0050.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-i0050.jsonl")) {
   const rawName = row.RAWMTRL_NM || row.HF_FNCLTY_MTRAL_RCOGN_NO;
   upsertIngredientProfile(rawName, {
     dataset: "foodsafety-i0050",
@@ -521,17 +504,17 @@ await readJsonl("foodsafety-i0050.jsonl", (row) => {
     ],
     recognitionNos: [cleanInlineText(row.HF_FNCLTY_MTRAL_RCOGN_NO)],
   });
-});
+}
 
-await readJsonl("foodsafety-i0760.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-i0760.jsonl")) {
   upsertIngredientProfile(row.HELT_ITM_GRP_NM, {
     dataset: "foodsafety-i0760",
     healthItemGroupCodes: [cleanInlineText(row.HELT_ITM_GRP_CD)],
     healthItemGroupNames: [cleanInlineText(row.HELT_ITM_GRP_NM)],
   });
-});
+}
 
-await readJsonl("foodsafety-i0960.jsonl", (row) => {
+for await (const row of readJsonlIfExists("foodsafety-i0960.jsonl")) {
   regulatoryStandards.push({
     sourceDataset: "foodsafety-i0960",
     productCode: cleanInlineText(row.PRDLST_CD),
@@ -544,7 +527,7 @@ await readJsonl("foodsafety-i0960.jsonl", (row) => {
     sourceText: cleanText(row.SORC),
     injuryFlag: cleanInlineText(row.INJRY_YN),
   });
-});
+}
 
 const dedupedMentions = [];
 const mentionSeen = new Set();
@@ -593,16 +576,16 @@ const regulatoryRows = regulatoryStandards.sort((a, b) => {
   return left.localeCompare(right, "ko");
 });
 
-writeJsonl(path.join(outputDir, "products.normalized.jsonl"), productRows);
-writeJsonl(
+await writeJsonl(path.join(outputDir, "products.normalized.jsonl"), productRows);
+await writeJsonl(
   path.join(outputDir, "product_ingredient_mentions.normalized.jsonl"),
   dedupedMentions,
 );
-writeJsonl(
+await writeJsonl(
   path.join(outputDir, "ingredient_profiles.normalized.jsonl"),
   ingredientRows,
 );
-writeJsonl(
+await writeJsonl(
   path.join(outputDir, "regulatory_standards.normalized.jsonl"),
   regulatoryRows,
 );

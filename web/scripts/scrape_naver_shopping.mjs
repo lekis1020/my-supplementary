@@ -20,8 +20,8 @@
  *   node scripts/scrape_naver_shopping.mjs --product-id=42 --dry-run
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { loadEnv, requireEnv } from "./lib/env.mjs";
+import { getServiceRoleClient } from "./lib/supabase.mjs";
 import { searchNaverShopping, throttle } from "../src/lib/scraper/naver-client.mjs";
 import {
   fetchImage,
@@ -64,11 +64,7 @@ if (!DRY_RUN) {
   requireEnv("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET");
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } },
-);
+const supabase = getServiceRoleClient({ cliFallback: false });
 
 // ── Gemini 이미지 검증 (공용 모듈: src/lib/scraper/image-validate.mjs) ────
 const SKIP_VALIDATION = args["skip-validation"] === true;
