@@ -6,7 +6,7 @@
 
 **Architecture:** DB 불필요 작업(Drizzle FK 교정, RUN_THIS_ONLY 은퇴)을 먼저, 원격 read-only 덤프 기반 베이스라인 캡처를 그 다음, 규칙 문서화·최종 검증을 마지막에 배치. 원격 DB에는 어떤 쓰기도 하지 않는다 — 마이그레이션 히스토리 정리(`migration repair`)는 런북 산출물로 만들어 사용자 게이트로 넘긴다.
 
-**Tech Stack:** supabase CLI 2.98.2(링크: loqhpykkovwczdckekju, `migration list` 원격 접속 확인됨), Docker Desktop(Task 3 전제 — 사용자 설치 진행 중), drizzle-orm/pg-core
+**Tech Stack:** supabase CLI 2.98.2(링크: loqhpykkovwczdckekju, `migration list` 원격 접속 확인됨), native pg_dump 18.6(brew libpq — 사용자 결정으로 Docker 경로 대체, 세션 풀러 DATABASE_URL 사용), drizzle-orm/pg-core
 
 **근거:** `.omc/plans/refactoring-plan-2026-08-10.md` §2-D(F1/F6/F7/F9/F11/F12), §Phase 4. 스키마 서베이(2026-08-18) 확정 사실은 본문 각 태스크에 인라인.
 
@@ -32,7 +32,7 @@
 - `db/004_patch_v1.sql` 헤더가 요구 실행 순서 `001 → 004 → 002 → 003`을 문서화(F1: 002가 001에 없는 products.is_published 참조)
 - Drizzle: 비-PK `bigserial` **32개**(FK 26 + polymorphic 6) + PK이지만 FK 의미인 `operations.ts:82` 1개 = **총 33개 수정 대상**. `db/drizzle/migrations` out 디렉터리 부재(생성물 없음 — 순수 기술 문서). drizzle-kit ^0.31.9는 web devDependencies
 - `web/scripts/map_kr_ingredient_mentions.mjs`가 `db/00*.sql`을 읽고, `fetch_dailymed_labels.mjs`/`fetch_pubmed_evidence.py`가 `db/011`/`db/009`에 씀 → **db/0NN 파일은 이동 금지, 제자리 동결**
-- Docker 미설치였음(사용자가 Docker Desktop 설치 진행) → Task 3 시작 시 반드시 `docker info` 확인
+- Docker 미설치 → 사용자 결정(2026-08-20)으로 pg_dump 직접 경로 채택: brew libpq 18.6 설치 완료, `web/.env.local`의 DATABASE_URL(세션 풀러, gitignore 대상 — **값 출력·커밋 절대 금지**)로 연결 확인 완료(PostgreSQL 17.6)
 
 ---
 
@@ -230,13 +230,15 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: supabase CLI(링크 loqhpykkovwczdckekju, 로그인 세션 유효 — `migration list`로 확인됨), Docker Desktop(전제)
 - Produces: 베이스라인 파일명 `20260818090000_baseline.sql` (Task 4의 CLAUDE.md가 참조)
 
-- [ ] **Step 1: Docker 확인 (실패 시 BLOCKED 보고)**
+- [ ] **Step 1: pg_dump 확인 (실패 시 BLOCKED 보고)**
+
+(경로 변경 이력: 원계획은 Docker + `supabase db dump`였으나 사용자가 DATABASE_URL 제공을 선택. 컨트롤러가 brew libpq 설치와 read-only 연결 확인을 완료함. 원격 read-only 원칙은 불변.)
 
 ```bash
-docker info >/dev/null 2>&1 && echo DOCKER_OK || echo DOCKER_UNAVAILABLE
+/opt/homebrew/opt/libpq/bin/pg_dump --version
 ```
 
-`DOCKER_UNAVAILABLE`이면 여기서 멈추고 BLOCKED 보고(사용자가 Docker Desktop 설치/실행 중). **다른 대체 경로를 임의로 시도하지 말 것.**
+Expected: `pg_dump (PostgreSQL) 18.x` (서버 17.6 이상 호환). 실패 시 BLOCKED 보고. **다른 대체 경로를 임의로 시도하지 말 것.**
 
 - [ ] **Step 2: 기존 마이그레이션 아카이브**
 
@@ -249,10 +251,10 @@ Expected: `0` (빈 디렉터리)
 - [ ] **Step 3: read-only 원격 덤프 → 베이스라인**
 
 ```bash
-cd /Users/napler/projects/my-supple && supabase db dump --linked -f supabase/migrations/20260818090000_baseline.sql 2>&1 | tail -3 && wc -l supabase/migrations/20260818090000_baseline.sql
+cd /Users/napler/projects/my-supple && DATABASE_URL="$(grep '^DATABASE_URL=' web/.env.local | cut -d= -f2-)" && /opt/homebrew/opt/libpq/bin/pg_dump "$DATABASE_URL" --schema-only --schema=public --no-owner -f supabase/migrations/20260818090000_baseline.sql && wc -l supabase/migrations/20260818090000_baseline.sql
 ```
 
-이 명령은 원격을 **읽기만** 한다(pg_dump). 수 분 걸릴 수 있음.
+이 명령은 원격을 **읽기만** 한다(`--schema-only`: DDL·RLS 정책·함수·인덱스, 데이터 제외). `--no-owner`로 소유자 지정만 제거하고 GRANT는 보존. **DATABASE_URL 값을 echo·로그·보고서에 절대 노출하지 말 것.** 수 분 걸릴 수 있음.
 
 - [ ] **Step 4: 베이스라인 내용 검증 (F7 해소 증거)**
 
