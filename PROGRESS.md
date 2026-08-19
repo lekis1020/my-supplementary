@@ -41,7 +41,7 @@ Claude가 프로젝트 전체를 0에서 구축. 14커밋, 하루 만에 기획�
 - Drizzle ORM 스키마 (`db/drizzle/schema/`)
 - 시드 데이터 (`db/003_seed_data.sql`)
 - Connector Interface Spec (`docs/connector-interface-spec.md`)
-- 통합 마이그레이션 파일 (`db/RUN_THIS_ONLY.sql` — frozen 2026-08-18, see `db/README.md`)
+- 통합 마이그레이션 파일 (`db/archive/RUN_THIS_ONLY.sql` — frozen 2026-08-18, see `db/README.md`)
 
 **웹앱 (Phase 1 MVP-Core)**
 - Next.js 16 + React 19 + Tailwind CSS 4 프로젝트 초기화
