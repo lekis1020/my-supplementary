@@ -27,9 +27,9 @@
   - `src/components/`: Shared UI components.
   - `src/lib/`: Supabase client and utility functions.
   - `scripts/`: Single-tree pipeline/collection scripts — KR gov import, preprocessing, DailyMed/PubMed fetchers (shared lib in `scripts/lib/`).
-- `db/`: Database migrations and schema.
+- `db/`: Database migrations and schema (frozen; see `db/README.md`).
   - `drizzle/schema/`: TypeScript definitions of the database schema.
-  - `RUN_THIS_ONLY.sql`: Consolidated script for full DB initialization.
+  - `archive/RUN_THIS_ONLY.sql`: Retired consolidated script (frozen 2026-08-18; use `supabase/migrations/` for new DDL).
 - `docs/`: Technical and product documentation (PRD, Claim Normalization, etc.).
 - `supabase/`: Supabase configuration and remote schema migrations.
 
@@ -43,8 +43,8 @@
 - Python 3.9+ (for evidence fetching)
 
 ### 1. Database Setup
-Execute the consolidated migration in the Supabase SQL Editor:
-- File: `db/RUN_THIS_ONLY.sql`
+Use `supabase/migrations/` for current DDL (see `db/README.md` for why `db/` is frozen):
+- Legacy: `db/archive/RUN_THIS_ONLY.sql` (retired 2026-08-18, last updated at migration 020)
 
 ### 2. Web Application
 ```bash

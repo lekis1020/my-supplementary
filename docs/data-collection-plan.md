@@ -570,7 +570,7 @@ Step 2~3 시작 전 반드시 발급:
 - [x] 잘못된 outcome 설명 교정 (12건) → vitamin-d, vitamin-b12, omega-3, magnesium, zinc
 - [x] 정량 데이터 추출 (16건) → effect_size_text, p_value_text, confidence_interval_text
 - [x] evidence_studies 메타데이터 보강 (14건) → sample_size, population_text, duration_text
-- [x] RUN_THIS_ONLY.sql 통합 완료
+- [x] RUN_THIS_ONLY.sql 통합 완료 (frozen 2026-08-18 → `db/archive/RUN_THIS_ONLY.sql`)
 - [ ] Phase 2: 원료당 study 2→5건 확대, 나머지 34건 정량 데이터, adverse_event_summary, risk_of_bias
 
 ### 블로커

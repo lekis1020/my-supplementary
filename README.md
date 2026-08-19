@@ -32,7 +32,8 @@
 │   ├── 003_seed_data.sql       # Initial seed (ingredients, claims)
 │   ├── 005~011_seed_*.sql      # Supplementary data, products, evidence, labels
 │   ├── 013~015_enrich_*.sql    # Evidence enrichment & claim normalization
-│   ├── RUN_THIS_ONLY.sql       # All-in-one consolidated migration
+│   ├── archive/RUN_THIS_ONLY.sql # Retired consolidated migration (frozen 2026-08-18)
+│   ├── README.md                # db/ directory notes & history
 │   └── drizzle/                # Drizzle ORM schema definitions
 ├── web/                        # Next.js web application
 │   ├── src/
@@ -82,11 +83,9 @@ source_connectors ── collection_jobs ── collection_runs ── raw_docum
 Supabase SQL Editor에서 실행:
 
 ```sql
--- 스키마 생성 (최초 1회)
--- db/001_schema.sql 실행
-
--- 시드 데이터 + 모든 마이그레이션 (한 번에)
--- db/RUN_THIS_ONLY.sql 실행
+-- For current schema and data, use supabase/migrations/ (DDL) + scripts/ (data pipeline)
+-- Legacy: db/archive/RUN_THIS_ONLY.sql (frozen 2026-08-18, last updated at migration 020)
+-- See db/README.md for why db/ is frozen
 ```
 
 ### 2. Web App Setup

@@ -14,14 +14,14 @@
    - `db/005_seed_supplementary.sql`
    - `db/008_seed_products_additional.sql`
 
-2. 일괄 실행
-   - `db/RUN_THIS_ONLY.sql` (001이 이미 실행된 상태 가정)
+2. 일괄 실행 (Retired)
+   - `db/archive/RUN_THIS_ONLY.sql` (frozen 2026-08-18; use `supabase/migrations/` for new DDL)
 
 ## 2) 업데이트 핵심 내용
 
 - 스키마 기준 버전은 `001_schema.sql` 상단 주석 기준 `2.0.0`입니다.
 - 패치 `004`에서 `products.is_published` 컬럼이 추가됩니다.
-- `002` 및 `RUN_THIS_ONLY`에서 RLS 정책과 `is_admin`, `is_reviewer` 함수가 정의됩니다.
+- `002` 및 `db/archive/RUN_THIS_ONLY.sql`(frozen)에서 RLS 정책과 `is_admin`, `is_reviewer` 함수가 정의됩니다. (현재는 `supabase/migrations/` 참조)
 - `003`은 MVP 초기 시드, `005`는 보충 시드(신규 원료 5종 포함), `008`은 추가 제품 시드 확장입니다.
 
 ## 3) 현재 상태 해석 (저장소 기준)
