@@ -527,7 +527,7 @@ async function loadExistingChecksums(sql, connectorId, externalIds) {
       checksum
     from raw_documents
     where source_connector_id = ${connectorId}
-      and entity_external_id = any(${sql.array(externalIds, "text")})
+      and entity_external_id = any(${externalIds}::text[])
     order by entity_external_id, fetched_at desc, id desc
   `;
 
