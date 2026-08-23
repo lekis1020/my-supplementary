@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   boolean,
@@ -25,7 +26,7 @@ export const ingredients = pgTable(
     scientificName: varchar("scientific_name", { length: 255 }),
     slug: varchar({ length: 255 }).unique(),
     ingredientType: varchar("ingredient_type", { length: 50 }).notNull(),
-    parentIngredientId: bigserial("parent_ingredient_id", {
+    parentIngredientId: bigint("parent_ingredient_id", {
       mode: "number",
     }).references((): any => ingredients.id),
     description: text(),
@@ -56,7 +57,7 @@ export const ingredientSynonyms = pgTable(
   "ingredient_synonyms",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     synonym: varchar({ length: 255 }).notNull(),
@@ -79,7 +80,7 @@ export const regulatoryStatuses = pgTable(
   "regulatory_statuses",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     countryCode: varchar("country_code", { length: 10 }).notNull(),
@@ -110,7 +111,7 @@ export const safetyItems = pgTable(
   "safety_items",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     safetyType: varchar("safety_type", { length: 50 }).notNull(),
@@ -138,7 +139,7 @@ export const ingredientDrugInteractions = pgTable(
   "ingredient_drug_interactions",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     drugName: varchar("drug_name", { length: 255 }).notNull(),
@@ -148,7 +149,7 @@ export const ingredientDrugInteractions = pgTable(
     severityLevel: varchar("severity_level", { length: 20 }),
     recommendation: text(),
     evidenceLevel: varchar("evidence_level", { length: 20 }),
-    sourceId: bigserial("source_id", { mode: "number" }),
+    sourceId: bigint("source_id", { mode: "number" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -166,7 +167,7 @@ export const dosageGuidelines = pgTable(
   "dosage_guidelines",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    ingredientId: bigserial("ingredient_id", { mode: "number" })
+    ingredientId: bigint("ingredient_id", { mode: "number" })
       .notNull()
       .references(() => ingredients.id, { onDelete: "cascade" }),
     populationGroup: varchar("population_group", { length: 100 }).notNull(),
@@ -178,7 +179,7 @@ export const dosageGuidelines = pgTable(
     route: varchar({ length: 50 }).default("oral"),
     recommendationType: varchar("recommendation_type", { length: 50 }),
     notes: text(),
-    sourceId: bigserial("source_id", { mode: "number" }),
+    sourceId: bigint("source_id", { mode: "number" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

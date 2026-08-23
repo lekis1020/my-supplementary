@@ -93,3 +93,17 @@ export {
   refreshPoliciesRelations,
   entityRefreshStatesRelations,
 } from "./collection";
+
+// 제품 별칭/이미지/보강 큐, 카메라 스캔 텔레메트리, 스크레이핑 큐, KR 규제 기준 staging
+export {
+  productAliases,
+  productEnrichmentQueue,
+  productImages,
+  scanEvents,
+  scrapeJobs,
+  stagingRegulatoryStandardsKr,
+  productAliasesRelations,
+  productEnrichmentQueueRelations,
+  productImagesRelations,
+  scanEventsRelations,
+} from "./scraping";

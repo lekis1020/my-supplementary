@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   integer,
@@ -27,7 +28,7 @@ export const codeValues = pgTable(
   "code_values",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    codeTableId: bigserial("code_table_id", { mode: "number" })
+    codeTableId: bigint("code_table_id", { mode: "number" })
       .notNull()
       .references(() => codeTables.id, { onDelete: "cascade" }),
     code: varchar({ length: 100 }).notNull(),

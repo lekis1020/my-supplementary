@@ -1,6 +1,7 @@
 import {
   pgTable,
   bigserial,
+  bigint,
   varchar,
   text,
   boolean,
@@ -19,7 +20,7 @@ export const reviewTasks = pgTable(
   {
     id: bigserial({ mode: "number" }).primaryKey(),
     entityType: varchar("entity_type", { length: 50 }).notNull(),
-    entityId: bigserial("entity_id", { mode: "number" }).notNull(),
+    entityId: bigint("entity_id", { mode: "number" }).notNull(),
     taskType: varchar("task_type", { length: 50 }).notNull(),
     reviewLevel: varchar("review_level", { length: 10 })
       .notNull()
@@ -30,7 +31,7 @@ export const reviewTasks = pgTable(
     assignedRole: varchar("assigned_role", { length: 50 }),
     reviewerComment: text("reviewer_comment"),
     rejectionReason: text("rejection_reason"),
-    parentTaskId: bigserial("parent_task_id", {
+    parentTaskId: bigint("parent_task_id", {
       mode: "number",
     }).references((): any => reviewTasks.id),
     autoCheckPassed: boolean("auto_check_passed"),
@@ -59,7 +60,7 @@ export const revisionHistories = pgTable(
   {
     id: bigserial({ mode: "number" }).primaryKey(),
     entityType: varchar("entity_type", { length: 50 }).notNull(),
-    entityId: bigserial("entity_id", { mode: "number" }).notNull(),
+    entityId: bigint("entity_id", { mode: "number" }).notNull(),
     fieldName: varchar("field_name", { length: 255 }),
     oldValue: text("old_value"),
     newValue: text("new_value"),
@@ -79,7 +80,7 @@ export const revisionHistories = pgTable(
 // ============================================================================
 
 export const ingredientSearchDocuments = pgTable("ingredient_search_documents", {
-  ingredientId: bigserial("ingredient_id", { mode: "number" }).primaryKey(),
+  ingredientId: bigint("ingredient_id", { mode: "number" }).primaryKey(),
   searchText: text("search_text").notNull(),
   // search_vector는 tsvector 타입 — Drizzle에서 직접 지원하지 않으므로
   // SQL migration에서 관리. 여기서는 생략.
