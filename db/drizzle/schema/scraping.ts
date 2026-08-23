@@ -212,42 +212,7 @@ export const scrapeJobs = pgTable(
   ]
 );
 
-// -- KR 정부 규제 기준 staging (I0960) --
-// 기존 staging 전용 파일이 없어(collection.ts 등에 staging_* 테이블 없음)
-// 스크레이핑/큐 서브시스템 파일에 함께 배치.
-
-export const stagingRegulatoryStandardsKr = pgTable(
-  "staging_regulatory_standards_kr",
-  {
-    id: bigserial({ mode: "number" }).primaryKey(),
-    sourceDataset: varchar("source_dataset", { length: 100 }).notNull(),
-    productCode: varchar("product_code", { length: 100 }),
-    testNameKo: varchar("test_name_ko", { length: 255 }).notNull(),
-    minValue: varchar("min_value", { length: 100 }),
-    maxValue: varchar("max_value", { length: 100 }),
-    unit: varchar({ length: 50 }),
-    validStartDate: varchar("valid_start_date", { length: 20 }),
-    validEndDate: varchar("valid_end_date", { length: 20 }),
-    sourceText: text("source_text"),
-    injuryFlag: varchar("injury_flag", { length: 20 }),
-    importBatch: varchar("import_batch", { length: 100 }),
-    importedAt: timestamp("imported_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [
-    unique().on(
-      t.sourceDataset,
-      t.productCode,
-      t.testNameKo,
-      t.validStartDate,
-      t.validEndDate
-    ),
-    index("idx_staging_regulatory_standards_kr_product_code").on(
-      t.productCode
-    ),
-    index("idx_staging_regulatory_standards_kr_test_name").on(t.testNameKo),
-  ]
-);
+// staging_regulatory_standards_kr는 staging.ts로 이전 (staging 전용 파일 신설).
 
 // -- Relations --
 
