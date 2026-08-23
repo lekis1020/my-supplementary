@@ -34,10 +34,10 @@ npm run gov:import-safety:kr      # Import safety warnings
 Scripts live in a single tree at `web/scripts/` (shared lib in `web/scripts/lib/`).
 
 ### Database
-- **Schema DDL**: `db/001_schema.sql` (28+ tables, canonical source of truth)
-- **All-in-one migration**: `db/RUN_THIS_ONLY.sql` (consolidated: schema + seeds + enrichments)
-- **RLS policies**: `db/002_rls_policies.sql`
-- **Drizzle config**: `db/drizzle/drizzle.config.ts` (schema at `db/drizzle/schema/`)
+- **신규 DDL 단일 경로**: `supabase/migrations/` (timestamped). 다른 어디에도 DDL을 추가하지 말 것
+- **베이스라인**: `supabase/migrations/20260818090000_baseline.sql` — 원격 스키마 스쿼시(RLS·함수 포함, 시드 제외). 히스토리 repair 전 `supabase db push` 금지 — `db/MIGRATION_REPAIR_RUNBOOK.md` 참조
+- **동결 아카이브**: `db/0NN_*.sql`(제자리 동결) + `db/archive/` — 역사 기록, 실행·수정 금지. 배경은 `db/README.md`
+- **Drizzle**: `db/drizzle/schema/` — 실DB 기술(descriptive) 미러. 스키마 변경 시 함께 갱신하되 `drizzle-kit push` 금지
 
 ## Architecture
 
@@ -100,5 +100,5 @@ Required in `web/.env.local` (see `web/.env.local.example`):
 - **Language**: UI text is Korean. Code (variables, comments in source) is English. Data has bilingual fields (`*_ko`, `*_en`).
 - **Ingredient naming**: 3-name principle — `display_name` (UI), `canonical_name` (matching), `form` (bioavailability/evidence linking).
 - **Soft delete**: External data is never hard-deleted. Use status: `active` / `inactive` / `superseded` / `source_missing`.
-- **SQL migrations**: Numbered sequentially (`001_`, `002_`, ...). Drizzle schema in `db/drizzle/schema/` mirrors the SQL DDL.
-- **Seed data files**: `003`-`020` contain ingredient, product, evidence, and label seed data. `RUN_THIS_ONLY.sql` consolidates everything.
+- **SQL migrations**: 신규 DDL은 `supabase/migrations/`의 timestamped 파일로만 (`supabase migration new <name>`). `db/`의 순번 파일(001~041)은 동결. Drizzle 스키마는 실DB 미러로 함께 갱신.
+- **Seed data files**: `003`-`020`에 역사적 시드 보존(동결). 신규 시드는 스크립트 생성물(`db/009`, `db/011`)만 갱신.
