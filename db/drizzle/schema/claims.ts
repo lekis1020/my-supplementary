@@ -61,7 +61,9 @@ export const ingredientClaims = pgTable(
       .default(false),
     approvalCountryCode: varchar("approval_country_code", { length: 10 }),
     rawClaimText: text("raw_claim_text"),
-    rawClaimLanguage: varchar("raw_claim_language", { length: 10 }).default("ko"),
+    rawClaimLanguage: varchar("raw_claim_language", { length: 10 })
+      .notNull()
+      .default("ko"),
     allowedExpression: text("allowed_expression"),
     prohibitedExpression: text("prohibited_expression"),
     recognitionNo: varchar("recognition_no", { length: 100 }),
