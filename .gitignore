@@ -9,3 +9,7 @@ tmp/
 .superpowers/
 .playwright-mcp/
 scripts/__pycache__/
+
+# Secrets
+.env*
+!.env.example
