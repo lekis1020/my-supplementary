@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "False positives: object identifiers named `key:` (source ids, strain slugs), not credentials"
+paths = [
+  '''web/scripts/backfill_kr_gov_raw\.mjs''',
+  '''web/src/lib/probiotic-strains\.ts''',
+]
